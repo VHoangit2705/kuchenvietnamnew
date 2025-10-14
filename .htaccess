@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Đặt đường dẫn gốc (base path) tương ứng thư mục gốc của Laravel
+    RewriteBase /kuchen/trungtambaohanhs/
+
+    # Nếu file hoặc thư mục tồn tại thì không rewrite
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Rewrite về index.php
+    RewriteRule ^ index.php [L]
+</IfModule>
