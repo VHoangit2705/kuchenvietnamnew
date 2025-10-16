@@ -188,6 +188,30 @@ class CollaboratorInstallController extends Controller
                     $q->where('collaborator_id', 1);
                 }
             });
+            
+        $lstInstallOld = InstallationOrder::whereDate('created_at', '<=', '2025-01-01')
+            ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
+            ->when($ngaytao = request('ngaytao'), fn($q) => $q->whereDate('created_at', '=', $ngaytao))
+            ->when($kho = request('kho'), fn($q) => $q->where('zone', 'like', "%$kho%"))
+            ->when($agency_home = request('agency_home'), fn($q) => $q->where('type', 'agent_home'))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
+            ->when($install_collaborator = request('install_collaborator'), fn($q) => $q->where('collaborator_id', $install_collaborator))
+            ->when($install_cost = request('install_cost'), fn($q) => $q->where('install_cost', $install_cost))
+            ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
+                if ($trangthai === '1') {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('status_install')
+                            ->orWhere('status_install', 1);
+                    });
+                } elseif ($trangthai === '2') {
+                    $q->where('status_install', 2);
+                } elseif ($trangthai === '3') {
+                    $q->where('status_install', 3);
+                }
+            });
 
         $counts = [
             'dieuphoidonhang' => (clone $lstOrder)->count(),
@@ -195,6 +219,7 @@ class CollaboratorInstallController extends Controller
             'dieuphoibaohanh' => (clone $lstWarranty)->count(),
             'dadieuphoi'      => (clone $lstDaDieuPhoi)->count(),
             'dahoanthanh'     => (clone $lstInstallOrder)->count(),
+            'installold'      => (clone $lstInstallOld)->count(),
         ];
 
         $tab = $request->get('tab', 'dieuphoidonhang');
@@ -203,6 +228,7 @@ class CollaboratorInstallController extends Controller
             'dieuphoibaohanh' => $lstWarranty,
             'dadieuphoi'      => $lstDaDieuPhoi,
             'dahoanthanh'     => $lstInstallOrder,
+            'installold'      => $lstInstallOld,
             default           => $lstOrder,
         };
 
@@ -568,5 +594,532 @@ class CollaboratorInstallController extends Controller
             'Content-Disposition' => 'attachment; filename="report_ctv.xlsx"',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+    
+    public function ImportExcel(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'excelFile' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $file = $request->file('excelFile');
+
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $sheetCount = $spreadsheet->getSheetCount();
+
+            $imported = 0;
+            $processedSheets = 0;
+
+            for ($s = 0; $s < $sheetCount; $s++) {
+                $currentSheet = $spreadsheet->getSheet($s);
+                $rows = $currentSheet->toArray(null, true, true, true);
+                $processedSheets++;
+
+                foreach ($rows as $index => $row) {
+                    if ($index == 1) {
+                        // Bỏ qua hàng tiêu đề
+                        continue;
+                    }
+
+                    // MÃ ĐƠN HÀNG ở cột N
+                    $orderCode = trim($row['O'] ?? '');
+                    if ($orderCode === '') {
+                        continue;
+                    }
+
+                  // Ngày ở cột B
+                    $dateRaw = trim($row['B'] ?? '');
+                    $createdAt = null;
+
+                    if ($dateRaw !== '') {
+                        if (is_numeric($dateRaw)) {
+                            $createdAt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateRaw)
+                                ->format('Y-m-d H:i:s');
+                        } else {
+                            try {
+                                // ép parse đúng định dạng d/m/Y
+                                $createdAt = Carbon::createFromFormat('d/m/Y', $dateRaw)->format('Y-m-d H:i:s');
+                            } catch (\Exception $e) {
+                                $createdAt = null;
+                            }
+                        }
+                    } else {
+                        $createdAt = null;
+                    }
+
+                    // Map cột theo file: C đại lý, D sđt đại lý, E sđt KH, F địa chỉ, G thiết bị, H tên CTV, I SĐT CTV, J trạng thái, K STK, L ngân hàng, M ghi chú
+                    $agencyName       = trim($row['C'] ?? '');
+                    $agencyPhoneRaw   = trim($row['D'] ?? '');
+                    $customerPhoneRaw = trim($row['E'] ?? '');
+                    $customerAddress  = trim($row['F'] ?? '');
+                    $product          = trim($row['G'] ?? '');
+                    $collabName       = trim($row['H'] ?? '');
+                    $collabPhoneRaw   = trim($row['I'] ?? '');
+                    $doneRaw          = trim($row['J'] ?? '');
+                    $note             = trim($row['M'] ?? '');
+
+                    // Chuẩn hóa số điện thoại: chỉ giữ chữ số, cắt tối đa 15 ký tự
+                    $sanitizePhone = function ($value) {
+                        $digits = preg_replace('/\D+/', '', $value ?? '');
+                        return $digits !== null ? mb_substr($digits, 0, 15) : '';
+                    };
+                    $agencyPhone    = $sanitizePhone($agencyPhoneRaw);
+                    $customerPhone  = $sanitizePhone($customerPhoneRaw);
+                    $collabPhone    = $sanitizePhone($collabPhoneRaw);
+
+                    $statusInstall = 1;
+                    if ($doneRaw !== '') {
+                        $doneLower = mb_strtolower($doneRaw);
+                        if (in_array($doneLower, ['1', 'đã hoàn thành', 'x', 'done', 'yes'])) {
+                            $statusInstall = 2;
+                        }
+                    }
+
+                    $collaborator = null;
+                    if ($collabPhone !== '') {
+                        $collaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                    }
+
+                    // Không tự tạo agency mới để tránh lỗi bảng agency không tự tăng id
+
+                    $payload = [
+                        'order_code'      => $orderCode,
+                        // Không có trường họ tên khách trong file cũ -> để trống
+                        'full_name'       => '',
+                        'phone_number'    => $customerPhone,
+                        'address'         => $customerAddress,
+                        'product'         => $product,
+                        'province_id'     => null,
+                        'district_id'     => null,
+                        'ward_id'         => null,
+                        'order_id'        => null,
+                        'collaborator_id' => $collaborator->id ?? 1,
+                        'install_cost'    => 0,
+                        'status_install'  => $statusInstall,
+                        'reviews_install' => $note,
+                        'agency_name'     => $agencyName,
+                        'agency_phone'    => $agencyPhone,
+                        'agency_payment'  => null,
+                        'type'            => 'donhang',
+                        'zone'            => null,
+                        'created_at'      => $createdAt,
+                        'successed_at'    => $statusInstall == 2 ? $createdAt : null,
+                    ];
+
+                    $existing = InstallationOrder::where('order_code', $orderCode)->first();
+                    if ($existing) {
+                        $existing->update($payload);
+                    } else {
+                        // Bảng mysql3 có thể không auto-increment id -> tự sinh id tiếp theo
+                        $nextId = (InstallationOrder::max('id') ?? 0) + 1;
+                        $payloadWithId = array_merge(['id' => $nextId], $payload);
+                        InstallationOrder::insert($payloadWithId);
+                    }
+
+                    $imported++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'imported' => $imported,
+                'sheets_processed' => $processedSheets,
+                'message' => "Đã import $imported dòng vào bảng installation_orders (từ $processedSheets sheet).",
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi xử lý file: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Đồng bộ dữ liệu từ Excel với logic upsert cho các bảng liên quan
+     * Tối ưu hóa cho file lớn với nhiều sheet
+     */
+    public function ImportExcelSync(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'excelFile' => 'required|file|mimes:xlsx,xls|max:51200', // Tăng limit lên 50MB
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Tăng thời gian thực thi
+        ini_set('memory_limit', '2048M');      // hoặc 2048M
+        ini_set('max_execution_time', '1200'); // 20 phút
+        set_time_limit(1200);
+
+        try {
+            $file = $request->file('excelFile');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $sheetCount = $spreadsheet->getSheetCount();
+
+            $stats = [
+                'imported' => 0,
+                'collaborators_created' => 0,
+                'agencies_created' => 0,
+                'products_created' => 0,
+                'orders_created' => 0,
+                'orders_updated' => 0,
+                'installation_orders_created' => 0,
+                'installation_orders_updated' => 0,
+                'warranty_requests_created' => 0,
+                'warranty_requests_updated' => 0,
+                'sheets_processed' => 0,
+                'errors' => []
+            ];
+
+            // Cache để tối ưu performance
+            $collaboratorCache = [];
+            $agencyCache = [];
+            $productCache = [];
+
+            // Hàm chuẩn hóa số điện thoại
+            $sanitizePhone = function ($value) {
+                // Giữ lại chữ số, cắt tối đa 11 số (phổ biến tại VN)
+                $digits = preg_replace('/\D+/', '', $value ?? '');
+                if ($digits === null) return '';
+                // Nếu dài hơn 11, lấy 11 số cuối (trường hợp có mã vùng/chuỗi dính)
+                if (mb_strlen($digits) > 11) {
+                    return mb_substr($digits, -11);
+                }
+                return $digits;
+            };
+
+            // Hàm chuẩn hóa ngày tháng
+            $parseDate = function ($dateRaw) {
+                if (empty($dateRaw)) return null;
+                
+                if (is_numeric($dateRaw)) {
+                    return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateRaw)
+                        ->format('Y-m-d H:i:s');
+                } else {
+                    try {
+                        // Thử định dạng d/m/Y trước
+                        return Carbon::createFromFormat('d/m/Y', $dateRaw)->format('Y-m-d H:i:s');
+                    } catch (\Exception $e) {
+                        try {
+                            // Thử định dạng d/m/y
+                            return Carbon::createFromFormat('d/m/y', $dateRaw)->format('Y-m-d H:i:s');
+                        } catch (\Exception $e2) {
+                            try {
+                                // Thử định dạng khác
+                                return Carbon::parse($dateRaw)->format('Y-m-d H:i:s');
+                            } catch (\Exception $e3) {
+                                Log::warning("Cannot parse date: $dateRaw");
+                                return null;
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Hàm chuẩn hóa trạng thái
+            $parseStatus = function ($statusRaw) {
+                if (empty($statusRaw)) return 0;
+                
+                $statusLower = mb_strtolower(trim($statusRaw));
+                if (in_array($statusLower, ['đã hoàn thành', 'hoàn thành', 'done', 'x', '1', 'yes'])) {
+                    return 2; // Hoàn thành
+                } elseif (in_array($statusLower, ['đang xử lý', 'đang làm', 'đang theo dõi', 'đang thực hiện'])) {
+                    return 1; // Đang xử lý
+                } else {
+                    return 0; // Chưa xử lý
+                }
+            };
+
+            // Xử lý tất cả sheet để debug
+            $startSheet = 0; // Bắt đầu từ sheet đầu tiên
+            $endSheet = $sheetCount; // Đến sheet cuối cùng
+            
+            Log::info("Processing sheets from $startSheet to $endSheet (total: $sheetCount)");
+
+            for ($s = $startSheet; $s < $endSheet; $s++) {
+                try {
+                    $currentSheet = $spreadsheet->getSheet($s);
+                    $sheetName = $currentSheet->getTitle();
+                    Log::info("Processing sheet: $sheetName (index: $s)");
+                    
+                    // Đặc biệt kiểm tra sheet T7
+                    if ($sheetName === 'T7') {
+                        Log::info("Found T7 sheet at index $s - Processing...");
+                    }
+                    
+                    // Chỉ lấy dữ liệu cần thiết, không load toàn bộ sheet
+                    $highestRow = $currentSheet->getHighestDataRow();
+                    $highestColumn = $currentSheet->getHighestDataColumn();
+                    
+                    Log::info("Sheet $sheetName - HighestRow: $highestRow, HighestColumn: $highestColumn");
+                    
+                    // Bỏ qua sheet trống
+                    if ($highestRow <= 1) {
+                        Log::info("Skipping empty sheet: $sheetName");
+                        continue;
+                    }
+
+                    $stats['sheets_processed']++;
+
+                    // Ghi nhớ ngày của hàng gần nhất (để xử lý các ô ngày bị merge/để trống)
+                    $lastParsedDate = null;
+
+                    // Xử lý từng dòng
+                    for ($row = 2; $row <= $highestRow; $row++) { // Bắt đầu từ dòng 2 (bỏ header)
+                        try {
+                            // Lấy dữ liệu từ các cột cụ thể
+                            $orderCode = trim($currentSheet->getCell('Q' . $row)->getCalculatedValue() ?? '');
+                            
+                            // Debug log để kiểm tra dữ liệu
+                            Log::info("Row $row - OrderCode: '$orderCode'");
+                            
+                            // Đặc biệt debug cho sheet T7
+                            if ($sheetName === 'T7') {
+                                Log::info("T7 Row $row - OrderCode: '$orderCode'");
+                            }
+                            
+                            if (empty($orderCode)) {
+                                Log::info("Skipping row $row - Empty orderCode");
+                                if ($sheetName === 'T7') {
+                                    Log::info("T7 Row $row - Skipping due to empty orderCode");
+                                }
+                                continue;
+                            }
+
+                            $dateRaw = trim($currentSheet->getCell('B' . $row)->getCalculatedValue() ?? '');
+                            $parsedDate = $parseDate($dateRaw);
+                            if ($parsedDate) {
+                                $createdAt = $parsedDate;
+                                $lastParsedDate = $parsedDate; // lưu lại để dùng cho các dòng cùng ngày
+                            } else {
+                                // Nếu ô ngày trống (do merge), dùng lại ngày trước đó
+                                $createdAt = $lastParsedDate;
+                            }
+                            
+                            // Debug log để kiểm tra định dạng ngày
+                            Log::info("Row $row - DateRaw: '$dateRaw', Parsed: '" . ($createdAt ?? 'NULL') . "'");
+                            if ($sheetName === 'T7') {
+                                Log::info("T7 Row $row - DateRaw: '$dateRaw', Parsed: '" . ($createdAt ?? 'NULL') . "'");
+                            }
+
+                            $agencyName = trim($currentSheet->getCell('C' . $row)->getCalculatedValue() ?? '');
+                            $agencyPhoneRaw = trim($currentSheet->getCell('D' . $row)->getCalculatedValue() ?? '');
+                            $customerName = trim($currentSheet->getCell('F' . $row)->getCalculatedValue() ?? '');
+                            $customerPhoneRaw = trim($currentSheet->getCell('G' . $row)->getCalculatedValue() ?? '');
+                            $customerAddress = trim($currentSheet->getCell('H' . $row)->getCalculatedValue() ?? '');
+                            $product = trim($currentSheet->getCell('I' . $row)->getCalculatedValue() ?? '');
+                            $collabName = trim($currentSheet->getCell('J' . $row)->getCalculatedValue() ?? '');
+                            $collabPhoneRaw = trim($currentSheet->getCell('K' . $row)->getCalculatedValue() ?? '');
+                            $statusRaw = trim($currentSheet->getCell('L' . $row)->getCalculatedValue() ?? '');
+                            $collabAccount = trim($currentSheet->getCell('M' . $row)->getCalculatedValue() ?? '');
+                            $bank = trim($currentSheet->getCell('N' . $row)->getCalculatedValue() ?? '');
+                            $note = trim($currentSheet->getCell('O' . $row)->getCalculatedValue() ?? '');
+                            $accessories = trim($currentSheet->getCell('P' . $row)->getCalculatedValue() ?? '');
+                            
+                            // Debug log để kiểm tra dữ liệu
+                            Log::info("Row $row - Data: OrderCode='$orderCode', AgencyName='$agencyName', CustomerName='$customerName', Product='$product'");
+                            
+                            // Đặc biệt debug cho sheet T7
+                            if ($sheetName === 'T7') {
+                                Log::info("T7 Row $row - Data: OrderCode='$orderCode', AgencyName='$agencyName', CustomerName='$customerName', Product='$product'");
+                            }
+
+                            // Chuẩn hóa dữ liệu
+                            $agencyPhone = $sanitizePhone($agencyPhoneRaw);
+                            $customerPhone = $sanitizePhone($customerPhoneRaw);
+                            $collabPhone = $sanitizePhone($collabPhoneRaw);
+                            $statusInstall = $parseStatus($statusRaw);
+
+                            // 1. Xử lý Collaborator (CTV) - Upsert với cache
+                            $collaboratorId = 1; // Default agency
+                            if (!empty($collabName) && !empty($collabPhone)) {
+                                if (!isset($collaboratorCache[$collabPhone])) {
+                                    $collaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                                    
+                                    if (!$collaborator) {
+                                        // Tạo collaborator mới
+                                        $collaborator = new WarrantyCollaborator();
+                                        $collaborator->full_name = $collabName;
+                                        $collaborator->phone = $collabPhone;
+                                        $collaborator->sotaikhoan = $collabAccount;
+                                        $collaborator->chinhanh = $bank;
+                                        $collaborator->created_at = now(); // Sử dụng đúng tên cột created_at
+                                        $collaborator->save();
+                                        
+                                        $stats['collaborators_created']++;
+                                    }
+                                    $collaboratorCache[$collabPhone] = $collaborator->id;
+                                }
+                                $collaboratorId = $collaboratorCache[$collabPhone];
+                            }
+
+                            // 2. Xử lý Agency - Upsert với cache
+                            $agencyId = null;
+                            if (!empty($agencyName) && !empty($agencyPhone)) {
+                                if (!isset($agencyCache[$agencyPhone])) {
+                                    $agency = Agency::where('phone', $agencyPhone)->first();
+                                    
+                                    if (!$agency) {
+                                        // Tạo agency mới
+                                        $agency = new Agency();
+                                        $agency->name = $agencyName;
+                                        $agency->phone = $agencyPhone;
+                                        $agency->sotaikhoan = $collabAccount;
+                                        $agency->chinhanh = $bank;
+                                        $agency->created_ad = now();
+                                        $agency->save();
+                                        
+                                        $stats['agencies_created']++;
+                                    }
+                                    $agencyCache[$agencyPhone] = $agency->id;
+                                }
+                                $agencyId = $agencyCache[$agencyPhone];
+                            }
+
+                            // 3. Xử lý Product - Cache
+                            if (!empty($product) && !isset($productCache[$product])) {
+                                $existingProduct = OrderProduct::where('product_name', $product)->first();
+                                if (!$existingProduct) {
+                                    $stats['products_created']++;
+                                }
+                                $productCache[$product] = true;
+                            }
+
+                            // 4. Tạo/Cập nhật Order - Kiểm tra trùng lặp trước khi tạo
+                            $order = Order::where('order_code2', $orderCode)->first();
+                            if (!$order) {
+                                $order = new Order();
+                                $order->order_code2 = $orderCode;
+                                $order->created_at = $createdAt ?: now();
+                                $stats['orders_created']++;
+                            } else {
+                                $stats['orders_updated']++;
+                            }
+                            
+                            $order->customer_name = $customerName;
+                            $order->customer_phone = $customerPhone;
+                            $order->customer_address = $customerAddress;
+                            $order->agency_name = $agencyName;
+                            $order->agency_phone = $agencyPhone;
+                            $order->collaborator_id = $collaboratorId;
+                            $order->status_install = $statusInstall;
+                            $order->successed_at = $statusInstall == 2 ? $createdAt : null;
+                            $order->payment_method = 'cash'; // Thêm giá trị mặc định
+                            $order->status = 'pending'; // Thêm giá trị mặc định
+                            $order->status_tracking = 'pending'; // Thêm giá trị mặc định
+                            $order->staff = 'system'; // Thêm giá trị mặc định
+                            $order->zone = 'default'; // Thêm giá trị mặc định
+                            $order->type = 'online'; // Thêm giá trị mặc định
+                            $order->shipping_unit = 'default'; // Thêm giá trị mặc định
+                            $order->send_camon = 0; // Thêm giá trị mặc định
+                            $order->send_khbh = 0; // Thêm giá trị mặc định
+                            $order->ip_rate = ''; // Thêm giá trị mặc định
+                            $order->note = ''; // Thêm giá trị mặc định cho trường note
+                            $order->note_admin = ''; // Thêm giá trị mặc định cho trường note_admin
+                            $order->check_return = 0; // Thêm giá trị mặc định cho trường check_return
+                            $order->save();
+
+                            // 5. Tạo/Cập nhật InstallationOrder - Kiểm tra trùng lặp
+                            $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                            if (!$installationOrder) {
+                                $installationOrder = new InstallationOrder();
+                                $stats['installation_orders_created']++;
+                            } else {
+                                $stats['installation_orders_updated']++;
+                            }
+                            
+                            $installationOrder->order_code = $orderCode;
+                            $installationOrder->full_name = $customerName;
+                            $installationOrder->phone_number = $customerPhone;
+                            $installationOrder->address = $customerAddress;
+                            $installationOrder->product = $product;
+                            $installationOrder->collaborator_id = $collaboratorId;
+                            $installationOrder->status_install = $statusInstall;
+                            $installationOrder->reviews_install = $note;
+                            $installationOrder->agency_name = $agencyName;
+                            $installationOrder->agency_phone = $agencyPhone;
+                            $installationOrder->type = 'donhang';
+                            $installationOrder->created_at = $createdAt ?: now();
+                            $installationOrder->successed_at = $statusInstall == 2 ? $createdAt : null;
+                            $installationOrder->save();
+
+                            // 6. Tạo/Cập nhật WarrantyRequest nếu cần - Kiểm tra trùng lặp
+                            if (!empty($product) && $statusInstall > 0) {
+                                $warrantyRequest = WarrantyRequest::where('serial_number', $orderCode)->first();
+                                if (!$warrantyRequest) {
+                                    $warrantyRequest = new WarrantyRequest();
+                                    $warrantyRequest->serial_number = $orderCode;
+                                    $stats['warranty_requests_created']++;
+                                } else {
+                                    $stats['warranty_requests_updated']++;
+                                }
+                                
+                                $warrantyRequest->product = $product;
+                                $warrantyRequest->full_name = $customerName;
+                                $warrantyRequest->phone_number = $customerPhone;
+                                $warrantyRequest->address = $customerAddress;
+                                $warrantyRequest->collaborator_id = $collaboratorId;
+                                $warrantyRequest->agency_name = $agencyName;
+                                $warrantyRequest->agency_phone = $agencyPhone;
+                                $warrantyRequest->status_install = $statusInstall;
+                                $warrantyRequest->Ngaytao = $createdAt ?: now();
+                                $warrantyRequest->type = 'agent_home';
+                                $warrantyRequest->branch = 'default'; // Thêm giá trị mặc định cho trường branch
+                                $warrantyRequest->return_date = $createdAt ?: now(); // Thêm giá trị mặc định cho trường return_date
+                                $warrantyRequest->shipment_date = $createdAt ?: now(); // Thêm giá trị mặc định cho trường shipment_date
+                                $warrantyRequest->received_date = $createdAt ?: now(); // Thêm giá trị mặc định cho trường received_date
+                                $warrantyRequest->warranty_end = $createdAt ? Carbon::parse($createdAt)->addYear() : now()->addYear(); // Thêm giá trị mặc định cho trường warranty_end
+                                $warrantyRequest->staff_received = 'system'; // Thêm giá trị mặc định cho trường staff_received
+                                $warrantyRequest->save();
+                            }
+
+                            $stats['imported']++;
+                            Log::info("Successfully processed row $row in sheet $sheetName");
+
+                        } catch (\Exception $e) {
+                            $stats['errors'][] = "Sheet $sheetName, Dòng $row: " . $e->getMessage();
+                            Log::error("Import Excel error at sheet $sheetName, row $row: " . $e->getMessage());
+                        }
+                    }
+
+                    // Giải phóng memory sau mỗi sheet
+                    $currentSheet->disconnectCells();
+                    unset($currentSheet);
+                    
+                } catch (\Exception $e) {
+                    $stats['errors'][] = "Lỗi xử lý sheet $s: " . $e->getMessage();
+                    Log::error("Error processing sheet $s: " . $e->getMessage());
+                }
+            }
+
+            // Giải phóng memory
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'message' => "Đồng bộ thành công! Đã xử lý {$stats['imported']} dòng từ {$stats['sheets_processed']} sheet. Tạo mới: {$stats['orders_created']} đơn hàng, {$stats['installation_orders_created']} lắp đặt, {$stats['warranty_requests_created']} bảo hành. Cập nhật: {$stats['orders_updated']} đơn hàng, {$stats['installation_orders_updated']} lắp đặt, {$stats['warranty_requests_updated']} bảo hành.",
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi xử lý file: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
