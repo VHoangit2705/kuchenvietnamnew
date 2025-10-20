@@ -315,7 +315,7 @@
                         <input type="text" class="form-control" id="des_error_type" name="des_error_type" placeholder="Nhập mô tả các xử lý">
                     </div>
                     <div class="mb-2">
-                        <label for="replacement" class="form-label">Linh kiện thay thế</label>
+                        <label for="replacement" class="form-label" id="replacement-label">Linh kiện thay thế</label>
                         <div style="position: relative;">
                             <input type="text" id="replacement" name="replacement" class="form-control" placeholder="Nhập linh kiện thay thế">
                             <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"></div>
@@ -476,11 +476,42 @@
     
     function ChangeSelect(){
         $('#solution').on('change', function(){
-            if ($(this).val() === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            const solution = $(this).val();
+            
+            // Xử lý hiện/ẩn mô tả cách xử lý
+            if (solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
                 $('#des_error_container').closest('.mb-2').removeClass('d-none'); // Hiện
             } else {
                 $('#des_error_container').closest('.mb-2').addClass('d-none'); // Ẩn
             }
+            
+            // Xử lý thay đổi label và placeholder cho replacement
+            const $replacementLabel = $('#replacement-label');
+            const $replacementInput = $('#replacement');
+            const $replacementContainer = $replacementInput.closest('.mb-2');
+            
+            if (solution === 'Đổi mới sản phẩm') {
+                $replacementLabel.text('Sản phẩm thay thế');
+                $replacementInput.attr('placeholder', 'Nhập sản phẩm thay thế');
+                // Chuyển sang sử dụng danh sách sản phẩm
+                window.currentReplacementList = window.sanphamList || [];
+            } else if (solution === 'Thay thế linh kiện/hardware') {
+                $replacementLabel.text('Linh kiện thay thế');
+                $replacementInput.attr('placeholder', 'Nhập linh kiện thay thế');
+                // Chuyển về sử dụng danh sách linh kiện
+                window.currentReplacementList = window.linhkienList || [];
+            } else {
+                // Ẩn trường replacement cho các trường hợp khác
+                $replacementContainer.addClass('d-none');
+                return;
+            }
+            
+            // Hiện trường replacement
+            $replacementContainer.removeClass('d-none');
+            
+            // Reset input và suggestions
+            $replacementInput.val('');
+            $('#replacement-suggestions').addClass('d-none').empty();
         })
     }
 
@@ -494,6 +525,12 @@
         $('#repairForm')[0].reset();
         $('#repairForm .form-control').removeClass('is-invalid');
         $('#repairForm .error').text('').addClass('d-none');
+        
+        // Reset về trạng thái mặc định
+        $('#replacement-label').text('Linh kiện thay thế');
+        $('#replacement').attr('placeholder', 'Nhập linh kiện thay thế');
+        $('#replacement').closest('.mb-2').removeClass('d-none');
+        window.currentReplacementList = window.linhkienList;
     }
 
     function LuuQuaTrinhSua() {
@@ -554,15 +591,16 @@
         }
 
         let replacement = $('#replacement').val().trim();
-        if (solution === 'Thay thế linh kiện/hardware' && replacement === '') {
-            $('.error_replace').text('Vui lòng nhập linh kiện thay thế').removeClass('d-none');
+        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && replacement === '') {
+            const fieldName = solution === 'Đổi mới sản phẩm' ? 'sản phẩm thay thế' : 'linh kiện thay thế';
+            $('.error_replace').text(`Vui lòng nhập ${fieldName}`).removeClass('d-none');
             isValid = false;
         } else {
             $('.error_replace').text('').addClass('d-none');
         }
 
         let quantity = parseInt($('#quantity').val()) || 0;
-        if (solution === 'Thay thế linh kiện/hardware' && quantity < 1) {
+        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && quantity < 1) {
             $('.error_quan').text('Số lượng phải >= 1').removeClass('d-none');
             isValid = false;
         } else {
@@ -570,7 +608,7 @@
         }
 
         let price = parseInt($('#unit_price').val()) || 0;
-        if (solution === 'Thay thế linh kiện/hardware' && price < 0) {
+        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && price < 0) {
             $('.error_price').text('Đơn giá không hợp lệ').removeClass('d-none');
             isValid = false;
         } else {
@@ -613,7 +651,11 @@
 </script>
 <script>
     $(document).ready(function() {
-        const replacementList = {!! json_encode($linhkien) !!};
+        // Khởi tạo danh sách linh kiện và sản phẩm
+        window.linhkienList = {!! json_encode($linhkien) !!};
+        window.sanphamList = {!! json_encode($sanpham) !!};
+        window.currentReplacementList = window.linhkienList; // Mặc định là linh kiện
+        
         $('#replacement').on('input', function() {
             const keyword = $(this).val().toLowerCase().trim();
             const $suggestionsBox = $('#replacement-suggestions');
@@ -623,7 +665,9 @@
                 $suggestionsBox.addClass('d-none');
                 return;
             }
-            const matchedReplacement = replacementList.filter(p =>
+            
+            // Sử dụng danh sách hiện tại (linh kiện hoặc sản phẩm)
+            const matchedReplacement = window.currentReplacementList.filter(p =>
                 p.product_name.toLowerCase().includes(keyword)
             );
 
@@ -661,6 +705,21 @@
         $('#replacement').val(data.replacement);
         $('#quantity').val(data.quantity);
         $('#unit_price').val(parseInt(data.unit_price));
+
+        // Xử lý thay đổi label và danh sách suggestions dựa trên solution
+        const solution = data.solution;
+        const $replacementLabel = $('#replacement-label');
+        const $replacementInput = $('#replacement');
+        
+        if (solution === 'Đổi mới sản phẩm') {
+            $replacementLabel.text('Sản phẩm thay thế');
+            $replacementInput.attr('placeholder', 'Nhập sản phẩm thay thế');
+            window.currentReplacementList = window.sanphamList;
+        } else if (solution === 'Thay thế linh kiện/hardware') {
+            $replacementLabel.text('Linh kiện thay thế');
+            $replacementInput.attr('placeholder', 'Nhập linh kiện thay thế');
+            window.currentReplacementList = window.linhkienList;
+        }
 
         updateTotalPrice();
 
