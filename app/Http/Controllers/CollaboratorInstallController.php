@@ -30,6 +30,20 @@ class CollaboratorInstallController extends Controller
     //     $this->middleware('permission:Cập nhật CTV')->only(['CreateCollaborator', 'DeleteCollaborator']);
     // }
     static $pageSize = 50;
+    
+    /**
+     * Chuẩn hóa và validate trường product
+     */
+    private function normalizeProduct($product)
+    {
+        $product = trim($product ?? '');
+        if (empty($product)) {
+            return 'Không xác định';
+        }
+        // Loại bỏ ký tự đặc biệt không cần thiết
+        $product = preg_replace('/[^\w\s\-\.]/', '', $product);
+        return $product;
+    }
     public function Index(Request $request)
     {
         $tungay = request('tungay') ?? now()->startOfMonth()->toDateString();
@@ -51,7 +65,10 @@ class CollaboratorInstallController extends Controller
                 });
             })
             ->when($sanpham = request('sanpham'), function ($q) use ($sanpham) {
-                $q->where('product_name', 'like', "%$sanpham%");
+                $q->where(function($subQuery) use ($sanpham) {
+                    $subQuery->where('product_name', 'like', "%$sanpham%")
+                           ->orWhere('product', 'like', "%$sanpham%");
+                });
             })
             ->when($tungay, function ($q) use ($tungay) {
                 $q->whereHas('order', function ($sub) use ($tungay) {
@@ -82,7 +99,9 @@ class CollaboratorInstallController extends Controller
                         $sub->where('collaborator_id', 1);
                     }
                 });
-            });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
         
         $lstOrderLe = OrderProduct::with('order')
             ->where('install', 1)
@@ -100,7 +119,10 @@ class CollaboratorInstallController extends Controller
                 });
             })
             ->when($sanpham = request('sanpham'), function ($q) use ($sanpham) {
-                $q->where('product_name', 'like', "%$sanpham%");
+                $q->where(function($subQuery) use ($sanpham) {
+                    $subQuery->where('product_name', 'like', "%$sanpham%")
+                           ->orWhere('product', 'like', "%$sanpham%");
+                });
             })
             ->when($tungay, function ($q) use ($tungay) {
                 $q->whereHas('order', function ($sub) use ($tungay) {
@@ -131,7 +153,9 @@ class CollaboratorInstallController extends Controller
                         $sub->where('collaborator_id', 1);
                     }
                 });
-            });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
 
         $lstWarranty = WarrantyRequest::where('type', 'agent_home')
@@ -162,7 +186,9 @@ class CollaboratorInstallController extends Controller
                 } elseif ($phanloai === 'agency') {
                     $q->where('collaborator_id', 1);
                 }
-            });
+            })
+            ->orderByDesc('Ngaytao')
+            ->orderByDesc('id');
 
         $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)->where('created_at', '>=', $startDate)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
@@ -175,7 +201,9 @@ class CollaboratorInstallController extends Controller
                 } elseif ($phanloai === 'agency') {
                     $q->where('collaborator_id', 1);
                 }
-            });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
         $lstInstallOrder = InstallationOrder::where('status_install', '!=', 1)->where('created_at', '>=', $startDate)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
@@ -187,7 +215,9 @@ class CollaboratorInstallController extends Controller
                 } elseif ($phanloai === 'agency') {
                     $q->where('collaborator_id', 1);
                 }
-            });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
             
         $lstInstallOld = InstallationOrder::whereDate('created_at', '<=', '2025-01-01')
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
@@ -211,7 +241,9 @@ class CollaboratorInstallController extends Controller
                 } elseif ($trangthai === '3') {
                     $q->where('status_install', 3);
                 }
-            });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         $counts = [
             'dieuphoidonhang' => (clone $lstOrder)->count(),
@@ -232,7 +264,7 @@ class CollaboratorInstallController extends Controller
             default           => $lstOrder,
         };
 
-        $data = $tabQuery->orderByDesc('id')->paginate(50)->withQueryString();
+        $data = $tabQuery->orderByDesc('created_at')->orderByDesc('id')->paginate(50)->withQueryString();
         if ($request->ajax()) {
             return response()->json([
                 'tab'   => view('collaboratorinstall.tableheader', [
@@ -410,6 +442,7 @@ class CollaboratorInstallController extends Controller
             ->when($request->ward, function ($q) use ($request) {
                 $q->where('ward_id', $request->ward);
             })
+            ->orderBy('full_name')
             ->get();
 
         $html = view('collaboratorinstall.tablecollaborator', compact('lstCollaborator'))->render();
@@ -660,7 +693,7 @@ class CollaboratorInstallController extends Controller
                     $agencyPhoneRaw   = trim($row['D'] ?? '');
                     $customerPhoneRaw = trim($row['E'] ?? '');
                     $customerAddress  = trim($row['F'] ?? '');
-                    $product          = trim($row['G'] ?? '');
+                    $product          = $this->normalizeProduct($row['G'] ?? '');
                     $collabName       = trim($row['H'] ?? '');
                     $collabPhoneRaw   = trim($row['I'] ?? '');
                     $doneRaw          = trim($row['J'] ?? '');
@@ -759,10 +792,11 @@ class CollaboratorInstallController extends Controller
             ], 422);
         }
 
-        // Tăng thời gian thực thi
-        ini_set('memory_limit', '2048M');      // hoặc 2048M
-        ini_set('max_execution_time', '1200'); // 20 phút
-        set_time_limit(1200);
+        // Tăng thời gian thực thi và memory cho file lớn
+        ini_set('memory_limit', '4096M');      // 4GB memory
+        ini_set('max_execution_time', '3600');  // 60 phút
+        set_time_limit(3600);                   // 60 phút
+        ini_set('default_socket_timeout', '300'); // 5 phút cho socket timeout
 
         try {
             $file = $request->file('excelFile');
@@ -920,7 +954,7 @@ class CollaboratorInstallController extends Controller
                             $customerName = trim($currentSheet->getCell('F' . $row)->getCalculatedValue() ?? '');
                             $customerPhoneRaw = trim($currentSheet->getCell('G' . $row)->getCalculatedValue() ?? '');
                             $customerAddress = trim($currentSheet->getCell('H' . $row)->getCalculatedValue() ?? '');
-                            $product = trim($currentSheet->getCell('I' . $row)->getCalculatedValue() ?? '');
+                            $product = $this->normalizeProduct($currentSheet->getCell('I' . $row)->getCalculatedValue() ?? '');
                             $collabName = trim($currentSheet->getCell('J' . $row)->getCalculatedValue() ?? '');
                             $collabPhoneRaw = trim($currentSheet->getCell('K' . $row)->getCalculatedValue() ?? '');
                             $statusRaw = trim($currentSheet->getCell('L' . $row)->getCalculatedValue() ?? '');

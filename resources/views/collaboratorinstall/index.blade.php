@@ -33,6 +33,40 @@
                     <option value="agency">Đại lý lắp đặt</option>
                 </select>
             </div>
+            
+            <!-- Các trường tìm kiếm cho tab dữ liệu cũ -->
+            <div id="oldDataFields" class="row" style="display: none;">
+                <div class="col-md-3 mb-1">
+                    <input type="date" id="ngaytao" name="ngaytao" class="form-control" placeholder="Ngày tạo" value="{{ request('ngaytao') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="kho" name="kho" class="form-control" placeholder="Kho" value="{{ request('kho') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="agency_home" name="agency_home" class="form-control" placeholder="Đại lý tại nhà" value="{{ request('agency_home') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="agency_phone" name="agency_phone" class="form-control" placeholder="SĐT đại lý" value="{{ request('agency_phone') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Tên khách hàng" value="{{ request('customer_name') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="customer_phone" name="customer_phone" class="form-control" placeholder="SĐT khách hàng" value="{{ request('customer_phone') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="text" id="product_name" name="product_name" class="form-control" placeholder="Tên sản phẩm" value="{{ request('product_name') }}">
+                </div>
+                <div class="col-md-3 mb-1">
+                    <select id="install_collaborator" name="install_collaborator" class="form-control">
+                        <option value="">Cộng tác viên lắp đặt</option>
+                        <!-- Options sẽ được load từ AJAX -->
+                    </select>
+                </div>
+                <div class="col-md-3 mb-1">
+                    <input type="number" id="install_cost" name="install_cost" class="form-control" placeholder="Chi phí lắp đặt" value="{{ request('install_cost') }}">
+                </div>
+            </div>
             <div class="col-lg-4 mb-1 d-flex gap-2">
                 <button class="btn btn-primary flex-fill">Tìm kiếm</button>
                 <a href="#" id="reportCollaboratorInstall" class="btn btn-success flex-fill">Thống kê</a>
@@ -167,6 +201,20 @@
         $('#collaborator_tab').on('click', '.nav-link', function(e) {
             e.preventDefault();
             let tab = $(this).data('tab');
+            
+            // Hiển thị/ẩn các trường tìm kiếm dựa trên tab
+            if (tab === 'installold') {
+                $('#oldDataFields').show();
+                // Load danh sách cộng tác viên cho dropdown
+                loadCollaborators();
+                // Cập nhật options cho trạng thái dữ liệu cũ
+                updateStatusOptionsForOldData();
+            } else {
+                $('#oldDataFields').hide();
+                // Khôi phục options trạng thái mặc định
+                updateStatusOptionsForNewData();
+            }
+            
             let formData = $('#searchForm').serialize();
             loadTabData(tab, formData);
         });
@@ -180,7 +228,46 @@
         });
 
         Report();
+        
+        // Kiểm tra tab hiện tại khi load trang
+        let currentTab = localStorage.getItem('activeTab') || '{{ $tab ?? "dieuphoidonhang" }}';
+        if (currentTab === 'installold') {
+            $('#oldDataFields').show();
+            loadCollaborators();
+            updateStatusOptionsForOldData();
+        }
     });
+    
+    // Hàm load danh sách cộng tác viên
+    function loadCollaborators() {
+        $.get('{{ route("collaborators.filter") }}?for_search=1', function(data) {
+            let options = '<option value="">Cộng tác viên lắp đặt</option>';
+            if (data.html) {
+                options += data.html;
+            }
+            $('#install_collaborator').html(options);
+        });
+    }
+    
+    // Cập nhật options trạng thái cho dữ liệu cũ
+    function updateStatusOptionsForOldData() {
+        $('#trangthai').html(`
+            <option value="">Trạng thái lắp đặt</option>
+            <option value="1">Đã lắp đặt</option>
+            <option value="2">Đã hoàn thành</option>
+            <option value="3">Đã thanh toán</option>
+        `);
+    }
+    
+    // Cập nhật options trạng thái cho dữ liệu mới
+    function updateStatusOptionsForNewData() {
+        $('#trangthai').html(`
+            <option value="">Trạng thái điều phối</option>
+            <option value="0">Chưa điều phối</option>
+            <option value="1">Đã điều phối</option>
+            <option value="2">Đã hoàn thành</option>
+        `);
+    }
 
     function Report() {
         $('#reportCollaboratorInstall').on('click', function(e) {
@@ -256,7 +343,11 @@
                         <span class="visually-hidden">Loading...</span>
                     </div>
                     <p>Đang xử lý file Excel với nhiều sheet...</p>
-                    <small class="text-muted">Vui lòng chờ, quá trình này có thể mất vài phút</small>
+                    <small class="text-muted">Vui lòng chờ, quá trình này có thể mất tới 60 phút cho file rất lớn</small>
+                    <div class="progress mt-3" style="height: 6px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 100%"></div>
+                    </div>
                 </div>
             `,
             allowOutsideClick: false,
@@ -272,7 +363,7 @@
             data: formData,
             processData: false,
             contentType: false,
-            timeout: 300000, // 5 phút timeout
+            timeout: 3600000, // 60 phút timeout (3600 giây)
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
@@ -348,16 +439,18 @@
                         icon: 'warning',
                         title: 'Timeout!',
                         html: `
-                            <p>File quá lớn, quá trình xử lý mất quá nhiều thời gian.</p>
+                            <p>File quá lớn, quá trình xử lý mất quá nhiều thời gian (hơn 60 phút).</p>
                             <p><strong>Gợi ý:</strong></p>
                             <ul class="text-start">
-                                <li>Chia nhỏ file Excel thành nhiều file nhỏ hơn</li>
+                                <li>Chia nhỏ file Excel thành nhiều file nhỏ hơn (mỗi file < 50MB)</li>
                                 <li>Xóa các sheet không cần thiết</li>
                                 <li>Kiểm tra dữ liệu có bị lỗi format không</li>
+                                <li>Thử import từng sheet một</li>
+                                <li>Liên hệ admin để tăng timeout server nếu cần</li>
                             </ul>
                         `,
                         confirmButtonText: 'OK',
-                        width: '500px'
+                        width: '600px'
                     });
                     return;
                 }

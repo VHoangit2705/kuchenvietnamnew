@@ -35,7 +35,7 @@
                 <td class="text-center">{{ $item->order->agency_phone ?? $item->agency_phone ?? '' }}</td>
                 <td>{{ $item->order->customer_name ?? $item->full_name }}</td>
                 <td>{{ $item->order->customer_phone ?? $item->phone_number }}</td>
-                <td>{{ $item->product_name ?? $item->product }}</td>
+                <td>{{ $item->product_name ?? $item->product ?? 'Không xác định' }}</td>
                 <td>{{ $item->order->collaborator->full_name ?? $item->collaborator->full_name ?? '' }}</td>
                 <td class="text-center">{{ number_format($item->order->install_cost ?? $item->install_cost, 0, ',', '.') }}</td>
                 <td class="text-center">
