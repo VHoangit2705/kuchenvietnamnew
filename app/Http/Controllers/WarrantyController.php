@@ -790,15 +790,29 @@ class WarrantyController extends Controller
             }
 
             if (!$warrantyData) {
-                $suffix = substr($serialNumber, -3);
+                // Chỉ áp dụng logic suffix cho mã cũ bị lỗi (có prefix 2025050500)
                 $baseCodes = Enum::getCodes();
-                $finalCodes = array_map(function ($code) use ($suffix) {
-                    return $code . $suffix;
-                }, $baseCodes);
-                $warrantyData = ProductWarranty::with(['order_product.order'])
-                    ->whereIn('warranty_code', $finalCodes)
-                    ->first();
-                $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                $isOldErrorCode = false;
+                
+                // Kiểm tra xem mã nhập vào có phải là mã cũ bị lỗi không
+                foreach ($baseCodes as $baseCode) {
+                    if (strpos($serialNumber, $baseCode) === 0) {
+                        $isOldErrorCode = true;
+                        break;
+                    }
+                }
+                
+                // Chỉ áp dụng logic suffix nếu là mã cũ bị lỗi
+                if ($isOldErrorCode) {
+                    $suffix = substr($serialNumber, -3);
+                    $finalCodes = array_map(function ($code) use ($suffix) {
+                        return $code . $suffix;
+                    }, $baseCodes);
+                    $warrantyData = ProductWarranty::with(['order_product.order'])
+                        ->whereIn('warranty_code', $finalCodes)
+                        ->first();
+                    $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                }
             }
 
             if (!$warrantyData) {
