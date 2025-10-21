@@ -70,6 +70,7 @@
             <div class="col-lg-4 mb-1 d-flex gap-2">
                 <button class="btn btn-primary flex-fill">Tìm kiếm</button>
                 <a href="#" id="reportCollaboratorInstall" class="btn btn-success flex-fill">Thống kê</a>
+                <button type="button" id="toggleOldDataSearch" class="btn btn-info flex-fill">Tra cứu dữ liệu cũ</button>
                 <div class="btn-group flex-fill" role="group">
                     <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                         Đồng Bộ
@@ -204,15 +205,15 @@
             
             // Hiển thị/ẩn các trường tìm kiếm dựa trên tab
             if (tab === 'installold') {
-                $('#oldDataFields').show();
-                // Load danh sách cộng tác viên cho dropdown
-                loadCollaborators();
-                // Cập nhật options cho trạng thái dữ liệu cũ
+                // Không tự động hiển thị form tìm kiếm dữ liệu cũ
+                // Chỉ cập nhật options cho trạng thái dữ liệu cũ
                 updateStatusOptionsForOldData();
             } else {
                 $('#oldDataFields').hide();
                 // Khôi phục options trạng thái mặc định
                 updateStatusOptionsForNewData();
+                // Reset button về trạng thái ban đầu
+                $('#toggleOldDataSearch').text('Tra cứu dữ liệu cũ').removeClass('btn-warning').addClass('btn-info');
             }
             
             let formData = $('#searchForm').serialize();
@@ -229,11 +230,25 @@
 
         Report();
         
+        // Xử lý button tra cứu dữ liệu cũ
+        $('#toggleOldDataSearch').on('click', function() {
+            if ($('#oldDataFields').is(':visible')) {
+                $('#oldDataFields').hide();
+                $(this).text('Tra cứu dữ liệu cũ');
+                $(this).removeClass('btn-warning').addClass('btn-info');
+            } else {
+                $('#oldDataFields').show();
+                $(this).text('Ẩn');
+                $(this).removeClass('btn-info').addClass('btn-warning');
+                // Load danh sách cộng tác viên khi hiển thị form
+                loadCollaborators();
+            }
+        });
+        
         // Kiểm tra tab hiện tại khi load trang
         let currentTab = localStorage.getItem('activeTab') || '{{ $tab ?? "dieuphoidonhang" }}';
         if (currentTab === 'installold') {
-            $('#oldDataFields').show();
-            loadCollaborators();
+            // Chỉ cập nhật options trạng thái, không tự động hiển thị form
             updateStatusOptionsForOldData();
         }
     });
@@ -336,14 +351,14 @@
 
         // Hiển thị loading với thông tin chi tiết
         Swal.fire({
-            title: 'Đang xử lý file lớn...',
+            title: 'Đang xử lý file ...',
             html: `
                 <div class="text-center">
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
                     <p>Đang xử lý file Excel với nhiều sheet...</p>
-                    <small class="text-muted">Vui lòng chờ, quá trình này có thể mất tới 60 phút cho file rất lớn</small>
+                    <small class="text-muted">Vui lòng chờ, quá trình này có thể mất tới vài phút.</small>
                     <div class="progress mt-3" style="height: 6px;">
                         <div class="progress-bar progress-bar-striped progress-bar-animated" 
                              role="progressbar" style="width: 100%"></div>
