@@ -911,9 +911,6 @@ class CollaboratorInstallController extends Controller
 
                     $stats['sheets_processed']++;
 
-                    // Ghi nhớ ngày của hàng gần nhất (để xử lý các ô ngày bị merge/để trống)
-                    $lastParsedDate = null;
-                    $dateGroupStart = null; // Để theo dõi nhóm ngày
 
                     // Xử lý từng dòng - đọc đến dòng cuối cùng có dữ liệu
                     for ($row = 3; $row <= $highestRow; $row++) { // Bắt đầu từ dòng 3 (bỏ header dòng 1 và 2)
@@ -926,25 +923,15 @@ class CollaboratorInstallController extends Controller
                                 $orderCode = null;
                             }
 
-                            // Xử lý ngày với logic gộp dòng - sử dụng hàm getCellValue để xử lý merged cells
+                            // Xử lý ngày - chỉ lấy ngày từ ô hiện tại, không lấy từ dòng trước
                             $dateRaw = trim($getCellValue($currentSheet, 'B' . $row) ?? '');
                             $parsedDate = $parseDate($dateRaw);
                             
                             if ($parsedDate) {
                                 $createdAt = $parsedDate;
-                                $lastParsedDate = $parsedDate;
-                                $dateGroupStart = $row;
                             } else {
-                                // Ô ngày trống - kiểm tra xem có phải là dòng trong nhóm ngày không
-                                if ($lastParsedDate && $dateGroupStart && $row > $dateGroupStart) {
-                                    // Đây là dòng trong nhóm ngày, sử dụng ngày của nhóm
-                                    $createdAt = $lastParsedDate;
-                                } else {
-                                    // Không có ngày và không trong nhóm nào
-                                    $createdAt = null;
-                                    $lastParsedDate = null;
-                                    $dateGroupStart = null;
-                                }
+                                // Nếu ô ngày trống, để null
+                                $createdAt = null;
                             }
 
                             $agencyName = trim($getCellValue($currentSheet, 'C' . $row) ?? '');
