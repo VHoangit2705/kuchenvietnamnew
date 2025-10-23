@@ -34,12 +34,10 @@ class CollaboratorInstallController extends Controller
     {
         $tungay = request('tungay') ?? now()->startOfMonth()->toDateString();
         
-        $startDate = Carbon::create(2025, 9, 1)->startOfDay();
         $lstOrder = OrderProduct::with('order')
             ->where('install', 1)
-            ->whereHas('order', function ($q) use ($startDate) {
-                $q->where('created_at', '>=', $startDate)
-                  ->where('order_code2', 'not like', 'KU%')
+            ->whereHas('order', function ($q) {
+                $q->where('order_code2', 'not like', 'KU%')
                   ->where(function ($sub) {
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
@@ -86,9 +84,8 @@ class CollaboratorInstallController extends Controller
         
         $lstOrderLe = OrderProduct::with('order')
             ->where('install', 1)
-            ->whereHas('order', function ($q) use ($startDate) {
-                $q->where('created_at', '>=', $startDate)
-                ->where('order_code2', 'like', 'KU%')
+            ->whereHas('order', function ($q) {
+                $q->where('order_code2', 'like', 'KU%')
                   ->where(function ($sub) {
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
@@ -135,7 +132,6 @@ class CollaboratorInstallController extends Controller
 
 
         $lstWarranty = WarrantyRequest::where('type', 'agent_home')
-            ->where('Ngaytao', '>=', $startDate)
             ->where(function ($q) {
                 $q->whereNull('status_install')
                     ->orWhere('status_install', 0);
@@ -164,7 +160,7 @@ class CollaboratorInstallController extends Controller
                 }
             });
 
-        $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)->where('created_at', '>=', $startDate)
+        $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay, fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -176,7 +172,7 @@ class CollaboratorInstallController extends Controller
                     $q->where('collaborator_id', 1);
                 }
             });
-        $lstInstallOrder = InstallationOrder::where('status_install', '!=', 1)->where('created_at', '>=', $startDate)
+        $lstInstallOrder = InstallationOrder::where('status_install', '!=', 1)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay, fn($q) => $q->whereDate('created_at', '>=', $tungay))
