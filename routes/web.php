@@ -71,7 +71,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
-    Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
+    // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
     Route::post('/upload-excel-sync', [CollaboratorInstallController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
     Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
 });

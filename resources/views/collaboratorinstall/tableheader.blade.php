@@ -24,9 +24,4 @@
             ĐÃ HOÀN THÀNH <span class="text-danger">({{ $counts['dahoanthanh'] ?? 0 }})</span>
         </a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {{ $activeTab == 'installold' ? 'active' : '' }}" data-tab="installold" href="#">
-            DỮ LIỆU CŨ <span class="text-danger">({{ $counts['installold'] ?? 0 }})</span>
-        </a>
-    </li>
 </ul>

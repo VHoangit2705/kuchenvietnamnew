@@ -40,23 +40,23 @@ class CollaboratorInstallController extends Controller
         if (empty($product)) {
             return 'Không xác định';
         }
-        // Loại bỏ ký tự đặc biệt không cần thiết
-        $product = preg_replace('/[^\w\s\-\.]/', '', $product);
+        
+        // Đảm bảo encoding UTF-8 đúng
+        $product = mb_convert_encoding($product, 'UTF-8', 'auto');
+        
+        // Chỉ loại bỏ ký tự điều khiển, giữ lại ký tự tiếng Việt
+        $product = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $product);
+        
         return $product;
     }
     public function Index(Request $request)
     {
-        $tungay = request('tungay') ?? now()->startOfMonth()->toDateString();
+        $tungay = request('tungay');
         
-        $startDate = Carbon::create(2025, 9, 1)->startOfDay();
         $lstOrder = OrderProduct::with('order')
             ->where('install', 1)
-            ->whereHas('order', function ($q) use ($startDate) {
-                $q->where(function($dateQuery) use ($startDate) {
-                    $dateQuery->where('created_at', '>=', $startDate)
-                              ->orWhereNull('created_at');
-                })
-                  ->where('order_code2', 'not like', 'KU%')
+            ->whereHas('order', function ($q) {
+                $q->where('order_code2', 'not like', 'KU%')
                   ->where(function ($sub) {
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
@@ -68,26 +68,19 @@ class CollaboratorInstallController extends Controller
                 });
             })
             ->when($sanpham = request('sanpham'), function ($q) use ($sanpham) {
-                $q->where(function($subQuery) use ($sanpham) {
-                    $subQuery->where('product_name', 'like', "%$sanpham%")
-                           ->orWhere('product', 'like', "%$sanpham%");
-                });
+                $q->where('product_name', 'like', "%$sanpham%");
             })
-            ->when($tungay, function ($q) use ($tungay) {
+            ->when($tungay && !empty($tungay), function ($q) use ($tungay) {
                 $q->whereHas('order', function ($sub) use ($tungay) {
-                    $sub->where(function($dateQuery) use ($tungay) {
-                        $dateQuery->whereDate('created_at', '>=', $tungay)
-                                  ->orWhereNull('created_at');
-                    });
+                    $sub->whereDate('created_at', '>=', $tungay);
                 });
             })
             ->when($denngay = request('denngay'), function ($q) use ($denngay) {
-                $q->whereHas('order', function ($sub) use ($denngay) {
-                    $sub->where(function($dateQuery) use ($denngay) {
-                        $dateQuery->whereDate('created_at', '<=', $denngay)
-                                  ->orWhereNull('created_at');
+                if (!empty($denngay)) {
+                    $q->whereHas('order', function ($sub) use ($denngay) {
+                        $sub->whereDate('created_at', '<=', $denngay);
                     });
-                });
+                }
             })
             ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
                 $q->whereHas('order', function ($sub) use ($trangthai) {
@@ -97,6 +90,8 @@ class CollaboratorInstallController extends Controller
                         $sub->where('status_install', 1);
                     } elseif ($trangthai === '2') {
                         $sub->where('status_install', 2);
+                    } elseif ($trangthai === '3') {
+                        $sub->where('status_install', 3);
                     }
                 });
             })
@@ -109,14 +104,34 @@ class CollaboratorInstallController extends Controller
                     }
                 });
             })
-            ->orderByDesc('created_at')
+            ->when($customer_name = request('customer_name'), function ($q) use ($customer_name) {
+                $q->whereHas('order', function ($sub) use ($customer_name) {
+                    $sub->where('customer_name', 'like', "%$customer_name%");
+                });
+            })
+            ->when($customer_phone = request('customer_phone'), function ($q) use ($customer_phone) {
+                $q->whereHas('order', function ($sub) use ($customer_phone) {
+                    $sub->where('customer_phone', 'like', "%$customer_phone%");
+                });
+            })
+            ->when($agency_phone = request('agency_phone'), function ($q) use ($agency_phone) {
+                $q->whereHas('order', function ($sub) use ($agency_phone) {
+                    $sub->where('agency_phone', 'like', "%$agency_phone%");
+                });
+            })
+            ->when($agency_name = request('agency_name'), function ($q) use ($agency_name) {
+                $q->whereHas('order', function ($sub) use ($agency_name) {
+                    $sub->where('agency_name', 'like', "%$agency_name%");
+                });
+            })
+            ->when($include_old_data = request('include_old_data'), function ($q) {
+            })
             ->orderByDesc('id');
         
         $lstOrderLe = OrderProduct::with('order')
             ->where('install', 1)
-            ->whereHas('order', function ($q) use ($startDate) {
-                $q->where('created_at', '>=', $startDate)
-                ->where('order_code2', 'like', 'KU%')
+            ->whereHas('order', function ($q) {
+                $q->where('order_code2', 'like', 'KU%')
                   ->where(function ($sub) {
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
@@ -128,26 +143,19 @@ class CollaboratorInstallController extends Controller
                 });
             })
             ->when($sanpham = request('sanpham'), function ($q) use ($sanpham) {
-                $q->where(function($subQuery) use ($sanpham) {
-                    $subQuery->where('product_name', 'like', "%$sanpham%")
-                           ->orWhere('product', 'like', "%$sanpham%");
-                });
+                $q->where('product_name', 'like', "%$sanpham%");
             })
-            ->when($tungay, function ($q) use ($tungay) {
+            ->when($tungay && !empty($tungay), function ($q) use ($tungay) {
                 $q->whereHas('order', function ($sub) use ($tungay) {
-                    $sub->where(function($dateQuery) use ($tungay) {
-                        $dateQuery->whereDate('created_at', '>=', $tungay)
-                                  ->orWhereNull('created_at');
-                    });
+                    $sub->whereDate('created_at', '>=', $tungay);
                 });
             })
             ->when($denngay = request('denngay'), function ($q) use ($denngay) {
-                $q->whereHas('order', function ($sub) use ($denngay) {
-                    $sub->where(function($dateQuery) use ($denngay) {
-                        $dateQuery->whereDate('created_at', '<=', $denngay)
-                                  ->orWhereNull('created_at');
+                if (!empty($denngay)) {
+                    $q->whereHas('order', function ($sub) use ($denngay) {
+                        $sub->whereDate('created_at', '<=', $denngay);
                     });
-                });
+                }
             })
             ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
                 $q->whereHas('order', function ($sub) use ($trangthai) {
@@ -157,6 +165,8 @@ class CollaboratorInstallController extends Controller
                         $sub->where('status_install', 1);
                     } elseif ($trangthai === '2') {
                         $sub->where('status_install', 2);
+                    } elseif ($trangthai === '3') {
+                        $sub->where('status_install', 3);
                     }
                 });
             })
@@ -169,26 +179,44 @@ class CollaboratorInstallController extends Controller
                     }
                 });
             })
-            ->orderByDesc('created_at')
+            ->when($customer_name = request('customer_name'), function ($q) use ($customer_name) {
+                $q->whereHas('order', function ($sub) use ($customer_name) {
+                    $sub->where('customer_name', 'like', "%$customer_name%");
+                });
+            })
+            ->when($customer_phone = request('customer_phone'), function ($q) use ($customer_phone) {
+                $q->whereHas('order', function ($sub) use ($customer_phone) {
+                    $sub->where('customer_phone', 'like', "%$customer_phone%");
+                });
+            })
+            ->when($agency_phone = request('agency_phone'), function ($q) use ($agency_phone) {
+                $q->whereHas('order', function ($sub) use ($agency_phone) {
+                    $sub->where('agency_phone', 'like', "%$agency_phone%");
+                });
+            })
+            ->when($agency_name = request('agency_name'), function ($q) use ($agency_name) {
+                $q->whereHas('order', function ($sub) use ($agency_name) {
+                    $sub->where('agency_name', 'like', "%$agency_name%");
+                });
+            })
+            ->when($include_old_data = request('include_old_data'), function ($q) {
+            })
             ->orderByDesc('id');
 
 
         $lstWarranty = WarrantyRequest::where('type', 'agent_home')
-            ->where('Ngaytao', '>=', $startDate)
             ->where(function ($q) {
                 $q->whereNull('status_install')
                     ->orWhere('status_install', 0);
             })
             ->when($madon = request('madon'), fn($q) => $q->where('serial_number', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay, fn($q) => $q->where(function($dateQuery) use ($tungay) {
-                $dateQuery->whereDate('Ngaytao', '>=', $tungay)
-                          ->orWhereNull('Ngaytao');
-            }))
-            ->when($denngay = request('denngay'), fn($q) => $q->where(function($dateQuery) use ($denngay) {
-                $dateQuery->whereDate('Ngaytao', '<=', $denngay)
-                          ->orWhereNull('Ngaytao');
-            }))
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
+            ->when($denngay = request('denngay'), function($q) use ($denngay) {
+                if (!empty($denngay)) {
+                    $q->whereDate('Ngaytao', '<=', $denngay);
+                }
+            })
             ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
                     $q->where(function ($sub) {
@@ -199,6 +227,8 @@ class CollaboratorInstallController extends Controller
                     $q->where('status_install', 1);
                 } elseif ($trangthai === '2') {
                     $q->where('status_install', 2);
+                } elseif ($trangthai === '3') {
+                    $q->where('status_install', 3);
                 }
             })
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
@@ -208,89 +238,94 @@ class CollaboratorInstallController extends Controller
                     $q->where('collaborator_id', 1);
                 }
             })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
             ->orderByDesc('Ngaytao')
             ->orderByDesc('id');
 
-        $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)->where('created_at', '>=', $startDate)
+        // Đã điều phối status_install = 1
+        $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay, fn($q) => $q->where(function($dateQuery) use ($tungay) {
-                $dateQuery->whereDate('created_at', '>=', $tungay)
-                          ->orWhereNull('created_at');
-            }))
-            ->when($denngay = request('denngay'), fn($q) => $q->where(function($dateQuery) use ($denngay) {
-                $dateQuery->whereDate('created_at', '<=', $denngay)
-                          ->orWhereNull('created_at');
-            }))
-            ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
-                if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
-                } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
+            ->when($denngay = request('denngay'), function($q) use ($denngay) {
+                if (!empty($denngay)) {
+                    $q->whereDate('created_at', '<=', $denngay);
                 }
             })
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
-        $lstInstallOrder = InstallationOrder::where('status_install', '!=', 1)->where('created_at', '>=', $startDate)
-            ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
-            ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay, fn($q) => $q->where(function($dateQuery) use ($tungay) {
-                $dateQuery->whereDate('created_at', '>=', $tungay)
-                          ->orWhereNull('created_at');
-            }))
-            ->when($denngay = request('denngay'), fn($q) => $q->where(function($dateQuery) use ($denngay) {
-                $dateQuery->whereDate('created_at', '<=', $denngay)
-                          ->orWhereNull('created_at');
-            }))
-            ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
-                if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
-                } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
-                }
-            })
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
-            
-        $lstInstallOld = InstallationOrder::where(function($dateQuery) {
-                $dateQuery->whereDate('created_at', '<=', '2025-01-01')
-                          ->orWhereNull('created_at');
-            })
-            ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
-            ->when($ngaytao = request('ngaytao'), fn($q) => $q->where(function($dateQuery) use ($ngaytao) {
-                $dateQuery->whereDate('created_at', '=', $ngaytao)
-                          ->orWhereNull('created_at');
-            }))
-            ->when($kho = request('kho'), fn($q) => $q->where('zone', 'like', "%$kho%"))
-            ->when($agency_home = request('agency_home'), fn($q) => $q->where('type', 'agent_home'))
-            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
-            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
-            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
-            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
-            ->when($install_collaborator = request('install_collaborator'), fn($q) => $q->where('collaborator_id', $install_collaborator))
-            ->when($install_cost = request('install_cost'), fn($q) => $q->where('install_cost', $install_cost))
             ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
-                if ($trangthai === '1') {
+                if ($trangthai === '0') {
                     $q->where(function ($sub) {
                         $sub->whereNull('status_install')
-                            ->orWhere('status_install', 1);
+                            ->orWhere('status_install', 0);
                     });
+                } elseif ($trangthai === '1') {
+                    $q->where('status_install', 1);
                 } elseif ($trangthai === '2') {
                     $q->where('status_install', 2);
                 } elseif ($trangthai === '3') {
                     $q->where('status_install', 3);
                 }
             })
-            ->orderByDesc('created_at')
+            ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
+                if ($phanloai === 'collaborator') {
+                    $q->where('collaborator_id', '!=', 1);
+                } elseif ($phanloai === 'agency') {
+                    $q->where('collaborator_id', 1);
+                }
+            })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
             ->orderByDesc('id');
-
+            
+        // Đã hoàn thành và đã thanh toán status_install = 2 or 3
+        $lstInstallOrder = InstallationOrder::whereIn('status_install', [2, 3])
+            ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
+            ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
+            ->when($denngay = request('denngay'), function($q) use ($denngay) {
+                if (!empty($denngay)) {
+                    $q->whereDate('created_at', '<=', $denngay);
+                }
+            })
+            ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
+                if ($trangthai === '0') {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('status_install')
+                            ->orWhere('status_install', 0);
+                    });
+                } elseif ($trangthai === '1') {
+                    $q->where('status_install', 1);
+                } elseif ($trangthai === '2') {
+                    $q->where('status_install', 2);
+                } elseif ($trangthai === '3') {
+                    $q->where('status_install', 3);
+                }
+            })
+            ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
+                if ($phanloai === 'collaborator') {
+                    $q->where('collaborator_id', '!=', 1);
+                } elseif ($phanloai === 'agency') {
+                    $q->where('collaborator_id', 1);
+                }
+            })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('id');
+            
+            
         $counts = [
             'dieuphoidonhang' => (clone $lstOrder)->count(),
             'dieuphoidonhangle' => (clone $lstOrderLe)->count(),
             'dieuphoibaohanh' => (clone $lstWarranty)->count(),
             'dadieuphoi'      => (clone $lstDaDieuPhoi)->count(),
             'dahoanthanh'     => (clone $lstInstallOrder)->count(),
-            'installold'      => (clone $lstInstallOld)->count(),
         ];
 
         $tab = $request->get('tab', 'dieuphoidonhang');
@@ -299,15 +334,18 @@ class CollaboratorInstallController extends Controller
             'dieuphoibaohanh' => $lstWarranty,
             'dadieuphoi'      => $lstDaDieuPhoi,
             'dahoanthanh'     => $lstInstallOrder,
-            'installold'      => $lstInstallOld,
             default           => $lstOrder,
         };
 
-        $data = $tabQuery->orderByDesc('created_at')->orderByDesc('id')->paginate(50)->withQueryString();
+        // Fix ordering - use appropriate date column based on the tab
+        if ($tab === 'dieuphoibaohanh') {
+            $data = $tabQuery->orderByDesc('Ngaytao')->orderByDesc('id')->paginate(50)->withQueryString();
+        } else {
+            $data = $tabQuery->orderByDesc('id')->paginate(50)->withQueryString();
+        }
         
         // Debug log để kiểm tra dữ liệu
         Log::info("Total records found: " . $data->total());
-        Log::info("Records with NULL created_at: " . $data->where('created_at', null)->count());
         if ($request->ajax()) {
             return response()->json([
                 'tab'   => view('collaboratorinstall.tableheader', [
@@ -672,152 +710,6 @@ class CollaboratorInstallController extends Controller
         ]);
     }
     
-    public function ImportExcel(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'excelFile' => 'required|file|mimes:xlsx,xls|max:10240',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $file = $request->file('excelFile');
-
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-            $sheetCount = $spreadsheet->getSheetCount();
-
-            $imported = 0;
-            $processedSheets = 0;
-
-            for ($s = 0; $s < $sheetCount; $s++) {
-                $currentSheet = $spreadsheet->getSheet($s);
-                $rows = $currentSheet->toArray(null, true, true, true);
-                $processedSheets++;
-
-                foreach ($rows as $index => $row) {
-                    if ($index == 1) {
-                        // Bỏ qua hàng tiêu đề
-                        continue;
-                    }
-
-                    // MÃ ĐƠN HÀNG ở cột N
-                    $orderCode = trim($row['O'] ?? '');
-                    if ($orderCode === '') {
-                        continue;
-                    }
-
-                  // Ngày ở cột B
-                    $dateRaw = trim($row['B'] ?? '');
-                    $createdAt = null;
-
-                    if ($dateRaw !== '') {
-                        if (is_numeric($dateRaw)) {
-                            $createdAt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateRaw)
-                                ->format('Y-m-d H:i:s');
-                        } else {
-                            try {
-                                // ép parse đúng định dạng d/m/Y
-                                $createdAt = Carbon::createFromFormat('d/m/Y', $dateRaw)->format('Y-m-d H:i:s');
-                            } catch (\Exception $e) {
-                                $createdAt = null;
-                            }
-                        }
-                    } else {
-                        $createdAt = null;
-                    }
-
-                    // Map cột theo file: C đại lý, D sđt đại lý, E sđt KH, F địa chỉ, G thiết bị, H tên CTV, I SĐT CTV, J trạng thái, K STK, L ngân hàng, M ghi chú
-                    $agencyName       = trim($row['C'] ?? '');
-                    $agencyPhoneRaw   = trim($row['D'] ?? '');
-                    $customerPhoneRaw = trim($row['E'] ?? '');
-                    $customerAddress  = trim($row['F'] ?? '');
-                    $product          = $this->normalizeProduct($row['G'] ?? '');
-                    $collabName       = trim($row['H'] ?? '');
-                    $collabPhoneRaw   = trim($row['I'] ?? '');
-                    $doneRaw          = trim($row['J'] ?? '');
-                    $note             = trim($row['M'] ?? '');
-
-                    // Chuẩn hóa số điện thoại: chỉ giữ chữ số, cắt tối đa 15 ký tự
-                    $sanitizePhone = function ($value) {
-                        $digits = preg_replace('/\D+/', '', $value ?? '');
-                        return $digits !== null ? mb_substr($digits, 0, 15) : '';
-                    };
-                    $agencyPhone    = $sanitizePhone($agencyPhoneRaw);
-                    $customerPhone  = $sanitizePhone($customerPhoneRaw);
-                    $collabPhone    = $sanitizePhone($collabPhoneRaw);
-
-                    $statusInstall = 1;
-                    if ($doneRaw !== '') {
-                        $doneLower = mb_strtolower($doneRaw);
-                        if (in_array($doneLower, ['1', 'đã hoàn thành', 'x', 'done', 'yes'])) {
-                            $statusInstall = 2;
-                        }
-                    }
-
-                    $collaborator = null;
-                    if ($collabPhone !== '') {
-                        $collaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
-                    }
-
-                    // Không tự tạo agency mới để tránh lỗi bảng agency không tự tăng id
-
-                    $payload = [
-                        'order_code'      => $orderCode,
-                        // Không có trường họ tên khách trong file cũ -> để trống
-                        'full_name'       => '',
-                        'phone_number'    => $customerPhone,
-                        'address'         => $customerAddress,
-                        'product'         => $product,
-                        'province_id'     => null,
-                        'district_id'     => null,
-                        'ward_id'         => null,
-                        'order_id'        => null,
-                        'collaborator_id' => $collaborator->id ?? 1,
-                        'install_cost'    => 0,
-                        'status_install'  => $statusInstall,
-                        'reviews_install' => $note,
-                        'agency_name'     => $agencyName,
-                        'agency_phone'    => $agencyPhone,
-                        'agency_payment'  => null,
-                        'type'            => 'donhang',
-                        'zone'            => null,
-                        'created_at'      => $createdAt,
-                        'successed_at'    => $statusInstall == 2 ? $createdAt : null,
-                    ];
-
-                    $existing = InstallationOrder::where('order_code', $orderCode)->first();
-                    if ($existing) {
-                        $existing->update($payload);
-                    } else {
-                        // Bảng mysql3 có thể không auto-increment id -> tự sinh id tiếp theo
-                        $nextId = (InstallationOrder::max('id') ?? 0) + 1;
-                        $payloadWithId = array_merge(['id' => $nextId], $payload);
-                        InstallationOrder::insert($payloadWithId);
-                    }
-
-                    $imported++;
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'imported' => $imported,
-                'sheets_processed' => $processedSheets,
-                'message' => "Đã import $imported dòng vào bảng installation_orders (từ $processedSheets sheet).",
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Lỗi khi xử lý file: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
     /**
      * Đồng bộ dữ liệu từ Excel với logic upsert cho các bảng liên quan
      * Tối ưu hóa cho file lớn với nhiều sheet
@@ -856,6 +748,7 @@ class CollaboratorInstallController extends Controller
                 'collaborators_created' => 0,
                 'agencies_created' => 0,
                 'products_created' => 0,
+                'order_products_created' => 0,
                 'orders_created' => 0,
                 'orders_updated' => 0,
                 'installation_orders_created' => 0,
@@ -896,7 +789,6 @@ class CollaboratorInstallController extends Controller
                         return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateRaw)
                             ->format('Y-m-d H:i:s');
                     } catch (\Exception $e) {
-                        Log::warning("Cannot parse Excel date serial: $dateRaw - " . $e->getMessage());
                         return null;
                     }
                 } else {
@@ -930,7 +822,6 @@ class CollaboratorInstallController extends Controller
                             return $date->format('Y-m-d H:i:s');
                         }
                     } catch (\Exception $e) {
-                        Log::warning("Cannot parse date with any format: '$dateRaw' - " . $e->getMessage());
                         return null;
                     }
                 }
@@ -975,9 +866,13 @@ class CollaboratorInstallController extends Controller
                         }
                     }
                     
+                    // Đảm bảo encoding UTF-8 cho tất cả giá trị
+                    if (is_string($value)) {
+                        $value = mb_convert_encoding($value, 'UTF-8', 'auto');
+                    }
+                    
                     return $value;
                 } catch (\Exception $e) {
-                    Log::warning("Error getting cell value for $cellCoordinate: " . $e->getMessage());
                     return '';
                 }
             };
@@ -996,32 +891,21 @@ class CollaboratorInstallController extends Controller
                 }
             };
 
-            // Xử lý tất cả sheet để debug
+            // Xử lý tất cả sheet
             $startSheet = 0; // Bắt đầu từ sheet đầu tiên
             $endSheet = $sheetCount; // Đến sheet cuối cùng
-            
-            Log::info("Processing sheets from $startSheet to $endSheet (total: $sheetCount)");
 
             for ($s = $startSheet; $s < $endSheet; $s++) {
                 try {
                     $currentSheet = $spreadsheet->getSheet($s);
                     $sheetName = $currentSheet->getTitle();
-                    Log::info("Processing sheet: $sheetName (index: $s)");
-                    
-                    // Đặc biệt kiểm tra sheet T7
-                    if ($sheetName === 'T7') {
-                        Log::info("Found T7 sheet at index $s - Processing...");
-                    }
                     
                     // Chỉ lấy dữ liệu cần thiết, không load toàn bộ sheet
                     $highestRow = $currentSheet->getHighestDataRow();
                     $highestColumn = $currentSheet->getHighestDataColumn();
                     
-                    Log::info("Sheet $sheetName - HighestRow: $highestRow, HighestColumn: $highestColumn");
-                    
                     // Bỏ qua sheet trống
                     if ($highestRow <= 1) {
-                        Log::info("Skipping empty sheet: $sheetName");
                         continue;
                     }
 
@@ -1032,23 +916,14 @@ class CollaboratorInstallController extends Controller
                     $dateGroupStart = null; // Để theo dõi nhóm ngày
 
                     // Xử lý từng dòng - đọc đến dòng cuối cùng có dữ liệu
-                    for ($row = 2; $row <= $highestRow; $row++) { // Bắt đầu từ dòng 2 (bỏ header)
+                    for ($row = 3; $row <= $highestRow; $row++) { // Bắt đầu từ dòng 3 (bỏ header dòng 1 và 2)
                         try {
                             // Lấy dữ liệu từ các cột cụ thể - sử dụng getCellValue để xử lý merged cells
                             $orderCode = trim($getCellValue($currentSheet, 'Q' . $row) ?? '');
                             
-                            // Debug log để kiểm tra dữ liệu
-                            Log::info("Row $row - OrderCode: '$orderCode'");
-                            
-                            // Đặc biệt debug cho sheet T7
-                            if ($sheetName === 'T7') {
-                                Log::info("T7 Row $row - OrderCode: '$orderCode'");
-                            }
-                            
+                            // Nếu không có mã đơn hàng, đặt giá trị null
                             if (empty($orderCode)) {
-                                // Không bỏ qua dòng: tạo mã đơn tạm để vẫn lưu dữ liệu dòng thuộc nhóm ngày
-                                $orderCode = 'AUTO-' . preg_replace('/\s+/', '', (string)$sheetName) . '-' . str_pad((string)$row, 5, '0', STR_PAD_LEFT);
-                                Log::info("Row $row - Empty orderCode → generated: '$orderCode'");
+                                $orderCode = null;
                             }
 
                             // Xử lý ngày với logic gộp dòng - sử dụng hàm getCellValue để xử lý merged cells
@@ -1056,29 +931,20 @@ class CollaboratorInstallController extends Controller
                             $parsedDate = $parseDate($dateRaw);
                             
                             if ($parsedDate) {
-                                // Có ngày mới - đây là đầu nhóm mới
                                 $createdAt = $parsedDate;
                                 $lastParsedDate = $parsedDate;
-                                $dateGroupStart = $row; // Đánh dấu bắt đầu nhóm ngày
-                                Log::info("Row $row - Có ngày mới: '$dateRaw' → '$createdAt' (bắt đầu nhóm ngày)");
+                                $dateGroupStart = $row;
                             } else {
                                 // Ô ngày trống - kiểm tra xem có phải là dòng trong nhóm ngày không
                                 if ($lastParsedDate && $dateGroupStart && $row > $dateGroupStart) {
                                     // Đây là dòng trong nhóm ngày, sử dụng ngày của nhóm
                                     $createdAt = $lastParsedDate;
-                                    Log::info("Row $row - Trong nhóm ngày: sử dụng ngày '$lastParsedDate' từ dòng $dateGroupStart");
                                 } else {
                                     // Không có ngày và không trong nhóm nào
                                     $createdAt = null;
                                     $lastParsedDate = null;
                                     $dateGroupStart = null;
-                                    Log::info("Row $row - Không có ngày và không trong nhóm: '$dateRaw' → NULL");
                                 }
-                            }
-                            
-                            // Debug log để kiểm tra định dạng ngày
-                            if ($sheetName === 'T7') {
-                                Log::info("T7 Row $row - DateRaw: '$dateRaw', Parsed: '" . ($createdAt ?? 'NULL') . "'");
                             }
 
                             $agencyName = trim($getCellValue($currentSheet, 'C' . $row) ?? '');
@@ -1094,14 +960,6 @@ class CollaboratorInstallController extends Controller
                             $bank = trim($getCellValue($currentSheet, 'N' . $row) ?? '');
                             $note = trim($getCellValue($currentSheet, 'O' . $row) ?? '');
                             $accessories = trim($getCellValue($currentSheet, 'P' . $row) ?? '');
-                            
-                            // Debug log để kiểm tra dữ liệu
-                            Log::info("Row $row - Data: OrderCode='$orderCode', AgencyName='$agencyName', CustomerName='$customerName', Product='$product'");
-                            
-                            // Đặc biệt debug cho sheet T7
-                            if ($sheetName === 'T7') {
-                                Log::info("T7 Row $row - Data: OrderCode='$orderCode', AgencyName='$agencyName', CustomerName='$customerName', Product='$product'");
-                            }
 
                             // Chuẩn hóa dữ liệu
                             $agencyPhone = $sanitizePhone($agencyPhoneRaw);
@@ -1116,18 +974,26 @@ class CollaboratorInstallController extends Controller
                                     $collaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
                                     
                                     if (!$collaborator) {
-                                        // Tạo collaborator mới
-                                        $collaborator = new WarrantyCollaborator();
-                                        $collaborator->full_name = $collabName;
-                                        $collaborator->phone = $collabPhone;
-                                        $collaborator->sotaikhoan = $collabAccount;
-                                        $collaborator->chinhanh = $bank;
-                                        $collaborator->created_at = now(); // Sử dụng đúng tên cột created_at
-                                        $collaborator->save();
-                                        
-                                        $stats['collaborators_created']++;
+                                        try {
+                                            // Tạo collaborator mới - chỉ lưu thông tin có sẵn
+                                            $collaborator = new WarrantyCollaborator();
+                                            // Tự tạo ID mới
+                                            $collaborator->id = WarrantyCollaborator::max('id') + 1;
+                                            $collaborator->full_name = $collabName;
+                                            $collaborator->phone = $collabPhone;
+                                            $collaborator->sotaikhoan = $collabAccount;
+                                            $collaborator->chinhanh = $bank;
+                                            $collaborator->created_at = now();
+                                            $collaborator->save();
+                                            
+                                            $stats['collaborators_created']++;
+                                        } catch (\Exception $e) {
+                                            // Nếu lỗi tạo collaborator, log và tiếp tục
+                                            $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
+                                            $collaborator = null;
+                                        }
                                     }
-                                    $collaboratorCache[$collabPhone] = $collaborator->id;
+                                    $collaboratorCache[$collabPhone] = $collaborator ? $collaborator->id : 1;
                                 }
                                 $collaboratorId = $collaboratorCache[$collabPhone];
                             }
@@ -1165,7 +1031,12 @@ class CollaboratorInstallController extends Controller
                             }
 
                             // 4. Tạo/Cập nhật Order - Kiểm tra trùng lặp trước khi tạo
-                            $order = Order::where('order_code2', $orderCode)->first();
+                            //Lưu vào bảng Order
+                            $order = null;
+                            if ($orderCode) {
+                                $order = Order::where('order_code2', $orderCode)->first();
+                            }
+                            
                             if (!$order) {
                                 $order = new Order();
                                 $order->order_code2 = $orderCode;
@@ -1187,7 +1058,7 @@ class CollaboratorInstallController extends Controller
                             $order->status = 'pending'; // Thêm giá trị mặc định
                             $order->status_tracking = 'pending'; // Thêm giá trị mặc định
                             $order->staff = 'system'; // Thêm giá trị mặc định
-                            $order->zone = 'default'; // Thêm giá trị mặc định
+                            $order->zone = ''; // Để trống
                             $order->type = 'online'; // Thêm giá trị mặc định
                             $order->shipping_unit = 'default'; // Thêm giá trị mặc định
                             $order->send_camon = 0; // Thêm giá trị mặc định
@@ -1197,10 +1068,40 @@ class CollaboratorInstallController extends Controller
                             $order->note_admin = ''; // Thêm giá trị mặc định cho trường note_admin
                             $order->check_return = 0; // Thêm giá trị mặc định cho trường check_return
                             $order->save();
-                            Log::info("Order saved - created_at: " . ($order->created_at ?? 'NULL'));
+
+                            // 4.1. Tạo OrderProduct nếu có sản phẩm và order đã được tạo
+                            if (!empty($product) && $order) {
+                                $orderProduct = OrderProduct::where('order_id', $order->id)
+                                    ->where('product_name', $product)
+                                    ->first();
+                                
+                                if (!$orderProduct) {
+                                    $orderProduct = new OrderProduct();
+                                    $orderProduct->order_id = $order->id;
+                                    $orderProduct->product_name = $product;
+                                    $orderProduct->sub_address = $customerAddress;
+                                    $orderProduct->install = 1; // Đánh dấu cần lắp đặt
+                                    $orderProduct->quantity = 1;
+                                    $orderProduct->excluding_VAT = 0;
+                                    $orderProduct->VAT = '0%';
+                                    $orderProduct->VAT_price = 0;
+                                    $orderProduct->price = 0;
+                                    $orderProduct->price_difference = 0;
+                                    $orderProduct->is_promotion = false;
+                                    $orderProduct->warranty_scan = 0;
+                                    $orderProduct->save();
+                                    
+                                    $stats['order_products_created']++;
+                                }
+                            }
 
                             // 5. Tạo/Cập nhật InstallationOrder - Kiểm tra trùng lặp
-                            $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                            //Lưu vào bảng InstallationOrder
+                            $installationOrder = null;
+                            if ($orderCode) {
+                                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                            }
+                            
                             if (!$installationOrder) {
                                 $installationOrder = new InstallationOrder();
                                 $stats['installation_orders_created']++;
@@ -1222,11 +1123,15 @@ class CollaboratorInstallController extends Controller
                             $installationOrder->created_at = $createdAt; // Để null nếu không có ngày
                             $installationOrder->successed_at = ($statusInstall == 2 && $createdAt) ? $createdAt : null;
                             $installationOrder->save();
-                            Log::info("InstallationOrder saved - created_at: " . ($installationOrder->created_at ?? 'NULL'));
 
                             // 6. Tạo/Cập nhật WarrantyRequest nếu cần - Kiểm tra trùng lặp
+                            //Lưu vào bảng WarrantyRequest
                             if (!empty($product) && $statusInstall > 0) {
-                                $warrantyRequest = WarrantyRequest::where('serial_number', $orderCode)->first();
+                                $warrantyRequest = null;
+                                if ($orderCode) {
+                                    $warrantyRequest = WarrantyRequest::where('serial_number', $orderCode)->first();
+                                }
+                                
                                 if (!$warrantyRequest) {
                                     $warrantyRequest = new WarrantyRequest();
                                     $warrantyRequest->serial_number = $orderCode;
@@ -1252,11 +1157,9 @@ class CollaboratorInstallController extends Controller
                                 $warrantyRequest->warranty_end = $createdAt ? Carbon::parse($createdAt)->addYear() : null; // Để null nếu không có ngày
                                 $warrantyRequest->staff_received = 'system'; // Thêm giá trị mặc định cho trường staff_received
                                 $warrantyRequest->save();
-                                Log::info("WarrantyRequest saved - Ngaytao: " . ($warrantyRequest->Ngaytao ?? 'NULL'));
                             }
 
                             $stats['imported']++;
-                            Log::info("Successfully processed row $row in sheet $sheetName");
                             
                             // Giải phóng memory sau mỗi dòng để tối ưu performance
                             if ($row % 10 == 0) {
@@ -1265,7 +1168,6 @@ class CollaboratorInstallController extends Controller
 
                         } catch (\Exception $e) {
                             $stats['errors'][] = "Sheet $sheetName, Dòng $row: " . $e->getMessage();
-                            Log::error("Import Excel error at sheet $sheetName, row $row: " . $e->getMessage());
                         }
                     }
 
@@ -1275,7 +1177,6 @@ class CollaboratorInstallController extends Controller
                     
                 } catch (\Exception $e) {
                     $stats['errors'][] = "Lỗi xử lý sheet $s: " . $e->getMessage();
-                    Log::error("Error processing sheet $s: " . $e->getMessage());
                 }
             }
 

@@ -4,116 +4,105 @@
 <div class="container mt-4">
     <form id="searchForm">
         <!-- @csrf -->
-        <div class="row">
-            <div class="col-md-4 mb-1">
-                <input type="text" id="madon" name="madon" class="form-control" placeholder="Mã đơn hàng" value="{{ request('madon') }}">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h4 class="mb-0">
+                    Tìm kiếm đơn hàng lắp đặt
+                </h4>
             </div>
-            <div class="col-md-4 mb-1">
-                <input type="text" id="sanpham" name="sanpham" class="form-control" placeholder="Sản phẩm" value="{{ request('sanpham') }}">
-            </div>
-            <div class="col-md-4 mb-1">
-                <div class="d-flex align-items-center flex-grow-1">
-                    <input type="date" id="tungay" name="tungay" class="form-control" value="{{ request('tungay') }}">
-                    <label for="toDate" class="mb-0 me-2 ms-1">đến</label>
-                    <input type="date" id="denngay" name="denngay" class="form-control" value="{{ request('denngay') }}">
+            <div class="card-body">
+                <!-- Hàng 1: Thông tin cơ bản -->
+                <div class="row mb-3">
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Mã đơn hàng</label>
+                        <input type="text" id="madon" name="madon" class="form-control" placeholder="Nhập mã đơn hàng" value="{{ request('madon') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Sản phẩm</label>
+                        <input type="text" id="sanpham" name="sanpham" class="form-control" placeholder="Nhập tên sản phẩm" value="{{ request('sanpham') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Từ ngày</label>
+                        <input type="date" id="tungay" name="tungay" class="form-control" value="{{ request('tungay') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Đến ngày</label>
+                        <input type="date" id="denngay" name="denngay" class="form-control" value="{{ request('denngay') }}">
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-4 mb-1">
-                <select id="trangthai" name="trangthai" class="form-control">
-                    <option value="">Trạng thái điều phối</option>
-                    <option value="0">Chưa điều phối</option>
-                    <option value="1">Đã điều phối</option>
-                    <option value="2">Đã hoàn thành</option>
-                </select>
-            </div>
-            <div class="col-lg-4 mb-1">
-                <select id="phanloai" name="phanloai" class="form-control">
-                    <option value="">Phân loại lắp đặt</option>
-                    <option value="collaborator">Cộng tác viên lắp đặt</option>
-                    <option value="agency">Đại lý lắp đặt</option>
-                </select>
-            </div>
-            
-            <!-- Các trường tìm kiếm cho tab dữ liệu cũ -->
-            <div id="oldDataFields" class="row" style="display: none;">
-                <div class="col-md-3 mb-1">
-                    <input type="date" id="ngaytao" name="ngaytao" class="form-control" placeholder="Ngày tạo" value="{{ request('ngaytao') }}">
+
+                <!-- Hàng 2: Thông tin khách hàng và đại lý -->
+                <div class="row mb-3">
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Tên khách hàng</label>
+                        <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Nhập tên khách hàng" value="{{ request('customer_name') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">SĐT khách hàng</label>
+                        <input type="text" id="customer_phone" name="customer_phone" class="form-control" placeholder="Nhập SĐT khách hàng" value="{{ request('customer_phone') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Tên đại lý</label>
+                        <input type="text" id="agency_name" name="agency_name" class="form-control" placeholder="Nhập tên đại lý" value="{{ request('agency_name') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">SĐT đại lý</label>
+                        <input type="text" id="agency_phone" name="agency_phone" class="form-control" placeholder="Nhập SĐT đại lý" value="{{ request('agency_phone') }}">
+                    </div>
                 </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="kho" name="kho" class="form-control" placeholder="Kho" value="{{ request('kho') }}">
+
+                <!-- Hàng 3: Trạng thái và phân loại -->
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label small text-muted">Trạng thái điều phối</label>
+                        <select id="trangthai" name="trangthai" class="form-control">
+                            <option value="">-- Chọn trạng thái --</option>
+                            <option value="0" {{ request('trangthai') == '0' ? 'selected' : '' }}>Chưa điều phối</option>
+                            <option value="1" {{ request('trangthai') == '1' ? 'selected' : '' }}>Đã điều phối</option>
+                            <option value="2" {{ request('trangthai') == '2' ? 'selected' : '' }}>Đã hoàn thành</option>
+                            <option value="3" {{ request('trangthai') == '3' ? 'selected' : '' }}>Đã thanh toán</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label small text-muted">Phân loại lắp đặt</label>
+                        <select id="phanloai" name="phanloai" class="form-control">
+                            <option value="">-- Chọn phân loại --</option>
+                            <option value="collaborator" {{ request('phanloai') == 'collaborator' ? 'selected' : '' }}>Cộng tác viên lắp đặt</option>
+                            <option value="agency" {{ request('phanloai') == 'agency' ? 'selected' : '' }}>Đại lý lắp đặt</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="agency_home" name="agency_home" class="form-control" placeholder="Đại lý tại nhà" value="{{ request('agency_home') }}">
-                </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="agency_phone" name="agency_phone" class="form-control" placeholder="SĐT đại lý" value="{{ request('agency_phone') }}">
-                </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Tên khách hàng" value="{{ request('customer_name') }}">
-                </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="customer_phone" name="customer_phone" class="form-control" placeholder="SĐT khách hàng" value="{{ request('customer_phone') }}">
-                </div>
-                <div class="col-md-3 mb-1">
-                    <input type="text" id="product_name" name="product_name" class="form-control" placeholder="Tên sản phẩm" value="{{ request('product_name') }}">
-                </div>
-                <div class="col-md-3 mb-1">
-                    <select id="install_collaborator" name="install_collaborator" class="form-control">
-                        <option value="">Cộng tác viên lắp đặt</option>
-                        <!-- Options sẽ được load từ AJAX -->
-                    </select>
-                </div>
-                <div class="col-md-3 mb-1">
-                    <input type="number" id="install_cost" name="install_cost" class="form-control" placeholder="Chi phí lắp đặt" value="{{ request('install_cost') }}">
-                </div>
-            </div>
-            <div class="col-lg-4 mb-1 d-flex gap-2">
-                <button class="btn btn-primary flex-fill">Tìm kiếm</button>
-                <a href="#" id="reportCollaboratorInstall" class="btn btn-success flex-fill">Thống kê</a>
-                <button type="button" id="toggleOldDataSearch" class="btn btn-info flex-fill">Tra cứu dữ liệu cũ</button>
-                <div class="btn-group flex-fill" role="group">
-                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        Đồng Bộ
-                    </button>
-                    <ul class="dropdown-menu">
-                        {{-- <li><a class="dropdown-item" href="#" id="dataSynchronizationOld" data-bs-toggle="modal" data-bs-target="#excelModalOld">Đồng bộ dữ liệu cũ</a></li> --}}
-                        <li><a class="dropdown-item" href="#" id="dataSynchronizationNew" data-bs-toggle="modal" data-bs-target="#excelModalNew">Đồng bộ dữ liệu mới (Upsert)</a></li>
-                    </ul>
+
+                <!-- Hàng 4: Nút điều khiển -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Tìm kiếm
+                            </button>
+                            <a href="#" id="reportCollaboratorInstall" class="btn btn-success">
+                                <i class="fas fa-chart-bar me-1"></i>Thống kê
+                            </a>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-sync-alt me-1"></i>Đồng Bộ
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" id="dataSynchronizationNew" data-bs-toggle="modal" data-bs-target="#excelModalNew">
+                                        <i class="fas fa-file-excel me-2"></i>Đồng bộ dữ liệu cũ (File Excel cũ)
+                                    </a></li>
+                                </ul>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <i class="fas fa-eraser me-1"></i>Xóa bộ lọc
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </form>
 </div>
-<!-- Modal cho đồng bộ dữ liệu cũ -->
-{{-- <div class="modal fade" id="excelModalOld" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <!-- Header -->
-            <div class="modal-header">
-                <h5 class="modal-title">Đồng Bộ Dữ Liệu Cũ Từ Excel</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="modal-body">
-                <form id="excelUploadFormOld" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="excelFileOld" class="form-label">Chọn file Excel (.xlsx, .xls)</label>
-                        <input class="form-control" type="file" id="excelFileOld" name="excelFile" accept=".xlsx,.xls" required>
-                        <div class="form-text">Chức năng này chỉ import dữ liệu vào bảng installation_orders</div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Footer -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" form="excelUploadFormOld" class="btn btn-primary">Tải Lên</button>
-            </div>
-        </div>
-    </div>
-</div> --}}
-
 <!-- Modal cho đồng bộ dữ liệu mới với upsert -->
 <div class="modal fade" id="excelModalNew" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -203,19 +192,6 @@
             e.preventDefault();
             let tab = $(this).data('tab');
             
-            // Hiển thị/ẩn các trường tìm kiếm dựa trên tab
-            if (tab === 'installold') {
-                // Không tự động hiển thị form tìm kiếm dữ liệu cũ
-                // Chỉ cập nhật options cho trạng thái dữ liệu cũ
-                updateStatusOptionsForOldData();
-            } else {
-                $('#oldDataFields').hide();
-                // Khôi phục options trạng thái mặc định
-                updateStatusOptionsForNewData();
-                // Reset button về trạng thái ban đầu
-                $('#toggleOldDataSearch').text('Tra cứu dữ liệu cũ').removeClass('btn-warning').addClass('btn-info');
-            }
-            
             let formData = $('#searchForm').serialize();
             loadTabData(tab, formData);
         });
@@ -229,59 +205,18 @@
         });
 
         Report();
-        
-        // Xử lý button tra cứu dữ liệu cũ
-        $('#toggleOldDataSearch').on('click', function() {
-            if ($('#oldDataFields').is(':visible')) {
-                $('#oldDataFields').hide();
-                $(this).text('Tra cứu dữ liệu cũ');
-                $(this).removeClass('btn-warning').addClass('btn-info');
-            } else {
-                $('#oldDataFields').show();
-                $(this).text('Ẩn');
-                $(this).removeClass('btn-info').addClass('btn-warning');
-                // Load danh sách cộng tác viên khi hiển thị form
-                loadCollaborators();
-            }
-        });
-        
-        // Kiểm tra tab hiện tại khi load trang
-        let currentTab = localStorage.getItem('activeTab') || '{{ $tab ?? "dieuphoidonhang" }}';
-        if (currentTab === 'installold') {
-            // Chỉ cập nhật options trạng thái, không tự động hiển thị form
-            updateStatusOptionsForOldData();
-        }
     });
     
-    // Hàm load danh sách cộng tác viên
-    function loadCollaborators() {
-        $.get('{{ route("collaborators.filter") }}?for_search=1', function(data) {
-            let options = '<option value="">Cộng tác viên lắp đặt</option>';
-            if (data.html) {
-                options += data.html;
-            }
-            $('#install_collaborator').html(options);
-        });
-    }
-    
-    // Cập nhật options trạng thái cho dữ liệu cũ
-    function updateStatusOptionsForOldData() {
-        $('#trangthai').html(`
-            <option value="">Trạng thái lắp đặt</option>
-            <option value="1">Đã lắp đặt</option>
-            <option value="2">Đã hoàn thành</option>
-            <option value="3">Đã thanh toán</option>
-        `);
-    }
-    
-    // Cập nhật options trạng thái cho dữ liệu mới
-    function updateStatusOptionsForNewData() {
-        $('#trangthai').html(`
-            <option value="">Trạng thái điều phối</option>
-            <option value="0">Chưa điều phối</option>
-            <option value="1">Đã điều phối</option>
-            <option value="2">Đã hoàn thành</option>
-        `);
+    // Hàm xóa bộ lọc
+    function clearForm() {
+        $('#searchForm')[0].reset();
+        // Reset các select về giá trị mặc định
+        $('#trangthai').val('');
+        $('#phanloai').val('');
+        
+        // Reload dữ liệu với form trống
+        const tab = localStorage.getItem('activeTab') || 'dieuphoidonhang';
+        loadTabData(tab, '');
     }
 
     function Report() {
