@@ -51,6 +51,28 @@ class User extends Authenticatable  implements OAuthenticatable
 		return $this->belongsToMany(Role::class, 'user_role', 'user_id', 'role_id');
 	}
 
+	public function hasAnyRole($roles)
+    {
+        if (is_array($roles)) {
+            foreach ($roles as $role) {
+                if ($this->hasRole($role)) {
+                    return true;
+                }
+            }
+        } else {
+            if ($this->hasRole($roles)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasRole($roleName)
+    {
+        // so sánh không phân biệt hoa thường
+        return $this->roles()->whereRaw('LOWER(name) = ?', [strtolower($roleName)])->exists();
+    }
+
     public function permissions()
     {
         return $this->roles()

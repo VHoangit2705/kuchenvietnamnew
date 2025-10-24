@@ -149,7 +149,7 @@
                 <tr>
                     <th style="width: 12px;">STT</th>
                     <th style="width: 250px;">Lỗi</th>
-                    <th>Linh kiện thay thế</th>
+                    <th>Linh kiện/ Sản phẩm thay thế</th>
                     <th>SL</th>
                     <th>Đơn giá</th>
                 </tr>
