@@ -849,16 +849,62 @@ class CollaboratorInstallController extends Controller
                 }
             };
 
-            // Hàm chuẩn hóa trạng thái - tối ưu hóa
+            // Hàm chuẩn hóa trạng thái - tối ưu hóa và xử lý lộn xộn
             $parseStatus = function ($statusRaw) {
                 if (empty($statusRaw)) return 0;
                 
+                // Loại bỏ khoảng trắng thừa và chuyển về chữ thường
                 $statusLower = mb_strtolower(trim($statusRaw));
-                $completedStatuses = ['đã hoàn thành', 'hoàn thành', 'done', 'x', '1', 'yes'];
-                $processingStatuses = ['đang xử lý', 'đang làm', 'đang theo dõi', 'đang thực hiện'];
                 
-                if (in_array($statusLower, $completedStatuses)) return 2;
-                if (in_array($statusLower, $processingStatuses)) return 1;
+                // Loại bỏ các ký tự đặc biệt và số thừa
+                $statusClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $statusLower);
+                $statusClean = preg_replace('/\s+/', ' ', $statusClean);
+                $statusClean = trim($statusClean);
+                
+                // Trạng thái đã thanh toán (3)
+                $paidStatuses = [
+                    'đã thanh toán', 'thanh toán', 'đã trả', 'trả tiền', 'paid', 'payment',
+                    'đã chi', 'chi trả', 'hoàn tất thanh toán', 'thanh toán xong'
+                ];
+                
+                // Trạng thái hoàn thành (2) 
+                $completedStatuses = [
+                    'đã hoàn thành', 'hoàn thành', 'done', 'x', '1', 'yes', 'ok', 'okay',
+                    'xong', 'hoàn tất', 'kết thúc', 'finish', 'completed', 'success',
+                    'đã xong', 'đã làm xong', 'đã lắp xong', 'lắp xong'
+                ];
+                
+                // Trạng thái đang xử lý (1)
+                $processingStatuses = [
+                    'đang xử lý', 'đang làm', 'đang theo dõi', 'đang thực hiện', 'đang lắp',
+                    'processing', 'in progress', 'đang tiến hành', 'đang thực hiện',
+                    'đang lắp đặt', 'lắp đặt', 'đang thi công', 'thi công'
+                ];
+                
+                // Trạng thái chưa điều phối (0)
+                $notAssignedStatuses = [
+                    'chưa điều phối', 'chưa giao', 'chưa làm', 'pending', 'waiting',
+                    'chờ', 'chưa xử lý', 'chưa thực hiện', '0', 'no', 'false'
+                ];
+                
+                // Kiểm tra từng nhóm trạng thái
+                foreach ($paidStatuses as $status) {
+                    if (strpos($statusClean, $status) !== false) return 3;
+                }
+                
+                foreach ($completedStatuses as $status) {
+                    if (strpos($statusClean, $status) !== false) return 2;
+                }
+                
+                foreach ($processingStatuses as $status) {
+                    if (strpos($statusClean, $status) !== false) return 1;
+                }
+                
+                foreach ($notAssignedStatuses as $status) {
+                    if (strpos($statusClean, $status) !== false) return 0;
+                }
+                
+                // Nếu không khớp với bất kỳ pattern nào, mặc định là chưa điều phối
                 return 0;
             };
 
@@ -1003,34 +1049,36 @@ class CollaboratorInstallController extends Controller
                                 $stats['orders_updated']++;
                             }
                             
-                            // Cập nhật dữ liệu order
-                            $order->fill([
-                                'customer_name' => $customerName,
-                                'customer_phone' => $customerPhone,
-                                'customer_address' => $customerAddress,
-                                'agency_name' => $agencyName,
-                                'agency_phone' => $agencyPhone,
-                                'collaborator_id' => $collaboratorId,
-                                'status_install' => $statusInstall,
-                                'successed_at' => ($statusInstall == 2 && $createdAt) ? $createdAt : null,
-                                'payment_method' => 'cash',
-                                'status' => 'pending',
-                                'status_tracking' => 'pending',
-                                'staff' => 'system',
-                                'zone' => '',
-                                'type' => 'online',
-                                'shipping_unit' => 'default',
-                                'send_camon' => 0,
-                                'send_khbh' => 0,
-                                'ip_rate' => '',
-                                'note' => '',
-                                'note_admin' => '',
-                                'check_return' => 0
-                            ]);
-                            $order->save();
+                            // Chỉ cập nhật Order khi status_install < 2 (chưa hoàn thành)
+                            if ($statusInstall < 2) {
+                                $order->fill([
+                                    'customer_name' => $customerName,
+                                    'customer_phone' => $customerPhone,
+                                    'customer_address' => $customerAddress,
+                                    'agency_name' => $agencyName,
+                                    'agency_phone' => $agencyPhone,
+                                    'collaborator_id' => $collaboratorId,
+                                    'status_install' => $statusInstall,
+                                    'successed_at' => null, // Chưa hoàn thành nên successed_at = null
+                                    'payment_method' => 'cash',
+                                    'status' => 'pending',
+                                    'status_tracking' => 'pending',
+                                    'staff' => 'system',
+                                    'zone' => '',
+                                    'type' => 'online',
+                                    'shipping_unit' => 'default',
+                                    'send_camon' => 0,
+                                    'send_khbh' => 0,
+                                    'ip_rate' => '',
+                                    'note' => '',
+                                    'note_admin' => '',
+                                    'check_return' => 0
+                                ]);
+                                $order->save();
+                            }
 
-                            // 4.1. Tạo OrderProduct nếu có sản phẩm và order đã được tạo
-                            if (!empty($product) && $order) {
+                            // 4.1. Tạo OrderProduct nếu có sản phẩm và order đã được tạo (chỉ khi status < 2)
+                            if (!empty($product) && $order && $statusInstall < 2) {
                                 $orderProduct = OrderProduct::where('order_id', $order->id)
                                     ->where('product_name', $product)
                                     ->first();
@@ -1055,35 +1103,37 @@ class CollaboratorInstallController extends Controller
                                 }
                             }
 
-                            // 5. Tạo/Cập nhật InstallationOrder - Tối ưu hóa
-                            $installationOrder = null;
-                            if ($orderCode) {
-                                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                            // 5. Tạo/Cập nhật InstallationOrder - CHỈ khi status_install >= 2 (đã hoàn thành/đã thanh toán)
+                            if ($statusInstall >= 2) {
+                                $installationOrder = null;
+                                if ($orderCode) {
+                                    $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                                }
+                                
+                                if (!$installationOrder) {
+                                    $installationOrder = new InstallationOrder();
+                                    $stats['installation_orders_created']++;
+                                } else {
+                                    $stats['installation_orders_updated']++;
+                                }
+                                
+                                $installationOrder->fill([
+                                    'order_code' => $orderCode,
+                                    'full_name' => $customerName,
+                                    'phone_number' => $customerPhone,
+                                    'address' => $customerAddress,
+                                    'product' => $product,
+                                    'collaborator_id' => $collaboratorId,
+                                    'status_install' => $statusInstall,
+                                    'reviews_install' => $note,
+                                    'agency_name' => $agencyName,
+                                    'agency_phone' => $agencyPhone,
+                                    'type' => 'donhang',
+                                    'created_at' => $createdAt,
+                                    'successed_at' => ($statusInstall == 2 && $createdAt) ? $createdAt : null
+                                ]);
+                                $installationOrder->save();
                             }
-                            
-                            if (!$installationOrder) {
-                                $installationOrder = new InstallationOrder();
-                                $stats['installation_orders_created']++;
-                            } else {
-                                $stats['installation_orders_updated']++;
-                            }
-                            
-                            $installationOrder->fill([
-                                'order_code' => $orderCode,
-                                'full_name' => $customerName,
-                                'phone_number' => $customerPhone,
-                                'address' => $customerAddress,
-                                'product' => $product,
-                                'collaborator_id' => $collaboratorId,
-                                'status_install' => $statusInstall,
-                                'reviews_install' => $note,
-                                'agency_name' => $agencyName,
-                                'agency_phone' => $agencyPhone,
-                                'type' => 'donhang',
-                                'created_at' => $createdAt,
-                                'successed_at' => ($statusInstall == 2 && $createdAt) ? $createdAt : null
-                            ]);
-                            $installationOrder->save();
 
                             // 6. Tạo/Cập nhật WarrantyRequest - Tối ưu hóa
                             if (!empty($product) && $statusInstall > 0) {
