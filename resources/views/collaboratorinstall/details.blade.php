@@ -184,7 +184,7 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
-                                        @if (empty($agency->address) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -193,7 +193,7 @@
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
                                         <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
-                                        @if (empty($agency->sotaikhoan) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -202,7 +202,7 @@
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
                                         <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
-                                        @if (empty($agency->chinhanh) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -211,7 +211,7 @@
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
                                         <span class="text-value">{{ $agency->cccd ?? '' }}</span>
-                                        @if (empty($agency->cccd) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -220,7 +220,7 @@
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
                                         <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
-                                        @if (empty($agency->ngaycap) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -294,8 +294,11 @@
 </div>
 <div class="container-fluid mt-2 d-flex justify-content-end">
     <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
-    <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
-    <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+    
+    @if($statusInstall != 3)
+        <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
+        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+    @endif
 </div>
 <script>
     $(document).ready(function() {
@@ -404,13 +407,26 @@
             data[field] = value;
         });
 
-        $.post("{{ route('ctv.update') }}", data);
+        $.ajax({
+            url: "{{ route('ctv.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                console.log('Collaborator updated successfully:', response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error updating collaborator:', error);
+            }
+        });
     }
 
     function UpdateAgency() {
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
         };
+        
+        // Đảm bảo agency_phone luôn được gửi
+        let agencyPhone = '';
         $("td[data-agency]").each(function() {
             let $td = $(this);
             let agency = $td.data("agency");
@@ -420,9 +436,52 @@
             } else {
                 value = $td.find(".text-value").text().trim();
             }
+            
+            if (agency === "agency_phone") {
+                agencyPhone = value;
+            }
+            
+            // Xử lý format ngày tháng cho agency_release_date
+            if (agency === "agency_release_date" && value && value.includes('/')) {
+                // Chuyển từ d/m/Y sang Y-m-d cho database
+                let parts = value.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    value = year + '-' + month + '-' + day;
+                }
+            }
+            
             data[agency] = value;
         });
-        $.post("{{ route('agency.update') }}", data);
+        
+        // Kiểm tra nếu không có agency_phone
+        if (!agencyPhone) {
+            console.error('Agency phone is required but not found');
+            return;
+        }
+        
+        console.log('Sending agency data:', data);
+        
+        $.ajax({
+            url: "{{ route('agency.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                console.log('Agency updated successfully:', response);
+                if (response.success) {
+                    // Có thể thêm thông báo thành công ở đây
+                    console.log('Agency update successful');
+                } else {
+                    console.error('Agency update failed:', response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error updating agency:', error);
+                console.error('Response:', xhr.responseText);
+            }
+        });
     }
 
     function Update() {
@@ -459,6 +518,13 @@
                     formData.append("action", action);
                     formData.append("type", type);
                     formData.append("product", $('#product_name').val());
+                    
+                    console.log('Sending update request:', {
+                        action: action,
+                        id: "{{ $data->order->id ?? $data->id }}",
+                        type: type,
+                        isInstallAgency: isInstallAgency
+                    });
 
                     if (isInstallAgency === 1) {
                         formData.append("ctv_id", 1);
@@ -600,24 +666,39 @@
 
         if (field === "ngaycap" || agency === "agency_release_date") {
             $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
         }
 
         // Xử lý khi blur (rời input)
-        // $input.on("blur", function() {
-        //     let newValue = $(this).val().trim() || oldValue;
+        $input.on("blur", function() {
+            let newValue = $(this).val().trim() || oldValue;
 
-        //     if (field === "ngaycap" || agency === "agency_release_date") {
-        //         let regex = /^(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])\/\d{4}$/;
-        //         if (!regex.test(newValue)) {
-        //             alert("Vui lòng nhập đúng định dạng dd/mm/yyyy");
-        //             return;
-        //         }
-        //     }
+            if (field === "ngaycap" || agency === "agency_release_date") {
+                // Chuyển đổi format từ Y-m-d sang d/m/Y để hiển thị
+                if (newValue && newValue.includes('-')) {
+                    let parts = newValue.split('-');
+                    if (parts.length === 3) {
+                        let year = parts[0];
+                        let month = parts[1];
+                        let day = parts[2];
+                        newValue = day + '/' + month + '/' + year;
+                    }
+                }
+            }
 
-        //     $span.text(newValue).show();
-        //     $td.find(".edit-icon").show();
-        //     $(this).remove();
-        // });
+            $span.text(newValue).show();
+            $td.find(".edit-icon").show();
+            $(this).remove();
+        });
 
         // Xử lý nhấn Enter
         $input.on("keypress", function(e) {

@@ -125,45 +125,105 @@ class CollaboratorController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'Lỗi trong quá trình xoá']);
     }
-    
-    public function UpdateCollaborator(Request $request){
-        $collab = WarrantyCollaborator::find($request->id);
-        if($collab){
+
+    public function UpdateCollaborator(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'id' => 'required|integer',
+                'sotaikhoan' => 'nullable|string|max:255',
+                'chinhanh' => 'nullable|string|max:255',
+                'cccd' => 'nullable|string|max:20',
+                'ngaycap' => 'nullable|date'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dữ liệu không hợp lệ',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $collab = WarrantyCollaborator::find($request->id);
+            if (!$collab) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy cộng tác viên'
+                ], 404);
+            }
+
             $collab->sotaikhoan = $request->sotaikhoan;
             $collab->chinhanh = $request->chinhanh;
             $collab->cccd = $request->cccd;
             $collab->ngaycap = $request->ngaycap;
             $collab->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật thành công',
+                'data' => $collab
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
         }
-        return response()->json([
-            'success' => true,
-            'message' => 'Cập nhật thành công',
-            'data' => $collab
-        ]);
     }
-    
-    public function UpdateAgency(Request $request){
-        $validator = Validator::make($request->all(), [
-            'agency_name' => 'required',
-            'agency_address' => 'nullable',
-            'agency_phone' => 'required',
-            'agency_paynumber' => 'nullable',
-            'agency_branch' => 'nullable',
-            'agency_cccd' => 'nullable',
-            'agency_release_date' => 'nullable',
-        ]);
-        if ($validator->fails()) { return; }
-        Agency::updateOrCreate(
-            ['phone' => $request->agency_phone],
-            [
-                'name'       => $request->agency_name,
-                'address'    => $request->agency_address,
-                'sotaikhoan' => $request->agency_paynumber,
-                'chinhanh'   => $request->agency_branch,
-                'cccd'       => $request->agency_cccd,
-                'ngaycap'    => $request->agency_release_date,
-                'create_by'  => session('user'),
-            ]
-        );
+
+    public function UpdateAgency(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'agency_name' => 'nullable',
+                'agency_address' => 'nullable',
+                'agency_phone' => 'nullable',
+                'agency_paynumber' => 'nullable',
+                'agency_branch' => 'nullable',
+                'agency_cccd' => 'nullable',
+                'agency_release_date' => 'nullable',
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dữ liệu không hợp lệ',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
+            // Kiểm tra nếu không có agency_phone thì không cập nhật
+            if (empty($request->agency_phone)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số điện thoại đại lý là bắt buộc'
+                ], 422);
+            }
+            
+            $agency = Agency::updateOrCreate(
+                ['phone' => $request->agency_phone],
+                [
+                    'name'       => $request->agency_name,
+                    'address'    => $request->agency_address,
+                    'sotaikhoan' => $request->agency_paynumber,
+                    'chinhanh'   => $request->agency_branch,
+                    'cccd'       => $request->agency_cccd,
+                    'ngaycap'    => $request->agency_release_date,
+                    'create_by'  => session('user'),
+                    'created_ad' => now(),
+                ]
+            );
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật đại lý thành công'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
