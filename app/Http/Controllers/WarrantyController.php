@@ -361,7 +361,10 @@ class WarrantyController extends Controller
         $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
         $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien'));
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        $sanpham = Product::where('view', $view)->select('product_name')->get();
+
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
@@ -378,9 +381,10 @@ class WarrantyController extends Controller
             'des_error_type' => 'nullable',
         ]);
 
-        if ($request->solution === 'Thay thế linh kiện/hardware' && empty($request->replacement)) {
-            $validator->after(function ($validator) {
-                $validator->errors()->add('replacement', 'Linh kiện thay thế là bắt buộc khi chọn giải pháp này.');
+        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
+            $validator->after(function ($validator) use ($request) {
+                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
             });
         }
 
@@ -396,6 +400,13 @@ class WarrantyController extends Controller
         }
         if($request->replacement){
             $product = Product::getProductByName($request->replacement);
+            if (!$product) {
+                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
+                $view = session('brand') === 'hurom' ? 3 : 1;
+                $product = Product::where('product_name', $request->replacement)
+                    ->where('view', $view)
+                    ->first();
+            }
             $data['replacement_price'] = $product->price ?? $request->unit_price;
         }
         // Thêm thông tin bổ sung

@@ -98,7 +98,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 });
 
 //Permissions
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/phanquyentaikhoan', [PermissionController::class, 'index'])->name('permissions.index');
     Route::post('/admin/phanquyentaikhoan/taotaikhoan', [PermissionController::class, 'CreateUser'])->name('roles.createuser');
     Route::post('/admin/phanquyentaikhoan/capnhat', [PermissionController::class, 'update'])->name('permissions.update');
