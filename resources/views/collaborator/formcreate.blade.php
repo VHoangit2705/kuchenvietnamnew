@@ -14,14 +14,14 @@
                         <input id="full_nameForm" name="full_name" type="text" class="form-control" placeholder="Họ tên" value="" required>
                         <div class="error text-danger small mt-1"></div>
                     </div>
-                    <!--<div class="form-group">-->
-                    <!--    <label for="date_of_birth" class="form-label mt-1">Ngày sinh (<span style="color: red;">*</span>)</label>-->
-                    <!--    <input id="date_of_birth" name="date_of_birth" type="date" class="form-control" placeholder="Ngày sinh" value="" required>-->
-                    <!--    <div class="error text-danger small mt-1"></div>-->
-                    <!--</div>-->
                     <div class="form-group">
                         <label for="phone" class="form-label mt-1">Số điện thoại (<span style="color: red;">*</span>)</label>
                         <input id="phoneForm" name="phone" type="text" class="form-control" placeholder="Số điện thoại" value="" required>
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="date_of_birth" class="form-label mt-1">Ngày sinh (<span style="color: red;">*</span>)</label>
+                        <input id="date_of_birthForm" name="date_of_birth" type="date" class="form-control" placeholder="Ngay" value="" required>
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group">
@@ -151,3 +151,4 @@
         });
     });
 </script>
+<script src="{{ asset('js/validateform.js') }}"></script>
