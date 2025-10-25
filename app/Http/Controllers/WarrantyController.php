@@ -53,6 +53,10 @@ class WarrantyController extends Controller
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
 
+        // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
+        $toDate = Carbon::parse(request('toDate', now()));
+
         $branchMap = [
             'vinh' => 'kuchen vinh',
             'hcm' => 'kuchen hcm',
@@ -76,10 +80,14 @@ class WarrantyController extends Controller
             })
             ->when($sophieu = request('sophieu'), fn($q) => $q->where('id', 'like', "%$sophieu%"))
             ->when($seri = request('seri'), fn($q) => $q->where('serial_number', 'like', "%$seri%"))
+            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
-            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"));
+            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
+            ->when($fromDate && $toDate, function ($q) use ($fromDate, $toDate) {
+                return $q->whereBetween('received_date', [$fromDate->startOfDay(), $toDate->endOfDay()]);
+            });
 
         $counts = (clone $query)
             ->selectRaw("
@@ -106,6 +114,11 @@ class WarrantyController extends Controller
 
         $data = $tabQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(self::$pageSize)->withQueryString();
 
+        $products = [];
+        if (session('brand') == 'kuchen') {
+            $products = Product::where('view', '1')->select('product_name')->get()->toArray();
+        }
+
         if (request()->ajax()) {
             return response()->json([
                 'tab' => view('components.tabheader', [
@@ -116,7 +129,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'products', 'tab', 'fromDate', 'toDate'));
     }
 
 
@@ -130,6 +143,10 @@ class WarrantyController extends Controller
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
         // $today = Carbon::today()->toDateString();
+
+        // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
+        $toDate = Carbon::parse(request('toDate', now()));
 
         $branchMap = [
             'vinh' => 'hurom vinh',
@@ -157,10 +174,14 @@ class WarrantyController extends Controller
             })
             ->when($sophieu = request('sophieu'), fn($q) => $q->where('id', 'like', "%$sophieu%"))
             ->when($seri = request('seri'), fn($q) => $q->where('serial_number', 'like', "%$seri%"))
+            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
-            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"));
+            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
+            ->when($fromDate && $toDate, function ($q) use ($fromDate, $toDate) {
+                return $q->whereBetween('received_date', [$fromDate->startOfDay(), $toDate->endOfDay()]);
+            });
 
         $counts = (clone $query)
             ->selectRaw("
@@ -186,6 +207,12 @@ class WarrantyController extends Controller
         };
 
         $data = $tabQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(self::$pageSize)->withQueryString();
+        
+        $products = [];
+        if (session('brand') == 'hurom') {
+            $products = Product::where('view', '1')->select('product_name')->get()->toArray();
+        }
+        
 
         if (request()->ajax()) {
             $tabHtml = view('components.tabheader', [
@@ -201,7 +228,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'products', 'tab', 'fromDate', 'toDate'));
     }
     //phân trang
     public function paginateCollection(Collection $items, $perPage, $currentPage)
@@ -361,7 +388,10 @@ class WarrantyController extends Controller
         $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
         $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien'));
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        $sanpham = Product::where('view', $view)->select('product_name')->get();
+
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
@@ -378,9 +408,10 @@ class WarrantyController extends Controller
             'des_error_type' => 'nullable',
         ]);
 
-        if ($request->solution === 'Thay thế linh kiện/hardware' && empty($request->replacement)) {
-            $validator->after(function ($validator) {
-                $validator->errors()->add('replacement', 'Linh kiện thay thế là bắt buộc khi chọn giải pháp này.');
+        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
+            $validator->after(function ($validator) use ($request) {
+                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
             });
         }
 
@@ -396,6 +427,13 @@ class WarrantyController extends Controller
         }
         if($request->replacement){
             $product = Product::getProductByName($request->replacement);
+            if (!$product) {
+                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
+                $view = session('brand') === 'hurom' ? 3 : 1;
+                $product = Product::where('product_name', $request->replacement)
+                    ->where('view', $view)
+                    ->first();
+            }
             $data['replacement_price'] = $product->price ?? $request->unit_price;
         }
         // Thêm thông tin bổ sung

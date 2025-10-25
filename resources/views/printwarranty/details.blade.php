@@ -30,7 +30,7 @@
         OpenWaitBox();
         $.get(temUrl)
             .done(function(data) {
-                const iframe = `<iframe src="https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public/pdfs/tem-bao-hanh-${itemId}.pdf" style="width: 100%; height: 1000px;" frameborder="0"></iframe>`;
+                const iframe = `<iframe src="${data.url}" style="width: 100%; height: 1000px;" frameborder="0"></iframe>`;
                 $previewContainer.html(iframe);
                 CloseWaitBox();
             })

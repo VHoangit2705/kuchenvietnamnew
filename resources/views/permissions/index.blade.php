@@ -196,6 +196,20 @@
             return isvalid;
         }
 
+        function setupRoleCheckboxes() {
+            // Chọn tất cả
+            $('.btn-outline-success').on('click', function(e) {
+                e.preventDefault();
+                $('input[name="roles[]"]').prop('checked', true);
+            });
+
+            // Bỏ chọn tất cả
+            $('.btn-outline-danger').on('click', function(e) {
+                e.preventDefault();
+                $('input[name="roles[]"]').prop('checked', false);
+            });
+        }
+
         $(document).ready(function() {
             $('#toggleFormUser').on('click', function(e) {
                 e.preventDefault();
@@ -225,15 +239,28 @@
                         if (response.success) {
                             alert('Thêm thành công!');
                         } else {
-                            alert(response.messsage);
+                            // Xử lý thông báo lỗi từ server
+                            let errorMessage = 'Đã có lỗi xảy ra.';
+                            if (response.message) {
+                                if (typeof response.message === 'object') {
+                                    // Lấy lỗi đầu tiên từ object validation
+                                    const firstErrorKey = Object.keys(response.message)[0];
+                                    errorMessage = response.message[firstErrorKey][0];
+                                } else {
+                                    // Nếu message là một chuỗi bình thường
+                                    errorMessage = response.message;
+                                }
+                            }
+                            alert(errorMessage);
                         }
                     },
                     error: function(xhr) {
-                        console.log(xhr.responseText);
                         alert('Đã xảy ra lỗi khi lưu nhóm quyền.');
                     }
                 });
             });
+
+            setupRoleCheckboxes();
         });
     </script>
 </body>

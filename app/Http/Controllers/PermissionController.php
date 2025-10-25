@@ -81,10 +81,25 @@ class PermissionController extends Controller
             ]);
         }
 
+        // 1. Mã hóa mật khẩu mới bằng md5 để so sánh
+        $hashedPassword = md5($request->password);
+
+        // 2. Kiểm tra xem mật khẩu đã tồn tại hay chưa
+        $passwordExists = User::where('password', $hashedPassword)->first();
+
+        // 3. Nếu mật khẩu đã tồn tại, trả về lỗi
+        if ($passwordExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mật khẩu đã được sử dụng, vui lòng chọn mật khẩu khác.'
+            ]);
+        }
+
+        // Nếu mật khẩu là duy nhất, tiến hành tạo user
         User::create([
             'full_name' => $request->full_name,
-            'password' => md5($request->password),
-            'zone'=>$request->zone
+            'password' => $hashedPassword, // Sử dụng lại mật khẩu đã mã hóa
+            'zone' => $request->zone
         ]);
 
         return response()->json(['success' => true]);
