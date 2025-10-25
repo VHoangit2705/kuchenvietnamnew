@@ -6,7 +6,9 @@
     <title>Chỉnh sửa phân quyền</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,9 +71,8 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">Phân quyền tài khoản</h6>
                         <div>
-                            <a href="#" class="btn btn-outline-secondary btn-sm" onclick="window.history.back()">Quay lại</a>
-                            <!-- <a href="#" class="btn btn-outline-primary btn-sm">✓ Lưu</a> -->
-                            <!-- <a href="#" class="btn btn-outline-primary btn-sm">Thêm tài khoản</a> -->
+                            {{-- <a href="#" class="btn btn-outline-secondary btn-sm" onclick="window.history.back()">Quay lại</a> --}}
+                            <a href="#" class="btn btn-outline-primary btn-sm" onclick="window.location.href = '{{ route('permissions.index') }}';">Reset</a>
                         </div>
                     </div>
                     <div class="card-body">
@@ -130,14 +131,37 @@
                     </div>
                     <div class="card-body">
                         @if ($selectedUser)
-                        <form method="POST" action="{{ route('permissions.update') }}">
+                        <form id="permissionsForm" method="POST" action="{{ route('permissions.update') }}">
                             @csrf
                             <input type="hidden" name="user_id" value="{{ $selectedUser->id }}">
+                            
+                            <!-- Thông tin người dùng -->
+                            <div class="mb-3">
+                                <label class="form-label">Tên: <strong>{{ $selectedUser->full_name }}</strong></label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Chi nhánh: <strong>{{ $selectedUser->zone }}</strong></label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Chức vụ hiện tại: </label>
+                                <div class="badge text-wrap {{ empty($selectedUser->position) ? 'bg-warning text-dark' : 'bg-primary' }}" style="width: 8rem;">
+                                    <span id="current-position">{{ $selectedUser->position ?: 'Chưa có' }}</span>
+                                </div>
+                            </div>
+
+                            
+                            <hr>
+                            <h6>Phân quyền:</h6>
                             @foreach ($roles as $role)
                             <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" name="roles[]" value="{{ $role->id }}"
+                                <input class="form-check-input role-checkbox" type="checkbox" name="roles[]" value="{{ $role->id }}"
+                                    data-description="{{ $role->description }}"
                                     {{ $selectedUser->roles->contains($role->id) ? 'checked' : '' }}>
-                                <label class="form-check-label">{{ $role->name }}</label>
+                                <label class="form-check-label">
+                                    @if($role->description)
+                                        <strong>{{ $role->description }}</strong>
+                                    @endif
+                                </label>
                             </div>
                             @endforeach
                             <button type="submit" class="btn btn-outline-primary btn-sm mt-3">Cập nhật</button>
@@ -196,6 +220,7 @@
             return isvalid;
         }
 
+<<<<<<< HEAD
         function setupRoleCheckboxes() {
             // Chọn tất cả
             $('.btn-outline-success').on('click', function(e) {
@@ -209,11 +234,66 @@
                 $('input[name="roles[]"]').prop('checked', false);
             });
         }
+=======
+>>>>>>> 56fec20a5337b41963a61021d8526776c3c87106
 
         $(document).ready(function() {
+            // kèm css csrf token vào header của tất cả các request ajax
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    'Accept': 'application/json'
+                }
+            });
+
+            @if(session('success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công!',
+                    text: '{{ session('success') }}',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            @endif
+
+            @if(session('error'))
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi!',
+                    text: '{{ session('error') }}',
+                    confirmButtonText: 'OK'
+                });
+            @endif
+
+            @if($errors->any())
+                let errorMessage = '';
+                @foreach($errors->all() as $error)
+                    errorMessage += '{{ $error }}\n';
+                @endforeach
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi validation!',
+                    text: errorMessage,
+                    confirmButtonText: 'OK'
+                });
+            @endif
+
             $('#toggleFormUser').on('click', function(e) {
                 e.preventDefault();
                 $('#formCreateUser').toggleClass('d-none');
+            });
+
+            // Xử lý khi dropdown user thay đổi
+            $('select[name="user_id"]').on('change', function() {
+                const userId = $(this).val();
+                if (userId) {
+                    // Submit form để load thông tin user
+                    $(this).closest('form').submit();
+                } else {
+                    // Reset form phân quyền khi không chọn user
+                    $('.role-checkbox').prop('checked', false);
+                    $('#current-position').text('Chưa có');
+                }
             });
 
             $('#btnCreateUser').on('click', function(e) {
@@ -237,8 +317,17 @@
                     },
                     success: function(response) {
                         if (response.success) {
-                            alert('Thêm thành công!');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công!',
+                                text: 'Tài khoản đã được tạo thành công',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                window.location.href = '{{ route('permissions.index') }}';
+                            });
                         } else {
+<<<<<<< HEAD
                             // Xử lý thông báo lỗi từ server
                             let errorMessage = 'Đã có lỗi xảy ra.';
                             if (response.message) {
@@ -256,12 +345,128 @@
                     },
                     error: function(xhr) {
                         alert('Đã xảy ra lỗi khi lưu nhóm quyền.');
+=======
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi!',
+                                text: response.message || 'Có lỗi xảy ra khi tạo tài khoản',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                            console.log(xhr.responseText);
+                            if (xhr.status === 419) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Phiên làm việc đã hết hạn',
+                                    text: 'Vui lòng đăng nhập lại để tiếp tục.',
+                                    confirmButtonText: 'Đăng nhập'
+                                }).then(() => {
+                                    var loginUrl = '{{ route("login.form") }}';
+                                    if (!loginUrl) loginUrl = '/login';
+                                    window.location.href = loginUrl;
+                                });
+                                return;
+                            }
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi!',
+                                text: 'Đã xảy ra lỗi khi tạo tài khoản',
+                                confirmButtonText: 'OK'
+                            });
+>>>>>>> 56fec20a5337b41963a61021d8526776c3c87106
                     }
                 });
             });
 
+<<<<<<< HEAD
             setupRoleCheckboxes();
+=======
+            // Keep session alive every 5 minutes
+            setInterval(function() {
+                $.get('/keep-alive');
+            }, 5 * 60 * 1000);
+
+            // Handle permissions update via AJAX to catch 419
+            $('#permissionsForm').on('submit', function(e) {
+                e.preventDefault();
+                const $form = $(this);
+                $.ajax({
+                    url: $form.attr('action'),
+                    method: 'POST',
+                    data: $form.serialize(),
+                    success: function() {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công!',
+                            text: 'Cập nhật quyền thành công!',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 419) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Phiên làm việc đã hết hạn',
+                                text: 'Vui lòng đăng nhập lại để tiếp tục.',
+                                confirmButtonText: 'Đăng nhập'
+                            }).then(() => {
+                                var loginUrl = '{{ route("login.form") }}';
+                                if (!loginUrl) loginUrl = '/login';
+                                window.location.href = loginUrl;
+                            });
+                            return;
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi!',
+                            text: 'Đã xảy ra lỗi khi cập nhật quyền',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                });
+            });
+
+            $('.role-checkbox').on('change', function() {
+                const checkedRoles = $('.role-checkbox:checked');
+                let newPosition = '';
+                
+                if (checkedRoles.length > 0) {
+                    newPosition = checkedRoles.first().data('description');
+                }
+                
+                $('#current-position').text(newPosition || 'Chưa có');
+            });
+
+            // Chọn tất cả quyền
+            $('.card .btn-outline-success').on('click', function(e) {
+                e.preventDefault();
+                $('.role-checkbox').prop('checked', true);
+                const firstDesc = $('.role-checkbox:checked').first().data('description');
+                $('#current-position').text(firstDesc || 'Chưa có');
+            });
+
+            // Bỏ chọn tất cả quyền
+            $('.card .btn-outline-danger').on('click', function(e) {
+                e.preventDefault();
+                $('.role-checkbox').prop('checked', false);
+            });
+
+            // Hiển thị thông báo thành công khi cập nhật quyền
+            @if(session('success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công!',
+                    text: '{{ session('success') }}',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            @endif
+>>>>>>> 56fec20a5337b41963a61021d8526776c3c87106
         });
+
     </script>
 </body>
 

@@ -27,10 +27,53 @@ class PermissionController extends Controller
 
     public function update(Request $request)
     {
-        $user = User::findOrFail($request->user_id);
-        $user->roles()->sync($request->roles); // Gán role cho user
+        try {
+            // Validation
+            $validator = Validator::make($request->all(), [
+                'user_id' => 'required|exists:users,id',
+                'roles' => 'array',
+                'roles.*' => 'exists:roles,id'
+            ]);
 
-        return redirect()->back()->with('success', 'Cập nhật quyền thành công!');
+            if ($validator->fails()) {
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
+
+            DB::beginTransaction();
+
+            $user = User::findOrFail($request->user_id);
+            
+            // Sync roles cập nhật mảng rỗng để xóa hết quyền (có thể rỗng)
+            $user->roles()->sync($request->roles ?? []);
+            
+            // Cập nhật position dựa trên role được chọn
+            if (!empty($request->roles)) {
+                // Lấy description của role đầu tiên được chọn để ghi vào position
+                $firstRole = Role::find($request->roles[0]);
+                if ($firstRole && $firstRole->description) {
+                    $user->position = $firstRole->description;
+                } else {
+                    $user->position = '';
+                }
+            } else {
+                // Nếu không có role nào được chọn, xóa position
+                $user->position = '';
+            }
+            $user->save();
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Cập nhật quyền thành công!');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra khi cập nhật quyền: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
     public function IndexRole()
@@ -102,7 +145,35 @@ class PermissionController extends Controller
             'zone' => $request->zone
         ]);
 
-        return response()->json(['success' => true]);
+        if ($existingUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mật khẩu này đã được sử dụng bởi tài khoản khác. Vui lòng chọn mật khẩu khác.',
+            ]);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            User::create([
+                'full_name' => $request->full_name,
+                'password' => $hashedPassword,
+                'zone' => $request->zone,
+                'position' => '' // Position sẽ được cập nhật khi cấp quyền
+            ]);
+
+            DB::commit();
+
+            return response()->json(['success' => true]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi tạo tài khoản: ' . $e->getMessage(),
+            ]);
+        }
     }
     public function CreateRole(Request $request)
     {

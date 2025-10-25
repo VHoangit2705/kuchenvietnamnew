@@ -302,6 +302,10 @@ class WarrantyController extends Controller
             $query->where('staff_received', 'LIKE', '%' . $request->kythuatvien . '%');
         }
 
+        if ($request->filled('product')) {
+            $query->where('product', 'LIKE', '%' . $request->product . '%');
+        }
+
         // Thêm điều kiện chi nhánh nếu có
         if ($request->filled('chinhanh') && in_array($request->chinhanh, $branches)) {
             $query->where('branch', $request->chinhanh);
