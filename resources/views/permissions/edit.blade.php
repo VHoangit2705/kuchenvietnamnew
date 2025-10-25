@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -128,6 +129,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
+            // kèm csrf token vào header của tất cả các request ajax
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    'Accept': 'application/json'
+                }
+            });
+
             // Chọn tất cả
             $('.btn-outline-success').on('click', function(e) {
                 e.preventDefault();
@@ -227,14 +236,41 @@
                     },
                     success: function(response) {
                         if (response.success) {
-                            alert('Cập nhật thành công!');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công!',
+                                text: 'Cập nhật thành công!',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
                         } else {
-                            alert(response.messsage);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi!',
+                                text: response.message || 'Có lỗi xảy ra',
+                            });
                         }
                     },
                     error: function(xhr) {
                         console.log(xhr.responseText);
-                        alert('Đã xảy ra lỗi khi lưu nhóm quyền.');
+                        if (xhr.status === 419) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Phiên làm việc đã hết hạn',
+                                text: 'Vui lòng đăng nhập lại để tiếp tục.',
+                                confirmButtonText: 'Đăng nhập'
+                            }).then(() => {
+                                var loginUrl = '{{ route("login.form") }}';
+                                if (!loginUrl) loginUrl = '/login';
+                                window.location.href = loginUrl;
+                            });
+                            return;
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi!',
+                            text: 'Đã xảy ra lỗi khi lưu nhóm quyền.',
+                        });
                     }
                 });
             });

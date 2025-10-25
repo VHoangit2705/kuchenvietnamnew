@@ -52,6 +52,10 @@
                     <input type="text" id="kythuatvien" name="kythuatvien" class="form-control"
                         placeholder="Nhập tên kỹ thuật viên" value="{{ request('kythuatvien') }}">
                 </div>
+                <div class="col-md-4 mb-1">
+                    <input type="text" id="product" name="product" class="form-control" placeholder="Nhập tên sản phẩm"
+                        value="{{ request('product') }}">
+                </div>
             </div>
             <div class="row">
                 <div class="col-md-4 d-flex align-items-end">
