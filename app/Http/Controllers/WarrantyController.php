@@ -963,10 +963,10 @@ class WarrantyController extends Controller
         $customerPhone = $request->phone_number;
         
         if ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
-            // 1. Không có cả serial_number và serial_thanmay
-            $existingWarranty = WarrantyRequest::where('product', $productName)
-                ->where('phone_number', $customerPhone)
-                ->where('branch', $zone) 
+            // 1. Không có serial_number và không có serial_thanmay
+            // Nếu cùng khách hàng (số điện thoại trùng) trong cùng chi nhánh và cùng ngày -> không được tạo phiếu
+            $existingWarranty = WarrantyRequest::where('phone_number', $customerPhone)
+                ->where('branch', $zone)
                 ->whereDate('received_date', $today)
                 ->first();
         } elseif ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && !empty($serialThanMay)) {
@@ -977,23 +977,29 @@ class WarrantyController extends Controller
                 ->first();
         } elseif ($serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
             // 3. Có serial_number nhưng không có serial_thanmay
+            // Kiểm tra trùng serial trong toàn hệ thống (không giới hạn theo nhân viên)
             $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
-                ->where('branch', $zone)
                 ->whereDate('received_date', $today)
                 ->first();
         } else {
             // 4. Có cả serial_number và serial_thanmay
+            // Kiểm tra trùng serial trong toàn hệ thống (không giới hạn theo nhân viên)
             $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
                 ->where('serial_thanmay', $serialThanMay)
-                ->where('branch', $zone)
                 ->whereDate('received_date', $today)
                 ->first();
         }
         
         if ($existingWarranty) {
+            $message = 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.';
+            if ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
+                $message = 'Khách hàng này đã có phiếu cho sản phẩm này hôm nay. Vui lòng kiểm tra lại.';
+            } elseif ($serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI') {
+                $message = 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.';
+            }
             return response()->json([
                 'success' => false,
-                'message' => 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.'
+                'message' => $message,
             ]);
         }
         
