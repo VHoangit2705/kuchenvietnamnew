@@ -95,6 +95,10 @@
                                         @if (empty(optional(optional($data->order)->collaborator)->sotaikhoan ?? optional($data->collaborator)->sotaikhoan))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                        <div class="mt-1 d-flex align-items-center" style="gap:8px;">
+                                            <button type="button" id="verify_ctv_account" class="btn btn-sm btn-outline-secondary">Kiểm tra</button>
+                                            <span id="account_name_ctv" class="small text-muted"></span>
+                                        </div>
                                     </td>
                                     <th>Chi nhánh:</th>
                                     <td id="chinhanh" data-field="chinhanh">
@@ -103,6 +107,16 @@
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
+                                </tr>
+                                <tr class="ctv_row">
+                                    <th>Tên ngân hàng:</th>
+                                    <td id="bank_name_ctv" data-field="bank_name_ctv">
+                                        <span class="text-value"></span>
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        <input type="hidden" id="bank_bin_ctv" value="">
+                                    </td>
+                                    <th></th>
+                                    <td></td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số CCCD:</th>
@@ -184,7 +198,7 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
-                                        @if (empty($agency->address) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -193,25 +207,39 @@
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
                                         <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
-                                        @if (empty($agency->sotaikhoan) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                        <div class="mt-1 d-flex align-items-center" style="gap:8px;">
+                                            <button type="button" id="verify_agency_account" class="btn btn-sm btn-outline-secondary">Kiểm tra</button>
+                                            <span id="account_name_agency" class="small text-muted"></span>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
                                         <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
-                                        @if (empty($agency->chinhanh) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Tên ngân hàng:</th>
+                                    <td data-agency="agency_bank_name">
+                                        <span class="text-value"></span>
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
+                                        <input type="hidden" id="agency_bank_bin" value="">
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
                                         <span class="text-value">{{ $agency->cccd ?? '' }}</span>
-                                        @if (empty($agency->cccd) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -220,7 +248,7 @@
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
                                         <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
-                                        @if (empty($agency->ngaycap) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -292,28 +320,295 @@
         </div>
     </div>
 </div>
-<div class="container-fluid mt-2 d-flex justify-content-end">
-    <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
-    <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
-    <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+<div class="container-fluid mt-2 d-flex justify-content-between">
+    <div>
+        <button id="btnViewHistory" class="mt-2 btn btn-outline-secondary fw-bold">
+            <i class="bi bi-clock-history me-1"></i> Xem lịch sử thay đổi
+        </button>
+    </div>
+    <div class="d-flex">
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+        
+        @if($statusInstall != 3)
+            <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
+            <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+        @endif
+    </div>
 </div>
+
+<!-- Modal Lịch sử thay đổi -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="historyModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải lịch sử thay đổi...</p>
+                </div>
+                <div id="historyContent" style="display: none;">
+                    <div id="historyList"></div>
+                </div>
+                <div id="historyEmpty" class="text-center py-4" style="display: none;">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-2">Chưa có lịch sử thay đổi nào</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <p>Lưu ý các trường trống có thể là do đồng bộ từ file excel mà ko có đầy đủ thông tin của đại lý hoặc cộng tác viên</p>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Lưu trữ giá trị ban đầu của các trường CTV và Đại lý
+    let originalCtvData = {};
+    let originalAgencyData = {};
+    // Danh sách ngân hàng từ VietQR để hỗ trợ nhập chi nhánh/ngân hàng
+    let vietqrBanks = [];
+    let bankListBuilt = false;
+
+    // Global: Tải danh sách ngân hàng VietQR và tạo datalist
+    function fetchVietqrBanks() {
+        $.ajax({
+            url: 'https://api.vietqr.io/v2/banks',
+            method: 'GET',
+            success: function(res) {
+                if (res && res.data && Array.isArray(res.data)) {
+                    vietqrBanks = res.data;
+                    ensureBankDatalist();
+                }
+            },
+            error: function() {
+                // Bỏ qua nếu lỗi mạng
+            }
+        });
+    }
+
+    function ensureBankDatalist() {
+        if (bankListBuilt) return;
+        let $dl = $('<datalist id="vietqrBankList"></datalist>');
+        vietqrBanks.forEach(function(b) {
+            // Ví dụ hiển thị: "VCB - Vietcombank (970436)"
+            let display = '';
+            if (b.shortName && b.code) {
+                display = b.code + ' - ' + b.shortName + (b.bin ? ' (' + b.bin + ')' : '');
+            } else if (b.shortName) {
+                display = b.shortName;
+            } else if (b.name) {
+                display = b.name;
+            }
+            if (display) {
+                $dl.append('<option value="' + display.replace(/"/g, '&quot;') + '"></option>');
+            }
+        });
+        $('body').append($dl);
+        bankListBuilt = true;
+    }
+
+    function extractBinFromDisplay(display) {
+        if (!display) return '';
+        let match = display.match(/\((\d{6})\)$/);
+        if (match) return match[1];
+        let parts = display.split('(');
+        if (parts.length > 1) {
+            let bin = parts[1].replace(')', '').trim();
+            if (/^\d{6}$/.test(bin)) return bin;
+        }
+        let found = vietqrBanks.find(function(b){
+            return display.includes(b.shortName) || display.includes(b.name) || display.includes(b.code);
+        });
+        return found && found.bin ? found.bin : '';
+    }
+
     $(document).ready(function() {
+        fetchVietqrBanks();
+        // Lưu giá trị ban đầu của các trường CTV
+        function saveOriginalCtvData() {
+            originalCtvData = {
+                ctv_name: $("#ctv_name").text().trim(),
+                ctv_phone: $("#ctv_phone").text().trim(),
+                ctv_id: $("#ctv_id").val(),
+                sotaikhoan: $("#sotaikhoan .text-value").text().trim(),
+                chinhanh: $("#chinhanh .text-value").text().trim(),
+                cccd: $("#cccd .text-value").text().trim(),
+                ngaycap: $("#ngaycap .text-value").text().trim(),
+                install_cost_ctv: $("#install_cost_ctv").val(),
+                successed_at_ctv: $("#successed_at_ctv").val()
+            };
+        }
+
+        // Lưu giá trị ban đầu của các trường Đại lý
+        function saveOriginalAgencyData() {
+            originalAgencyData = {
+                agency_name: $("td[data-agency='agency_name'] .text-value").text().trim(),
+                agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
+                agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
+                agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+                agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
+                agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
+                agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()
+            };
+        }
+
+        // Khôi phục giá trị ban đầu của các trường CTV
+        function restoreOriginalCtvData() {
+            // Lưu thông tin đại lý hiện tại trước khi chuyển về CTV
+            saveAgencyDataBeforeSwitch();
+            
+            $("#ctv_name").text(originalCtvData.ctv_name);
+            $("#ctv_phone").text(originalCtvData.ctv_phone);
+            $("#ctv_id").val(originalCtvData.ctv_id);
+            updateField("sotaikhoan", originalCtvData.sotaikhoan);
+            updateField("chinhanh", originalCtvData.chinhanh);
+            updateField("cccd", originalCtvData.cccd);
+            updateField("ngaycap", originalCtvData.ngaycap);
+            $("#install_cost_ctv").val(originalCtvData.install_cost_ctv);
+            $("#successed_at_ctv").val(originalCtvData.successed_at_ctv);
+            
+            // Ghi log việc chuyển từ "Đại lý lắp đặt" về CTV
+            logSwitchToCtv();
+        }
+
+        // Lưu thông tin đại lý trước khi chuyển về CTV
+        function saveAgencyDataBeforeSwitch() {
+            let orderCode = "{{ $code }}";
+            let data = {
+                _token: $('meta[name="csrf-token"]').attr("content"),
+                order_code: orderCode
+            };
+            
+            // Thu thập thông tin đại lý hiện tại
+            $("td[data-agency]").each(function() {
+                let $td = $(this);
+                let agency = $td.data("agency");
+                let value;
+                if ($td.find("input").length) {
+                    value = $td.find("input").val().trim();
+                } else {
+                    value = $td.find(".text-value").text().trim();
+                }
+                
+                // Xử lý format ngày tháng cho agency_release_date
+                if (agency === "agency_release_date" && value && value.includes('/')) {
+                    // Chuyển từ d/m/Y sang Y-m-d cho database
+                    let parts = value.split('/');
+                    if (parts.length === 3) {
+                        let day = parts[0].padStart(2, '0');
+                        let month = parts[1].padStart(2, '0');
+                        let year = parts[2];
+                        value = year + '-' + month + '-' + day;
+                    }
+                }
+                
+                data[agency] = value;
+            });
+            
+            // Gửi AJAX để lưu thông tin đại lý trước khi chuyển
+            $.ajax({
+                url: "{{ route('agency.update') }}",
+                method: "POST",
+                data: data,
+                success: function(response) {
+                    console.log('Agency data saved before switch to CTV');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error saving agency data before switch:', error);
+                }
+            });
+        }
+
+        // AJAX call để ghi log chuyển về CTV
+        function logSwitchToCtv() {
+            let orderCode = "{{ $code }}";
+            $.ajax({
+                url: "{{ route('ctv.switch') }}",
+                method: "POST",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                    order_code: orderCode
+                },
+                success: function(response) {
+                    console.log('Logged switch to CTV');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error logging switch to CTV:', error);
+                }
+            });
+        }
+
+        // Clear các trường CTV về rỗng
+        function clearCtvData() {
+            $("#ctv_name").text('');
+            $("#ctv_phone").text('');
+            $("#ctv_id").val('');
+            updateField("sotaikhoan", '');
+            updateField("chinhanh", '');
+            updateField("cccd", '');
+            updateField("ngaycap", '');
+            $("#install_cost_ctv").val('');
+            $("#successed_at_ctv").val('');
+            
+            // Clear file input
+            $("#install_review").val('');
+            
+            // Gửi AJAX để clear CTV data trên server nếu cần
+            clearCtvDataOnServer();
+        }
+
+        // AJAX call để clear CTV data trên server
+        function clearCtvDataOnServer() {
+            let orderCode = "{{ $code }}";
+            $.ajax({
+                url: "{{ route('ctv.clear') }}",
+                method: "POST",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                    order_code: orderCode
+                },
+                success: function(response) {
+                    // CTV data cleared successfully
+                    console.log('CTV data cleared on server');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error clearing CTV data:', error);
+                }
+            });
+        }
+
+        // Lưu giá trị ban đầu khi trang load
+        saveOriginalCtvData();
+        saveOriginalAgencyData();
+
         $("#isInstallAgency").on("change", function() {
             if ($(this).is(":checked")) {
+                // Clear các trường CTV (không lưu giá trị hiện tại)
+                clearCtvData();
+                
                 $(".installCostRow").show();
                 $(".ctv_row").hide();
                 $("#install_cost_row").hide();
                 $("#install_file").hide();
                 $("#table_collaborator").hide();
             } else {
+                // Khôi phục giá trị ban đầu
+                restoreOriginalCtvData();
+                
                 $(".installCostRow").hide();
                 $(".error").hide();
                 $("#table_collaborator").show();
                 $(".ctv_row").show();
                 $("#install_cost_row").show();
                 $("#install_file").show();
-
             }
         });
 
@@ -361,6 +656,61 @@
             td.html(html);
         }
 
+        // Nút kiểm tra tài khoản CTV
+        $(document).on('click', '#verify_ctv_account', function(){
+            const accInput = $('#sotaikhoan input');
+            const accountNo = accInput.length ? accInput.val().trim() : $('#sotaikhoan .text-value').text().trim();
+            const bankInput = $('#bank_name_ctv input');
+            const bankDisplay = bankInput.length ? bankInput.val().trim() : $('#bank_name_ctv .text-value').text().trim();
+            let bin = $('#bank_bin_ctv').val();
+            if (!bin) bin = extractBinFromDisplay(bankDisplay);
+            if (!accountNo || !bin) {
+                Swal.fire({icon:'error', title:'Chọn ngân hàng và nhập số tài khoản'});
+                return;
+            }
+            verifyAccount(bin, accountNo, '#account_name_ctv');
+        });
+
+        // Nút kiểm tra tài khoản Đại lý
+        $(document).on('click', '#verify_agency_account', function(){
+            const accInput = $("td[data-agency='agency_paynumber'] input");
+            const accountNo = accInput.length ? accInput.val().trim() : $("td[data-agency='agency_paynumber'] .text-value").text().trim();
+            const bankInput = $("td[data-agency='agency_bank_name'] input");
+            const bankDisplay = bankInput.length ? bankInput.val().trim() : $("td[data-agency='agency_bank_name'] .text-value").text().trim();
+            let bin = $('#agency_bank_bin').val();
+            if (!bin) bin = extractBinFromDisplay(bankDisplay);
+            if (!accountNo || !bin) {
+                Swal.fire({icon:'error', title:'Chọn ngân hàng và nhập số tài khoản'});
+                return;
+            }
+            verifyAccount(bin, accountNo, '#account_name_agency');
+        });
+
+        function verifyAccount(bin, accountNo, targetSelector) {
+            $(targetSelector).text('Đang kiểm tra...');
+            $.ajax({
+                url: "{{ route('bank.lookup') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    bin: bin,
+                    accountNo: accountNo
+                },
+                success: function(res){
+                    if (res && res.success) {
+                        $(targetSelector).removeClass('text-danger').addClass('text-success').text(res.accountName || 'Không rõ tên');
+                    } else {
+                        $(targetSelector).removeClass('text-success').addClass('text-danger').text(res && res.message ? res.message : 'Không tra cứu được');
+                    }
+                },
+                error: function(xhr){
+                    let msg = 'Lỗi khi tra cứu';
+                    try { const res = xhr.responseJSON; if (res && res.message) msg = res.message; } catch(e) {}
+                    $(targetSelector).removeClass('text-success').addClass('text-danger').text(msg);
+                }
+            });
+        }
+
         $(".install_cost").on("input", function() {
             let value = $(this).val().trim();
             let errorBox = $(".error");
@@ -376,6 +726,12 @@
         });
 
         Update();
+        
+        // Xử lý nút xem lịch sử
+        $('#btnViewHistory').on('click', function() {
+            loadHistory();
+            $('#historyModal').modal('show');
+        });
     });
 
     function validate() {
@@ -388,9 +744,11 @@
 
     function UpdateCollaborator() {
         let id = $("#ctv_id").val();
+        let orderCode = "{{ $code }}"; // Lấy order_code từ PHP
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
-            id: id
+            id: id,
+            order_code: orderCode
         };
         $("td[data-field]").each(function() {
             let $td = $(this);
@@ -404,13 +762,28 @@
             data[field] = value;
         });
 
-        $.post("{{ route('ctv.update') }}", data);
+        $.ajax({
+            url: "{{ route('ctv.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                // Collaborator updated successfully
+            },
+            error: function(xhr, status, error) {
+                // Error updating collaborator
+            }
+        });
     }
 
     function UpdateAgency() {
+        let orderCode = "{{ $code }}"; // Lấy order_code từ PHP
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
+            order_code: orderCode
         };
+        
+        // Đảm bảo agency_phone luôn được gửi
+        let agencyPhone = '';
         $("td[data-agency]").each(function() {
             let $td = $(this);
             let agency = $td.data("agency");
@@ -420,9 +793,44 @@
             } else {
                 value = $td.find(".text-value").text().trim();
             }
+            
+            if (agency === "agency_phone") {
+                agencyPhone = value;
+            }
+            
+            // Xử lý format ngày tháng cho agency_release_date
+            if (agency === "agency_release_date" && value && value.includes('/')) {
+                // Chuyển từ d/m/Y sang Y-m-d cho database
+                let parts = value.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    value = year + '-' + month + '-' + day;
+                }
+            }
+            
             data[agency] = value;
         });
-        $.post("{{ route('agency.update') }}", data);
+        
+        // Kiểm tra nếu không có agency_phone
+        if (!agencyPhone) {
+            return;
+        }
+        
+        $.ajax({
+            url: "{{ route('agency.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    // Agency update successful
+                }
+            },
+            error: function(xhr, status, error) {
+                // Error updating agency
+            }
+        });
     }
 
     function Update() {
@@ -459,6 +867,7 @@
                     formData.append("action", action);
                     formData.append("type", type);
                     formData.append("product", $('#product_name').val());
+                    
 
                     if (isInstallAgency === 1) {
                         formData.append("ctv_id", 1);
@@ -490,7 +899,11 @@
                                     showConfirmButton: false
                                 }).then(() => {
                                     UpdateCollaborator();
-                                    UpdateAgency();
+                                    // CHỈ GỌI UpdateAgency() KHI CÓ THAY ĐỔI THÔNG TIN ĐẠI LÝ
+                                    // Kiểm tra xem có thay đổi thông tin đại lý không
+                                    if (hasAgencyChanges()) {
+                                        UpdateAgency();
+                                    }
                                     location.reload();
                                     loadTableData();
                                 });
@@ -505,7 +918,6 @@
                         },
                         error: function(xhr) {
                             CloseWaitBox();
-                            debugger;
                             alert("Có lỗi xảy ra khi cập nhật!");
                         }
                     });
@@ -598,26 +1010,73 @@
             class: "form-control d-inline-block w-auto"
         });
 
+        // Nếu là trường Chi nhánh (CTV) hoặc Chi nhánh (Đại lý) thì gợi ý ngân hàng qua datalist VietQR
+        if (field === "chinhanh" || agency === "agency_branch") {
+            ensureBankDatalist();
+            $input.attr("list", "vietqrBankList");
+            $input.attr("placeholder", "Chọn ngân hàng (gõ để lọc), thêm chi nhánh sau");
+        }
+
+        // Nếu là trường Tên ngân hàng (mới) thì cũng gợi ý và lưu BIN ẩn
+        if (field === "bank_name_ctv" || agency === "agency_bank_name") {
+            ensureBankDatalist();
+            $input.attr("list", "vietqrBankList");
+            $input.attr("placeholder", "Chọn ngân hàng");
+            $input.on("blur", function(){
+                const display = $(this).val();
+                const bin = extractBinFromDisplay(display);
+                if (field === 'bank_name_ctv') {
+                    $('#bank_bin_ctv').val(bin);
+                } else if (agency === 'agency_bank_name') {
+                    $('#agency_bank_bin').val(bin);
+                }
+            });
+        }
+
+        // Nếu là trường Số tài khoản thì ép chỉ nhập số để giảm nhầm lẫn
+        if (field === "sotaikhoan" || agency === "agency_paynumber") {
+            $input.attr("inputmode", "numeric");
+            $input.attr("pattern", "[0-9]*");
+            $input.on("input", function() {
+                this.value = this.value.replace(/\D/g, '');
+            });
+        }
+
         if (field === "ngaycap" || agency === "agency_release_date") {
             $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
         }
 
         // Xử lý khi blur (rời input)
-        // $input.on("blur", function() {
-        //     let newValue = $(this).val().trim() || oldValue;
+        $input.on("blur", function() {
+            let newValue = $(this).val().trim() || oldValue;
 
-        //     if (field === "ngaycap" || agency === "agency_release_date") {
-        //         let regex = /^(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])\/\d{4}$/;
-        //         if (!regex.test(newValue)) {
-        //             alert("Vui lòng nhập đúng định dạng dd/mm/yyyy");
-        //             return;
-        //         }
-        //     }
+            if (field === "ngaycap" || agency === "agency_release_date") {
+                // Chuyển đổi format từ Y-m-d sang d/m/Y để hiển thị
+                if (newValue && newValue.includes('-')) {
+                    let parts = newValue.split('-');
+                    if (parts.length === 3) {
+                        let year = parts[0];
+                        let month = parts[1];
+                        let day = parts[2];
+                        newValue = day + '/' + month + '/' + year;
+                    }
+                }
+            }
 
-        //     $span.text(newValue).show();
-        //     $td.find(".edit-icon").show();
-        //     $(this).remove();
-        // });
+            $span.text(newValue).show();
+            $td.find(".edit-icon").show();
+            $(this).remove();
+        });
 
         // Xử lý nhấn Enter
         $input.on("keypress", function(e) {
@@ -630,5 +1089,242 @@
         $td.prepend($input);
         $input.focus();
     });
+
+    // Hàm load lịch sử thay đổi
+    function loadHistory() {
+        $('#historyLoading').show();
+        $('#historyContent').hide();
+        $('#historyEmpty').hide();
+        
+        let orderCode = "{{ $code }}";
+        if (!orderCode) {
+            $('#historyLoading').hide();
+            $('#historyEmpty').show();
+            return;
+        }
+        
+        $.ajax({
+            url: "{{ route('ctv.order.history', ':order_code') }}".replace(':order_code', orderCode),
+            method: "GET",
+            success: function(response) {
+                $('#historyLoading').hide();
+                if (response.success && response.data.history.length > 0) {
+                    displayHistory(response.data.history);
+                    $('#historyContent').show();
+                } else {
+                    $('#historyEmpty').show();
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#historyLoading').hide();
+                $('#historyEmpty').show();
+                console.error('Lỗi khi tải lịch sử:', error);
+            }
+        });
+    }
+
+    // Hàm hiển thị lịch sử
+    function displayHistory(history) {
+        let html = '';
+        
+        history.forEach(function(item, index) {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-${getActionIcon(item.action_type)} me-2"></i>
+                                ${item.action_type_text || item.action_type}
+                            </h6>
+                            <small class="text-muted">${item.formatted_edited_at}</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-${getActionBadgeColor(item.action_type)}">${item.action_type_text || item.action_type}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">${formatStatusComment(item.comments || 'Không có ghi chú')}</p>
+                        <p class="card-text"><strong>Người thực hiện:</strong> ${item.edited_by || 'Hệ thống'}</p>
+                        
+                        ${item.changes_detail && item.changes_detail.length > 0 ? `
+                            <div class="mt-3">
+                                <h6>Chi tiết thay đổi:</h6>
+                                
+                                <!-- Thông tin CTV -->
+                                ${getCtvChanges(item.changes_detail).length > 0 ? `
+                                    <div class="mb-3">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-person me-1"></i>Thông tin CTV
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered">
+                                                <thead class="table-primary">
+                                                    <tr>
+                                                        <th style="width: 25%;">Trường</th>
+                                                        <th style="width: 35%;">Giá trị cũ</th>
+                                                        <th style="width: 35%;">Giá trị mới</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${getCtvChanges(item.changes_detail).map(change => `
+                                                        <tr>
+                                                            <td><strong>${change.field_name}</strong></td>
+                                                            <td>
+                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                <!-- Thông tin Đại lý -->
+                                ${getAgencyChanges(item.changes_detail).length > 0 ? `
+                                    <div class="mb-3">
+                                        <h6 class="text-info">
+                                            <i class="bi bi-building me-1"></i>Thông tin Đại lý
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered">
+                                                <thead class="table-info">
+                                                    <tr>
+                                                        <th style="width: 25%;">Trường</th>
+                                                        <th style="width: 35%;">Giá trị cũ</th>
+                                                        <th style="width: 35%;">Giá trị mới</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${getAgencyChanges(item.changes_detail).map(change => `
+                                                        <tr>
+                                                            <td><strong>${change.field_name}</strong></td>
+                                                            <td>
+                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        $('#historyList').html(html);
+    }
+
+    // Hàm lấy icon cho action type
+    function getActionIcon(actionType) {
+        const icons = {
+            'create': 'plus-circle',
+            'update': 'pencil-square',
+            'delete': 'trash',
+            'update_agency': 'building',
+            'switch_to_agency': 'arrow-right-circle',
+            'switch_to_ctv': 'arrow-left-circle',
+            'clear': 'x-circle',
+            'status_change': 'arrow-repeat',
+            'complete': 'check-circle',
+            'payment': 'credit-card'
+        };
+        return icons[actionType] || 'info-circle';
+    }
+
+    // Hàm lấy màu badge cho action type
+    function getActionBadgeColor(actionType) {
+        const colors = {
+            'create': 'success',
+            'update': 'primary',
+            'delete': 'danger',
+            'update_agency': 'info',
+            'switch_to_agency': 'warning',
+            'switch_to_ctv': 'secondary',
+            'clear': 'dark',
+            'status_change': 'primary',
+            'complete': 'success',
+            'payment': 'info'
+        };
+        return colors[actionType] || 'secondary';
+    }
+
+    // Hàm lấy màu cho trạng thái
+    function getStatusColor(statusText) {
+        const colors = {
+            'Chưa điều phối': 'secondary',
+            'Đã điều phối': 'primary',
+            'Đã hoàn thành': 'success',
+            'Đã thanh toán': 'info'
+        };
+        return colors[statusText] || 'muted';
+    }
+
+    // Hàm định dạng comment thay đổi trạng thái với màu sắc
+    function formatStatusComment(comment) {
+        const regex = /Thay đổi trạng thái: (.+) → (.+)/;
+        const match = comment.match(regex);
+
+        if (match && match.length === 3) {
+            const oldStatusText = match[1].trim();
+            const newStatusText = match[2].trim();
+            const oldStatusColor = getStatusColor(oldStatusText);
+            const newStatusColor = getStatusColor(newStatusText);
+            return `Thay đổi trạng thái: <span class="text-${oldStatusColor} fw-bold">${oldStatusText}</span> → <span class="text-${newStatusColor} fw-bold">${newStatusText}</span>`;
+        }
+        return comment; // Return original comment if not a status change format
+    }
+
+    // Hàm lọc thay đổi CTV
+    function getCtvChanges(changes) {
+        return changes.filter(change => 
+            change.field_name.includes('CTV') || 
+            (!change.field_name.includes('đại lý') && 
+             !change.field_name.includes('Đại lý') &&
+             !change.field_name.includes('agency'))
+        );
+    }
+
+    // Hàm lọc thay đổi Đại lý
+    function getAgencyChanges(changes) {
+        return changes.filter(change => 
+            change.field_name.includes('đại lý') || 
+            change.field_name.includes('Đại lý') ||
+            change.field_name.includes('agency')
+        );
+    }
+
+    // Hàm kiểm tra xem có thay đổi thông tin đại lý không
+    function hasAgencyChanges() {
+        // Lấy giá trị hiện tại của các trường đại lý
+        let currentAgencyData = {
+            agency_name: $("td[data-agency='agency_name'] .text-value").text().trim(),
+            agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
+            agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
+            agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+            agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
+            agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
+            agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()
+        };
+
+        // So sánh với giá trị ban đầu đã lưu
+        for (let field in originalAgencyData) {
+            if (originalAgencyData[field] !== currentAgencyData[field]) {
+                return true; // Có thay đổi
+            }
+        }
+        
+        return false; // Không có thay đổi
+    }
 </script>
 @endsection
