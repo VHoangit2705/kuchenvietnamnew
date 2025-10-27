@@ -95,6 +95,10 @@
                                         @if (empty(optional(optional($data->order)->collaborator)->sotaikhoan ?? optional($data->collaborator)->sotaikhoan))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                        <div class="mt-1 d-flex align-items-center" style="gap:8px;">
+                                            <button type="button" id="verify_ctv_account" class="btn btn-sm btn-outline-secondary">Kiểm tra</button>
+                                            <span id="account_name_ctv" class="small text-muted"></span>
+                                        </div>
                                     </td>
                                     <th>Chi nhánh:</th>
                                     <td id="chinhanh" data-field="chinhanh">
@@ -103,6 +107,16 @@
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
+                                </tr>
+                                <tr class="ctv_row">
+                                    <th>Tên ngân hàng:</th>
+                                    <td id="bank_name_ctv" data-field="bank_name_ctv">
+                                        <span class="text-value"></span>
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        <input type="hidden" id="bank_bin_ctv" value="">
+                                    </td>
+                                    <th></th>
+                                    <td></td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số CCCD:</th>
@@ -196,6 +210,10 @@
                                         @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                        <div class="mt-1 d-flex align-items-center" style="gap:8px;">
+                                            <button type="button" id="verify_agency_account" class="btn btn-sm btn-outline-secondary">Kiểm tra</button>
+                                            <span id="account_name_agency" class="small text-muted"></span>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -205,6 +223,16 @@
                                         @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Tên ngân hàng:</th>
+                                    <td data-agency="agency_bank_name">
+                                        <span class="text-value"></span>
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
+                                        <input type="hidden" id="agency_bank_bin" value="">
                                     </td>
                                 </tr>
                                 <tr>
@@ -345,8 +373,65 @@
     // Lưu trữ giá trị ban đầu của các trường CTV và Đại lý
     let originalCtvData = {};
     let originalAgencyData = {};
+    // Danh sách ngân hàng từ VietQR để hỗ trợ nhập chi nhánh/ngân hàng
+    let vietqrBanks = [];
+    let bankListBuilt = false;
+
+    // Global: Tải danh sách ngân hàng VietQR và tạo datalist
+    function fetchVietqrBanks() {
+        $.ajax({
+            url: 'https://api.vietqr.io/v2/banks',
+            method: 'GET',
+            success: function(res) {
+                if (res && res.data && Array.isArray(res.data)) {
+                    vietqrBanks = res.data;
+                    ensureBankDatalist();
+                }
+            },
+            error: function() {
+                // Bỏ qua nếu lỗi mạng
+            }
+        });
+    }
+
+    function ensureBankDatalist() {
+        if (bankListBuilt) return;
+        let $dl = $('<datalist id="vietqrBankList"></datalist>');
+        vietqrBanks.forEach(function(b) {
+            // Ví dụ hiển thị: "VCB - Vietcombank (970436)"
+            let display = '';
+            if (b.shortName && b.code) {
+                display = b.code + ' - ' + b.shortName + (b.bin ? ' (' + b.bin + ')' : '');
+            } else if (b.shortName) {
+                display = b.shortName;
+            } else if (b.name) {
+                display = b.name;
+            }
+            if (display) {
+                $dl.append('<option value="' + display.replace(/"/g, '&quot;') + '"></option>');
+            }
+        });
+        $('body').append($dl);
+        bankListBuilt = true;
+    }
+
+    function extractBinFromDisplay(display) {
+        if (!display) return '';
+        let match = display.match(/\((\d{6})\)$/);
+        if (match) return match[1];
+        let parts = display.split('(');
+        if (parts.length > 1) {
+            let bin = parts[1].replace(')', '').trim();
+            if (/^\d{6}$/.test(bin)) return bin;
+        }
+        let found = vietqrBanks.find(function(b){
+            return display.includes(b.shortName) || display.includes(b.name) || display.includes(b.code);
+        });
+        return found && found.bin ? found.bin : '';
+    }
 
     $(document).ready(function() {
+        fetchVietqrBanks();
         // Lưu giá trị ban đầu của các trường CTV
         function saveOriginalCtvData() {
             originalCtvData = {
@@ -569,6 +654,61 @@
                 html += `<i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>`;
             }
             td.html(html);
+        }
+
+        // Nút kiểm tra tài khoản CTV
+        $(document).on('click', '#verify_ctv_account', function(){
+            const accInput = $('#sotaikhoan input');
+            const accountNo = accInput.length ? accInput.val().trim() : $('#sotaikhoan .text-value').text().trim();
+            const bankInput = $('#bank_name_ctv input');
+            const bankDisplay = bankInput.length ? bankInput.val().trim() : $('#bank_name_ctv .text-value').text().trim();
+            let bin = $('#bank_bin_ctv').val();
+            if (!bin) bin = extractBinFromDisplay(bankDisplay);
+            if (!accountNo || !bin) {
+                Swal.fire({icon:'error', title:'Chọn ngân hàng và nhập số tài khoản'});
+                return;
+            }
+            verifyAccount(bin, accountNo, '#account_name_ctv');
+        });
+
+        // Nút kiểm tra tài khoản Đại lý
+        $(document).on('click', '#verify_agency_account', function(){
+            const accInput = $("td[data-agency='agency_paynumber'] input");
+            const accountNo = accInput.length ? accInput.val().trim() : $("td[data-agency='agency_paynumber'] .text-value").text().trim();
+            const bankInput = $("td[data-agency='agency_bank_name'] input");
+            const bankDisplay = bankInput.length ? bankInput.val().trim() : $("td[data-agency='agency_bank_name'] .text-value").text().trim();
+            let bin = $('#agency_bank_bin').val();
+            if (!bin) bin = extractBinFromDisplay(bankDisplay);
+            if (!accountNo || !bin) {
+                Swal.fire({icon:'error', title:'Chọn ngân hàng và nhập số tài khoản'});
+                return;
+            }
+            verifyAccount(bin, accountNo, '#account_name_agency');
+        });
+
+        function verifyAccount(bin, accountNo, targetSelector) {
+            $(targetSelector).text('Đang kiểm tra...');
+            $.ajax({
+                url: "{{ route('bank.lookup') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    bin: bin,
+                    accountNo: accountNo
+                },
+                success: function(res){
+                    if (res && res.success) {
+                        $(targetSelector).removeClass('text-danger').addClass('text-success').text(res.accountName || 'Không rõ tên');
+                    } else {
+                        $(targetSelector).removeClass('text-success').addClass('text-danger').text(res && res.message ? res.message : 'Không tra cứu được');
+                    }
+                },
+                error: function(xhr){
+                    let msg = 'Lỗi khi tra cứu';
+                    try { const res = xhr.responseJSON; if (res && res.message) msg = res.message; } catch(e) {}
+                    $(targetSelector).removeClass('text-success').addClass('text-danger').text(msg);
+                }
+            });
         }
 
         $(".install_cost").on("input", function() {
@@ -869,6 +1009,38 @@
             value: oldValue,
             class: "form-control d-inline-block w-auto"
         });
+
+        // Nếu là trường Chi nhánh (CTV) hoặc Chi nhánh (Đại lý) thì gợi ý ngân hàng qua datalist VietQR
+        if (field === "chinhanh" || agency === "agency_branch") {
+            ensureBankDatalist();
+            $input.attr("list", "vietqrBankList");
+            $input.attr("placeholder", "Chọn ngân hàng (gõ để lọc), thêm chi nhánh sau");
+        }
+
+        // Nếu là trường Tên ngân hàng (mới) thì cũng gợi ý và lưu BIN ẩn
+        if (field === "bank_name_ctv" || agency === "agency_bank_name") {
+            ensureBankDatalist();
+            $input.attr("list", "vietqrBankList");
+            $input.attr("placeholder", "Chọn ngân hàng");
+            $input.on("blur", function(){
+                const display = $(this).val();
+                const bin = extractBinFromDisplay(display);
+                if (field === 'bank_name_ctv') {
+                    $('#bank_bin_ctv').val(bin);
+                } else if (agency === 'agency_bank_name') {
+                    $('#agency_bank_bin').val(bin);
+                }
+            });
+        }
+
+        // Nếu là trường Số tài khoản thì ép chỉ nhập số để giảm nhầm lẫn
+        if (field === "sotaikhoan" || agency === "agency_paynumber") {
+            $input.attr("inputmode", "numeric");
+            $input.attr("pattern", "[0-9]*");
+            $input.on("input", function() {
+                this.value = this.value.replace(/\D/g, '');
+            });
+        }
 
         if (field === "ngaycap" || agency === "agency_release_date") {
             $input.attr("type", "date");

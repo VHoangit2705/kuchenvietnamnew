@@ -10,6 +10,7 @@ use App\Http\Controllers\CollaboratorInstallController;
 use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\BankController;
 
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
@@ -78,6 +79,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
     Route::post('/upload-excel-sync', [CollaboratorInstallController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
     Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    // VietQR lookup
+    Route::post('/bank/lookup', [BankController::class, 'lookup'])->name('bank.lookup');
 });
 
 // Report
