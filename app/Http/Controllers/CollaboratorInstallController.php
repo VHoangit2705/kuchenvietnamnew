@@ -21,6 +21,9 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Http\Controllers\SaveLogController;
+use App\Models\KyThuat\EditCtvHistory;
+use App\Enum;
 
 class CollaboratorInstallController extends Controller
 {
@@ -30,7 +33,243 @@ class CollaboratorInstallController extends Controller
     //     $this->middleware('permission:Cập nhật CTV')->only(['CreateCollaborator', 'DeleteCollaborator']);
     // }
     static $pageSize = 50;
+    protected $saveLogController;
+
+    public function __construct()
+    {
+        $this->saveLogController = new SaveLogController();
+        $this->ensureAgencyCollaboratorExists();
+    }
+
+    /**
+     * Đảm bảo CTV flag "Đại lý lắp đặt" với ID = 1 luôn tồn tại
+     * Đây chỉ là một flag để đánh dấu, không phải thông tin thật
+     */
+    private function ensureAgencyCollaboratorExists()
+    {
+        try {
+            $agencyCtv = WarrantyCollaborator::find(Enum::AGENCY_INSTALL_FLAG_ID);
+            if (!$agencyCtv) {
+                WarrantyCollaborator::create([
+                    'id' => Enum::AGENCY_INSTALL_FLAG_ID,
+                    'full_name' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'phone' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'province' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'district' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'ward' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'address' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'sotaikhoan' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'chinhanh' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'cccd' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Lỗi tạo CTV flag Đại lý lắp đặt: ' . $e->getMessage());
+        }
+    }
     
+    /**
+     * Ghi log khi thay đổi CTV
+     */
+    private function logCollaboratorChange($oldCollaboratorId, $newCollaboratorId, $orderCode)
+    {
+        try {
+            // Lấy thông tin CTV cũ và mới
+            $oldCollaborator = $oldCollaboratorId ? WarrantyCollaborator::find($oldCollaboratorId) : null;
+            $newCollaborator = $newCollaboratorId ? WarrantyCollaborator::find($newCollaboratorId) : null;
+
+            if (!$oldCollaborator && !$newCollaborator) {
+                return; 
+            }
+
+            // Tìm bản ghi lịch sử hiện có
+            $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
+
+            if ($existingHistory) {
+                // Kiểm tra xem dữ liệu hiện tại có phải là CTV thật không (không phải flag "Đại lý lắp đặt")
+                $isRealCtv = $existingHistory->new_collaborator_id && 
+                            !Enum::isAgencyInstallFlag($existingHistory->new_collaborator_id) && 
+                            $existingHistory->new_full_name != Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                
+                if ($isRealCtv) {
+                    // Nếu đang có CTV thật, đẩy dữ liệu CTV vào old_*
+                    $existingHistory->old_collaborator_id = $existingHistory->new_collaborator_id;
+                    $existingHistory->old_full_name = $existingHistory->new_full_name;
+                    $existingHistory->old_phone = $existingHistory->new_phone;
+                    $existingHistory->old_province = $existingHistory->new_province;
+                    $existingHistory->old_province_id = $existingHistory->new_province_id;
+                    $existingHistory->old_district = $existingHistory->new_district;
+                    $existingHistory->old_district_id = $existingHistory->new_district_id;
+                    $existingHistory->old_ward = $existingHistory->new_ward;
+                    $existingHistory->old_ward_id = $existingHistory->new_ward_id;
+                    $existingHistory->old_address = $existingHistory->new_address;
+                    $existingHistory->old_sotaikhoan = $existingHistory->new_sotaikhoan;
+                    $existingHistory->old_chinhanh = $existingHistory->new_chinhanh;
+                    $existingHistory->old_cccd = $existingHistory->new_cccd;
+                    $existingHistory->old_ngaycap = $existingHistory->new_ngaycap;
+                } else {
+                    // Nếu đã là "Đại lý lắp đặt" rồi, không cần đẩy dữ liệu vào old_*
+                    // Chỉ cần giữ nguyên dữ liệu cũ trong old_*
+                }
+
+                // Cập nhật new_collaborator_id
+                $existingHistory->new_collaborator_id = $newCollaboratorId;
+
+                // Lưu dữ liệu CTV mới vào new_*
+                if ($newCollaborator) {
+                    $existingHistory->new_full_name = $newCollaborator->full_name;
+                    $existingHistory->new_phone = $newCollaborator->phone;
+                    $existingHistory->new_province = $newCollaborator->province;
+                    $existingHistory->new_province_id = $newCollaborator->province_id;
+                    $existingHistory->new_district = $newCollaborator->district;
+                    $existingHistory->new_district_id = $newCollaborator->district_id;
+                    $existingHistory->new_ward = $newCollaborator->ward;
+                    $existingHistory->new_ward_id = $newCollaborator->ward_id;
+                    $existingHistory->new_address = $newCollaborator->address;
+                    $existingHistory->new_sotaikhoan = $newCollaborator->sotaikhoan;
+                    $existingHistory->new_chinhanh = $newCollaborator->chinhanh;
+                    $existingHistory->new_cccd = $newCollaborator->cccd;
+                    $existingHistory->new_ngaycap = $newCollaborator->ngaycap;
+                } else {
+                    // Nếu không có CTV mới (chuyển về đại lý) - chỉ set flag
+                    $existingHistory->new_collaborator_id = Enum::AGENCY_INSTALL_FLAG_ID;
+                    $existingHistory->new_full_name = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_phone = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_province = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_province_id = null;
+                    $existingHistory->new_district = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_district_id = null;
+                    $existingHistory->new_ward = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_ward_id = null;
+                    $existingHistory->new_address = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_sotaikhoan = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_chinhanh = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_cccd = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    $existingHistory->new_ngaycap = null;
+                }
+
+                $existingHistory->action_type = 'update';
+                $existingHistory->edited_by = session('user', 'system');
+                $existingHistory->edited_at = now();
+                
+                $oldName = $oldCollaborator ? $oldCollaborator->full_name : Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                $newName = $newCollaborator ? $newCollaborator->full_name : Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                $existingHistory->comments = "Thay đổi CTV: '{$oldName}' → '{$newName}'";
+
+                $existingHistory->save();
+            } else {
+                // TẠO MỚI: Tạo bản ghi lịch sử mới
+                $historyData = [
+                    'old_collaborator_id' => $oldCollaboratorId,
+                    'new_collaborator_id' => $newCollaboratorId,
+                    'action_type' => 'update',
+                    'edited_by' => session('user', 'system'),
+                    'edited_at' => now(),
+                    'order_code' => $orderCode
+                ];
+
+                // Lưu thông tin CTV cũ vào old_*
+                if ($oldCollaborator) {
+                    $historyData['old_full_name'] = $oldCollaborator->full_name;
+                    $historyData['old_phone'] = $oldCollaborator->phone;
+                    $historyData['old_province'] = $oldCollaborator->province;
+                    $historyData['old_province_id'] = $oldCollaborator->province_id;
+                    $historyData['old_district'] = $oldCollaborator->district;
+                    $historyData['old_district_id'] = $oldCollaborator->district_id;
+                    $historyData['old_ward'] = $oldCollaborator->ward;
+                    $historyData['old_ward_id'] = $oldCollaborator->ward_id;
+                    $historyData['old_address'] = $oldCollaborator->address;
+                    $historyData['old_sotaikhoan'] = $oldCollaborator->sotaikhoan;
+                    $historyData['old_chinhanh'] = $oldCollaborator->chinhanh;
+                    $historyData['old_cccd'] = $oldCollaborator->cccd;
+                    $historyData['old_ngaycap'] = $oldCollaborator->ngaycap;
+                }
+
+                // Lưu thông tin CTV mới vào new_*
+                if ($newCollaborator) {
+                    $historyData['new_full_name'] = $newCollaborator->full_name;
+                    $historyData['new_phone'] = $newCollaborator->phone;
+                    $historyData['new_province'] = $newCollaborator->province;
+                    $historyData['new_province_id'] = $newCollaborator->province_id;
+                    $historyData['new_district'] = $newCollaborator->district;
+                    $historyData['new_district_id'] = $newCollaborator->district_id;
+                    $historyData['new_ward'] = $newCollaborator->ward;
+                    $historyData['new_ward_id'] = $newCollaborator->ward_id;
+                    $historyData['new_address'] = $newCollaborator->address;
+                    $historyData['new_sotaikhoan'] = $newCollaborator->sotaikhoan;
+                    $historyData['new_chinhanh'] = $newCollaborator->chinhanh;
+                    $historyData['new_cccd'] = $newCollaborator->cccd;
+                    $historyData['new_ngaycap'] = $newCollaborator->ngaycap;
+                }
+
+                $oldName = $oldCollaborator ? $oldCollaborator->full_name : Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                $newName = $newCollaborator ? $newCollaborator->full_name : Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                $historyData['comments'] = "Thay đổi CTV: '{$oldName}' → '{$newName}'";
+
+                EditCtvHistory::create($historyData);
+            }
+        } catch (\Exception $e) {
+            Log::error('Lỗi ghi log thay đổi CTV: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Ghi log thay đổi trạng thái đơn hàng
+     */
+    private function logStatusChange($orderCode, $oldStatus, $newStatus, $action)
+    {
+        try {
+            Log::info('Bắt đầu ghi log thay đổi trạng thái', [
+                'orderCode' => $orderCode,
+                'oldStatus' => $oldStatus,
+                'newStatus' => $newStatus,
+                'action' => $action
+            ]);
+            
+            // Mapping trạng thái số sang text
+            $statusMapping = [
+                0 => 'Chưa điều phối',
+                1 => 'Đã điều phối', 
+                2 => 'Đã hoàn thành',
+                3 => 'Đã thanh toán'
+            ];
+            
+            $oldStatusText = $statusMapping[$oldStatus] ?? 'Không xác định';
+            $newStatusText = $statusMapping[$newStatus] ?? 'Không xác định';
+            
+            // Tìm bản ghi hiện có để cập nhật
+            $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
+            
+            if ($existingHistory) {
+                // Cập nhật bản ghi hiện có
+                $existingHistory->action_type = $action;
+                $existingHistory->edited_by = session('user', 'system');
+                $existingHistory->edited_at = now();
+                $existingHistory->comments = "Thay đổi trạng thái: {$oldStatusText} → {$newStatusText}";
+                
+                $existingHistory->save();
+                Log::info('Đã cập nhật bản ghi lịch sử hiện có', ['id' => $existingHistory->id]);
+            } else {
+                // Tạo bản ghi mới
+                $newHistory = EditCtvHistory::create([
+                    'order_code' => $orderCode,
+                    'action_type' => $action,
+                    'edited_by' => session('user', 'system'),
+                    'edited_at' => now(),
+                    'comments' => "Thay đổi trạng thái: {$oldStatusText} → {$newStatusText}"
+                ]);
+                Log::info('Đã tạo bản ghi lịch sử mới', ['id' => $newHistory->id]);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Lỗi ghi log thay đổi trạng thái: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Chuẩn hóa và validate trường product
      */
@@ -98,9 +337,9 @@ class CollaboratorInstallController extends Controller
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 $q->whereHas('order', function ($sub) use ($phanloai) {
                     if ($phanloai === 'collaborator') {
-                        $sub->where('collaborator_id', '!=', 1);
+                        $sub->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                     } elseif ($phanloai === 'agency') {
-                        $sub->where('collaborator_id', 1);
+                        $sub->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                     }
                 });
             })
@@ -173,9 +412,9 @@ class CollaboratorInstallController extends Controller
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 $q->whereHas('order', function ($sub) use ($phanloai) {
                     if ($phanloai === 'collaborator') {
-                        $sub->where('collaborator_id', '!=', 1);
+                        $sub->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                     } elseif ($phanloai === 'agency') {
-                        $sub->where('collaborator_id', 1);
+                        $sub->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                     }
                 });
             })
@@ -233,9 +472,9 @@ class CollaboratorInstallController extends Controller
             })
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
+                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
+                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                 }
             })
             ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -271,9 +510,9 @@ class CollaboratorInstallController extends Controller
             })
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
+                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
+                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                 }
             })
             ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -308,9 +547,9 @@ class CollaboratorInstallController extends Controller
             })
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
+                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
+                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                 }
             })
             ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -345,9 +584,9 @@ class CollaboratorInstallController extends Controller
             })
             ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', 1);
+                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', 1);
+                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                 }
             })
             ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -485,6 +724,11 @@ class CollaboratorInstallController extends Controller
                     'message' => 'Yêu cầu nhập ngày hoàn thành!'
                 ]);
             }
+            
+            // Lưu collaborator_id cũ và trạng thái cũ để so sánh (TRƯỚC khi thay đổi)
+            $oldCollaboratorId = $model->collaborator_id;
+            $oldStatus = $model->status_install;
+            
             // Xử lý thay đổi trạng thái
             if (!$isPaidOrder) {
                 // Chỉ thay đổi trạng thái nếu không phải đơn hàng đã thanh toán
@@ -532,6 +776,23 @@ class CollaboratorInstallController extends Controller
                 $model->reviews_install = $filename;
             }
             $model->save();
+
+            // Ghi log thay đổi CTV nếu có thay đổi
+            $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code;
+            if (!empty($orderCode) && $oldCollaboratorId != $request->ctv_id) {
+                $this->logCollaboratorChange($oldCollaboratorId, $request->ctv_id, $orderCode);
+            }
+            
+            // Ghi log thay đổi trạng thái nếu có thay đổi
+            if (!empty($orderCode) && isset($oldStatus) && $oldStatus != $model->status_install) {
+                Log::info('Ghi log thay đổi trạng thái', [
+                    'orderCode' => $orderCode,
+                    'oldStatus' => $oldStatus,
+                    'newStatus' => $model->status_install,
+                    'action' => $action
+                ]);
+                $this->logStatusChange($orderCode, $oldStatus, $model->status_install, $action);
+            }
 
             try {
                 // Chỉ thực hiện updateOrCreate nếu có order_code
@@ -606,10 +867,10 @@ class CollaboratorInstallController extends Controller
         $tungay  = $request->query('start_date') ?? Carbon::now()->startOfMonth()->toDateString();
         $denngay = $request->query('end_date')   ?? Carbon::now()->endOfMonth()->toDateString();
 
-        $dataCollaborator = InstallationOrder::where('collaborator_id', '!=', 1)
+        $dataCollaborator = InstallationOrder::where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID)
             ->where('status_install', 2)->get();
 
-        $dataAgency = InstallationOrder::where('collaborator_id', 1)
+        $dataAgency = InstallationOrder::where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
             ->where('status_install', 2)->get();
 
         $fromDateFormatted = Carbon::parse($tungay)->format('d/m/Y');
@@ -1042,7 +1303,7 @@ class CollaboratorInstallController extends Controller
                             $statusInstall = $parseStatus($statusRaw);
 
                             // 1. Xử lý Collaborator (CTV) - Tối ưu hóa với pre-loaded data
-                            $collaboratorId = 1; // Default agency
+                            $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID; // Default agency flag
                             if (!empty($collabName) && !empty($collabPhone)) {
                                 if (!isset($collaboratorCache[$collabPhone])) {
                                     // Kiểm tra trong pre-loaded data trước
@@ -1063,7 +1324,7 @@ class CollaboratorInstallController extends Controller
                                             $stats['collaborators_created']++;
                                         } catch (\Exception $e) {
                                             $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
-                                            $collaboratorCache[$collabPhone] = 1;
+                                            $collaboratorCache[$collabPhone] = Enum::AGENCY_INSTALL_FLAG_ID;
                                         }
                                     }
                                 }
