@@ -29,7 +29,9 @@
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
                 <td>{{$code}}</td>
-                <td class="text-center">{{ $created_at ? \Carbon\Carbon::parse($created_at)->format('d/m/Y') : '' }}</td>
+                <td class="text-center">
+                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : '-' }}
+                  </td>
                 <td class="text-center">{{ $zone }}</td>
                 <td>{{ $item->order->agency_name ?? $item->agency_name ?? '' }}</td>
                 <td class="text-center">{{ $item->order->agency_phone ?? $item->agency_phone ?? '' }}</td>
