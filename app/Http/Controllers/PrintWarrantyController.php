@@ -34,7 +34,6 @@ class PrintWarrantyController extends Controller
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $lstWarrantyCard = WarrantyCard::query()
             ->where('view', $view)
-            ->whereBetween('create_at', [$startOfMonth, Carbon::now()->endOfDay()])
             ->orderByDesc('create_at')
             ->paginate(self::$pageSize);
         $products = Product::where('view', $view)->select('id', 'view', 'product_name')->get()->toArray();
@@ -70,6 +69,20 @@ class PrintWarrantyController extends Controller
     {
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $seriData = [];
+        $serialsToInsert = [];
+        
+        // Kiểm tra sản phẩm có tồn tại không
+        $product = Product::where('id', $request->product_id)
+            ->where('view', $view)
+            ->where('product_name', $request->product)
+            ->first();
+            
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sản phẩm không tồn tại hoặc không hợp lệ. Vui lòng chọn lại sản phẩm.'
+            ]);
+        }
         
         if($request->serial_option == '0'){
             $card = WarrantyCard::create([
@@ -98,7 +111,8 @@ class PrintWarrantyController extends Controller
         
         if($request->serial_option == '1'){
             $serial_range = $request->serial_range;
-            $serialsToInsert = [];
+            $duplicatesInInput = [];
+            $seenSerials = [];
 
             $parts = explode(',', $serial_range);
 
@@ -123,27 +137,57 @@ class PrintWarrantyController extends Controller
 
                         for ($i = $startNumber; $i <= $endNumber; $i++) {
                             $sn = $prefix . str_pad($i, $length, '0', STR_PAD_LEFT);
-                            $serialsToInsert[] = $sn;
-                            $seriData[] = [
-                                'sn' => $sn,
-                                'product_id' => $request->product_id,
-                                'product_name' => $request->product,
-                                'view' => $view,
-                                'manhaphang' => null, // sẽ cập nhật sau khi tạo card
-                            ];
+                            
+                            // Kiểm tra các serial trùng lặp
+                            if (in_array($sn, $seenSerials)) {
+                                $duplicatesInInput[] = $sn;
+                            } else {
+                                $seenSerials[] = $sn;
+                                $serialsToInsert[] = $sn;
+                                $seriData[] = [
+                                    'sn' => $sn,
+                                    'product_id' => $request->product_id,
+                                    'product_name' => $request->product,
+                                    'view' => $view,
+                                    'manhaphang' => null, // sẽ cập nhật sau khi tạo card
+                                ];
+                            }
                         }
                     }
                 } else {
                     $sn = trim($part);
-                    $serialsToInsert[] = $sn;
-                    $seriData[] = [
-                        'sn' => $sn,
-                        'product_id' => $request->product_id,
-                        'product_name' => $request->product,
-                        'view' => $view,
-                        'manhaphang' => null, // sẽ cập nhật sau khi tạo card
-                    ];
+                    
+                    // Kiểm tra các bản sao trong đầu vào
+                    if (in_array($sn, $seenSerials)) {
+                        $duplicatesInInput[] = $sn;
+                    } else {
+                        $seenSerials[] = $sn;
+                        $serialsToInsert[] = $sn;
+                        $seriData[] = [
+                            'sn' => $sn,
+                            'product_id' => $request->product_id,
+                            'product_name' => $request->product,
+                            'view' => $view,
+                            'manhaphang' => null, // sẽ cập nhật sau khi tạo card
+                        ];
+                    }
                 }
+            }
+
+            // Kiểm tra các bản sao trong đầu vào
+            if (!empty($duplicatesInInput)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dải serial có serial trùng lặp: ' . implode(', ', array_unique($duplicatesInInput))
+                ]);
+            }
+
+            // Kiểm tra xem có bất kỳ serial hợp lệ nào để chèn không
+            if (empty($serialsToInsert)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không có serial hợp lệ nào trong dải serial'
+                ]);
             }
 
             $soluong = count($serialsToInsert);
@@ -169,20 +213,46 @@ class PrintWarrantyController extends Controller
             $spreadsheet = IOFactory::load($file);
             $sheet = $spreadsheet->getActiveSheet();
 
+            $serialsToInsert = [];
+            $seriData = [];
+            $duplicatesInFile = [];
+            $seenSerials = [];
 
             $highestRow = $sheet->getHighestRow();
             for ($row = 1; $row <= $highestRow; $row++) {
                 $value = trim($sheet->getCell('A' . $row)->getValue());
                 if (!empty($value)) {
-                    $serialsToInsert[] = $value;
-                    $seriData[] = [
-                        'sn' => $value,
-                        'product_id' => $request->product_id,
-                        'product_name' => $request->product,
-                        'view' => $view,
-                        'manhaphang' => null,
-                    ];
+                    // Kiểm tra các trùng lặp trong tệp
+                    if (in_array($value, $seenSerials)) {
+                        $duplicatesInFile[] = $value;
+                    } else {
+                        $seenSerials[] = $value;
+                        $serialsToInsert[] = $value;
+                        $seriData[] = [
+                            'sn' => $value,
+                            'product_id' => $request->product_id,
+                            'product_name' => $request->product,
+                            'view' => $view,
+                            'manhaphang' => null,
+                        ];
+                    }
                 }
+            }
+
+            // Kiểm tra các bản sao trong tệp Excel
+            if (!empty($duplicatesInFile)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File Excel có serial trùng lặp: ' . implode(', ', array_unique($duplicatesInFile))
+                ]);
+            }
+
+            // Kiểm tra xem có bất kỳ serial hợp lệ nào để chèn không
+            if (empty($serialsToInsert)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File Excel không có serial hợp lệ nào'
+                ]);
             }
 
             $card = WarrantyCard::create([

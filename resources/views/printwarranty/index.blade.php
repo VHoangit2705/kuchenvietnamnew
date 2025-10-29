@@ -1,4 +1,4 @@
- @extends('layout.layout')
+@extends('layout.layout')
 
 @section('content')
     <div class="container mt-4">
@@ -295,6 +295,7 @@
         function validateForm() {
             const brand = "{{ session('brand') }}";
             let productInput = $('#product').val().trim().toLowerCase();
+            let productId = $('#product_id').val();
             let quantityInput = parseInt($('#quantity').val());
     
             $('.error').text('');
@@ -305,12 +306,19 @@
                 return false;
             }
 
+            if (!productId) {
+                $('.product_error').text('Vui lòng chọn sản phẩm từ danh sách gợi ý.')
+                $('#product').focus();
+                return false;
+            }
+
             let isValidProduct = productList.some(p =>
-                p.product_name.trim().replace(/\r?\n|\r/g, '').toLowerCase() === productInput.replace(/\r?\n|\r/g, '')
+                p.product_name.trim().replace(/\r?\n|\r/g, '').toLowerCase() === productInput.replace(/\r?\n|\r/g, '') &&
+                p.id == productId
             );
     
             if (!isValidProduct) {
-                $('.product_error').text('Sản phẩm không hợp lệ. Vui lòng nhập lại.')
+                $('.product_error').text('Sản phẩm không hợp lệ. Vui lòng chọn lại từ danh sách gợi ý.')
                 $('#product').focus();
                 return false;
             }
@@ -397,6 +405,8 @@
         function validateSerialRanges(serialInput) {
             const cleanedInput = serialInput.toUpperCase().replace(/\n/g, ',').trim();
             const parts = cleanedInput.split(',').map(s => s.trim()).filter(s => s);
+            const allSerials = [];
+            const duplicates = [];
     
             for (let range of parts) {
                 if (range.includes('-')) {
@@ -425,8 +435,32 @@
                     if (parseInt(numberEnd) < parseInt(numberStart)) {
                         return `Dải "${range}" không hợp lệ - số kết thúc nhỏ hơn số bắt đầu`;
                     }
+                    
+                    // Tạo tất cả các số sê-ri trong phạm vi và kiểm tra các bản sao
+                    const length = numberStart.length;
+                    for (let i = parseInt(numberStart); i <= parseInt(numberEnd); i++) {
+                        const serial = prefixStart + i.toString().padStart(length, '0');
+                        if (allSerials.includes(serial)) {
+                            duplicates.push(serial);
+                        } else {
+                            allSerials.push(serial);
+                        }
+                    }
+                } else {
+                    // Serial đơn
+                    if (allSerials.includes(range)) {
+                        duplicates.push(range);
+                    } else {
+                        allSerials.push(range);
+                    }
                 }
             }
+            
+            // Kiểm tra các serial trùng lặp
+            if (duplicates.length > 0) {
+                return `Serial trùng lặp: ${duplicates.join(', ')}`;
+            }
+            
             return null;
         }
         
@@ -448,6 +482,9 @@
                 let keyword = $(this).val().toLowerCase().trim();
                 let $suggestionsBox = $('#product_suggestions');
                 $suggestionsBox.empty();
+                
+                // Clear product_id when user types
+                $('#product_id').val('');
     
                 if (!keyword) {
                     $suggestionsBox.addClass('d-none');
