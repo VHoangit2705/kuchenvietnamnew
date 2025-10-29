@@ -175,8 +175,15 @@ class CollaboratorInstallController extends Controller
                 } elseif ($phanloai === 'agency') {
                     $q->where('collaborator_id', 1);
                 }
-            });
-        $lstInstallOrder = InstallationOrder::where('status_install', '!=', 1)->where('created_at', '>=', $startDate)
+            })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('id');
+            
+        // Đã hoàn thành status_install = 2
+        $lstInstallOrder = InstallationOrder::where('status_install', 2)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay, fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -187,14 +194,57 @@ class CollaboratorInstallController extends Controller
                 } elseif ($phanloai === 'agency') {
                     $q->where('collaborator_id', 1);
                 }
-            });
-
+            })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('id');
+            
+        // Đã thanh toán status_install = 3
+        $lstPaidOrder = InstallationOrder::where('status_install', 3)
+            ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
+            ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
+            ->when($denngay = request('denngay'), function($q) use ($denngay) {
+                if (!empty($denngay)) {
+                    $q->whereDate('created_at', '<=', $denngay);
+                }
+            })
+            ->when($trangthai = request('trangthai'), function ($q) use ($trangthai) {
+                if ($trangthai === '0') {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('status_install')
+                            ->orWhere('status_install', 0);
+                    });
+                } elseif ($trangthai === '1') {
+                    $q->where('status_install', 1);
+                } elseif ($trangthai === '2') {
+                    $q->where('status_install', 2);
+                } elseif ($trangthai === '3') {
+                    $q->where('status_install', 3);
+                }
+            })
+            ->when($phanloai = request('phanloai'), function ($q) use ($phanloai) {
+                if ($phanloai === 'collaborator') {
+                    $q->where('collaborator_id', '!=', 1);
+                } elseif ($phanloai === 'agency') {
+                    $q->where('collaborator_id', 1);
+                }
+            })
+            ->when($customer_name = request('customer_name'), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('id');
+            
         $counts = [
             'dieuphoidonhang' => (clone $lstOrder)->count(),
             'dieuphoidonhangle' => (clone $lstOrderLe)->count(),
             'dieuphoibaohanh' => (clone $lstWarranty)->count(),
             'dadieuphoi'      => (clone $lstDaDieuPhoi)->count(),
             'dahoanthanh'     => (clone $lstInstallOrder)->count(),
+            'dathanhtoan'     => (clone $lstPaidOrder)->count(),
         ];
 
         $tab = $request->get('tab', 'dieuphoidonhang');
@@ -203,6 +253,7 @@ class CollaboratorInstallController extends Controller
             'dieuphoibaohanh' => $lstWarranty,
             'dadieuphoi'      => $lstDaDieuPhoi,
             'dahoanthanh'     => $lstInstallOrder,
+            'dathanhtoan'     => $lstPaidOrder,
             default           => $lstOrder,
         };
 
@@ -288,26 +339,48 @@ class CollaboratorInstallController extends Controller
                 default    => InstallationOrder::findOrFail($request->id),
             };
 
+            // Kiểm tra trạng thái đơn hàng
+            $isPaidOrder = ($model->status_install === 3);
             $action = $request->input('action');
+            
+            // Chỉ chặn nếu cố gắng thay đổi trạng thái từ "Đã thanh toán" (3)
+            // Cho phép 'update' để cập nhật thông tin, chỉ chặn 'complete' và 'payment'
+            if ($isPaidOrder && in_array($action, ['complete', 'payment'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng đã thanh toán, không thể thay đổi trạng thái! Bạn chỉ có thể cập nhật thông tin khác.',
+                    'error_code' => 'PAID_ORDER_STATUS_LOCKED'
+                ], 403);
+            }
+
             if (in_array($action, ['complete', 'payment']) && !$request->successed_at) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Yêu cầu nhập ngày hoàn thành!'
                 ]);
             }
-            switch ($action) {
-                case 'update':
-                    $model->status_install = 1;
-                    break;
+            // Xử lý thay đổi trạng thái
+            if (!$isPaidOrder) {
+                // Chỉ thay đổi trạng thái nếu không phải đơn hàng đã thanh toán
+                switch ($action) {
+                    case 'update':
+                        $model->status_install = 1;
+                        break;
 
-                case 'complete':
-                    $model->status_install = 2;
-                    break;
+                    case 'complete':
+                        $model->status_install = 2;
+                        break;
 
-                case 'payment':
-                    $model->status_install = 3;
-                    break;
+                    case 'payment':
+                        $model->status_install = 3;
+                        break;
+                }
+            } else {
+                // Nếu là đơn hàng đã thanh toán, chỉ cho phép cập nhật thông tin
+                // KHÔNG thay đổi trạng thái (giữ nguyên status_install = 3)
+                // vẫn cho phép cập nhật các thông tin khác
             }
+            
             
             $model->collaborator_id = $request->ctv_id;
             $model->install_cost    = $request->installcost;
@@ -335,30 +408,42 @@ class CollaboratorInstallController extends Controller
             }
             $model->save();
 
-            InstallationOrder::updateOrCreate(
-                [
-                    'order_code' => $model->order_code2 ?? $model->serial_number ?? $model->order_code,
-                ],
-                [
-                    'full_name'        => $model->customer_name ?? $model->full_name,
-                    'phone_number'     => $model->customer_phone ?? $model->phone_number,
-                    'address'          => $model->customer_address ?? $model->address,
-                    'product'          => $request->product,
-                    'province_id'      => $model->province ?? $model->province_id,
-                    'district_id'      => $model->district ?? $model->district_id,
-                    'ward_id'          => $model->wards ?? $model->ward_id,
-                    'collaborator_id'  => $model->collaborator_id,
-                    'install_cost'     => $model->install_cost,
-                    'status_install'   => $model->status_install,
-                    'reviews_install'  => $model->reviews_install,
-                    'agency_name'      => $model->agency_name ?? '',
-                    'agency_phone'     => $model->agency_phone ?? '',
-                    'type'             => $request->type,
-                    'zone'             => $model->zone,
-                    'created_at'       => $model->created_at ?? $model->Ngaytao,
-                    'successed_at'     => $model->successed_at
-                ]
-            );
+            try {
+                // Chỉ thực hiện updateOrCreate nếu có order_code
+                $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code;
+                if (!empty($orderCode)) {
+                    InstallationOrder::updateOrCreate(
+                        [
+                            'order_code' => $orderCode,
+                        ],
+                        [
+                            'full_name'        => $model->customer_name ?? $model->full_name,
+                            'phone_number'     => $model->customer_phone ?? $model->phone_number,
+                            'address'          => $model->customer_address ?? $model->address,
+                            'product'          => $request->product,
+                            'province_id'      => $model->province ?? $model->province_id,
+                            'district_id'      => $model->district ?? $model->district_id,
+                            'ward_id'          => $model->wards ?? $model->ward_id,
+                            'collaborator_id'  => $model->collaborator_id,
+                            'install_cost'     => $model->install_cost,
+                            'status_install'   => $model->status_install,
+                            'reviews_install'  => $model->reviews_install,
+                            'agency_name'      => $model->agency_name ?? '',
+                            'agency_phone'     => $model->agency_phone ?? '',
+                            'type'             => $request->type,
+                            'zone'             => $model->zone,
+                            'created_at'       => $model->created_at ?? $model->Ngaytao,
+                            'successed_at'     => $model->successed_at
+                        ]
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error("InstallationOrder updateOrCreate failed", [
+                    'error' => $e->getMessage(),
+                    'model_id' => $model->id,
+                    'order_code' => $orderCode ?? 'empty'
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
