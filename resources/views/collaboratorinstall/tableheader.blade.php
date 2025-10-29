@@ -1,7 +1,7 @@
 <ul class="nav nav-tabs flex-nowrap" id="collaborator_tab">
     <li class="nav-item">
-        <a class="nav-link {{ $activeTab == 'dieuphoidonhang' ? 'active' : '' }}" data-tab="dieuphoidonhang" href="#">
-            ĐƠN HÀNG <span class="text-danger">({{ $counts['dieuphoidonhang'] ?? 0 }})</span>
+        <a class="nav-link {{ $activeTab == 'chuadieuphoi' ? 'active' : '' }}" data-tab="chuadieuphoi" href="#">
+            CHƯA ĐIỀU PHỐI <span class="text-danger">({{ $counts['chuadieuphoi'] ?? 0 }})</span>
         </a>
     </li>
     <li class="nav-item">

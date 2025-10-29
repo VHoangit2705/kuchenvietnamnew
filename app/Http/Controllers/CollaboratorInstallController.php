@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Enum;
+use Illuminate\Support\Facades\DB;
 
 class CollaboratorInstallController extends Controller
 {
@@ -291,15 +292,28 @@ class CollaboratorInstallController extends Controller
     public function Index(Request $request)
     {
         $tungay = request('tungay');
+        // Lọc theo view: 1 = KUCHEN, 3 = HUROM (theo session brand)
+        $view = session('brand') === 'hurom' ? 3 : 1;
         
         $lstOrder = OrderProduct::with('order')
-            ->where('install', 1)
+            ->join('products as p', function($join){
+                $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('order_products.*')
+            ->where('order_products.install', 1)
             ->whereHas('order', function ($q) {
                 $q->where('order_code2', 'not like', 'KU%')
                   ->where(function ($sub) {
                     // Chỉ hiển thị các đơn hàng chưa điều phối
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
+                  })
+                  // Loại các đơn đã có bản ghi trong installation_orders (tránh trùng tab)
+                  ->whereNotExists(function($sub){
+                      $sub->select(DB::raw(1))
+                          ->from('installation_orders as io')
+                          ->whereRaw('io.order_code COLLATE utf8mb4_unicode_ci = orders.order_code2 COLLATE utf8mb4_unicode_ci');
                   });
                 // Chỉ lấy đơn thực sự chưa có CTV gán
                 $q->whereNull('collaborator_id');
@@ -371,13 +385,24 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
         
         $lstOrderLe = OrderProduct::with('order')
-            ->where('install', 1)
+            ->join('products as p', function($join){
+                $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('order_products.*')
+            ->where('order_products.install', 1)
             ->whereHas('order', function ($q) {
                 $q->where('order_code2', 'like', 'KU%')
                   ->where(function ($sub) {
                     // Chỉ hiển thị các đơn hàng chưa điều phối
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
+                  })
+                  // Loại các đơn đã có bản ghi trong installation_orders (tránh trùng tab)
+                  ->whereNotExists(function($sub){
+                      $sub->select(DB::raw(1))
+                          ->from('installation_orders as io')
+                          ->whereRaw('io.order_code COLLATE utf8mb4_unicode_ci = orders.order_code2 COLLATE utf8mb4_unicode_ci');
                   });
                 // Chỉ lấy đơn thực sự chưa có CTV gán
                 $q->whereNull('collaborator_id');
@@ -451,6 +476,7 @@ class CollaboratorInstallController extends Controller
 
         // CA BẢO HÀNH: hiển thị đầy đủ các ca thuộc nguồn bảo hành tại đại lý (không khóa cứng trạng thái/CTV)
         $lstWarranty = WarrantyRequest::where('type', 'agent_home')
+            ->where('view', $view)
             ->when($madon = request('madon'), fn($q) => $q->where('serial_number', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
@@ -488,9 +514,15 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
 
         // Đã điều phối status_install = 1 VÀ có CTV thật (không phải null và không phải agency flag)
-        $lstDaDieuPhoi = InstallationOrder::where('status_install', 1)
+        $lstDaDieuPhoi = InstallationOrder::join('products as p', function($join){
+                $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('installation_orders.*')
+            ->where('status_install', 1)
             ->whereNotNull('collaborator_id')
             ->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID)
+            
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -527,7 +559,12 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
             
         // Đã hoàn thành status_install = 2
-        $lstInstallOrder = InstallationOrder::where('status_install', 2)
+        $lstInstallOrder = InstallationOrder::join('products as p', function($join){
+                $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('installation_orders.*')
+            ->where('status_install', 2)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -564,8 +601,14 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
             
         // Đại lý lắp đặt - status_install = 1 VÀ collaborator_id = AGENCY_INSTALL_FLAG_ID
-        $lstAgencyInstall = InstallationOrder::where('status_install', 1)
+        $lstAgencyInstall = InstallationOrder::join('products as p', function($join){
+                $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('installation_orders.*')
+            ->where('status_install', 1)
             ->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
+            
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -602,7 +645,12 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
             
         // Đã thanh toán status_install = 3
-        $lstPaidOrder = InstallationOrder::where('status_install', 3)
+        $lstPaidOrder = InstallationOrder::join('products as p', function($join){
+                $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+            })
+            ->where('p.view', $view)
+            ->select('installation_orders.*')
+            ->where('status_install', 3)
             ->when($madon = request('madon'), fn($q) => $q->where('order_code', 'like', "%$madon%"))
             ->when($sanpham = request('sanpham'), fn($q) => $q->where('product', 'like', "%$sanpham%"))
             ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
@@ -639,7 +687,7 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
             
         $counts = [
-            'dieuphoidonhang' => (clone $lstOrder)->count(),
+            'chuadieuphoi'    => (clone $lstOrder)->count(),
             'dieuphoidonhangle' => (clone $lstOrderLe)->count(),
             'dieuphoibaohanh' => (clone $lstWarranty)->count(),
             'dadieuphoi'      => (clone $lstDaDieuPhoi)->count(),
@@ -648,7 +696,7 @@ class CollaboratorInstallController extends Controller
             'dathanhtoan'     => (clone $lstPaidOrder)->count(),
         ];
 
-        $tab = $request->get('tab', 'dieuphoidonhang');
+        $tab = $request->get('tab', 'chuadieuphoi');
         $tabQuery = match ($tab) {
             'dieuphoidonhangle' => $lstOrderLe,
             'dieuphoibaohanh' => $lstWarranty,
@@ -1508,27 +1556,23 @@ class CollaboratorInstallController extends Controller
                                 }
                             }
 
-                            // Nếu là đại lý tự lắp → luôn set ĐÃ ĐIỀU PHỐI với collaborator flag
                             if ($isAgencySelfInstall) {
+                                // Đại lý tự lắp → coi như đã điều phối cho đại lý
                                 $statusInstall = 1;
                                 $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
                             } else {
-                                // Không phải đại lý tự lắp → xét theo CTV
+                                // Không ép trạng thái về 0 khi thiếu CTV; dùng trạng thái từ file Excel
+                                $parsedStatus = $parseStatus($statusRaw);
+                                $statusInstall = $parsedStatus; // 0/1/2/3 theo mô tả
+
+                                // Nếu có CTV thật, tạo/tìm CTV và gán id; nếu trống thì để NULL
                                 $isCtvEmpty = empty($collabName) || empty($collabPhone);
-                                if ($isCtvEmpty) {
-                                    $statusInstall = 0; // Chưa điều phối
-                                    $collaboratorId = null; // Không có CTV
-                                } else {
-                                    // Có CTV → trạng thái đã điều phối (1)
-                                    $statusInstall = 1;
-                                    // CTV thật - tạo hoặc tìm CTV
+                                if (!$isCtvEmpty) {
                                     if (!isset($collaboratorCache[$collabPhone])) {
-                                        // Kiểm tra trong pre-loaded data trước
                                         if (isset($existingCollaborators[$collabPhone])) {
                                             $collaboratorCache[$collabPhone] = $existingCollaborators[$collabPhone];
                                         } else {
                                             try {
-                                                // Tạo collaborator mới
                                                 $collaborator = new WarrantyCollaborator();
                                                 $collaborator->full_name = $collabName;
                                                 $collaborator->phone = $collabPhone;
@@ -1546,12 +1590,8 @@ class CollaboratorInstallController extends Controller
                                         }
                                     }
                                     $collaboratorId = $collaboratorCache[$collabPhone];
-                                }
-
-                                // Với trường hợp không phải đại lý tự lắp, parse thêm trạng thái để nâng cấp lên 2/3 nếu có
-                                $parsedStatus = $parseStatus($statusRaw);
-                                if ($parsedStatus > $statusInstall) {
-                                    $statusInstall = $parsedStatus;
+                                } else {
+                                    $collaboratorId = null;
                                 }
                             }
 
