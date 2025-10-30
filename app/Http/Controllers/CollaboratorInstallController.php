@@ -61,6 +61,7 @@ class CollaboratorInstallController extends Controller
                     'sotaikhoan' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'chinhanh' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'cccd' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
+                    'ngaycap' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
@@ -308,6 +309,7 @@ class CollaboratorInstallController extends Controller
             })
             ->when($sanpham = request('sanpham'), function ($q) use ($sanpham) {
                 $q->where('product_name', 'like', "%$sanpham%");
+
             })
             ->when($tungay && !empty($tungay), function ($q) use ($tungay) {
                 $q->whereHas('order', function ($sub) use ($tungay) {
@@ -632,7 +634,15 @@ class CollaboratorInstallController extends Controller
                 'table' => view('collaboratorinstall.tablecontent', compact('data'))->render(),
             ]);
         }
-        return view('collaboratorinstall.index', compact('data', 'counts', 'tab'));
+
+        $products = [];
+            $brandView = (session('brand') == 'kuchen') ? 1 : 3;  //Hurom là view=3
+
+            $products = \App\Models\Kho\Product::where('view', $brandView) // Lọc theo cột 'view'
+                                             ->orderBy('product_name')
+                                             ->pluck('product_name') // Chỉ lấy cột tên
+                                             ->all();
+        return view('collaboratorinstall.index', compact('data', 'counts', 'tab', 'products'));
     }
 
     public function Details(Request $request)

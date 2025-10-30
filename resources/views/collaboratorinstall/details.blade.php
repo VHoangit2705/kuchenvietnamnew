@@ -30,6 +30,7 @@
                                         $statusInstall = $data->order->status_install ?? $data->status_install;
                                         $type = $data->VAT ? 'donhang' : ($data->warranty_end ? 'baohanh' : 'danhsach');
                                         @endphp
+                                        <script>const CREATION_DATE = '{{ $created_at }}';</script>
                                         <div class="d-flex justify-content-between">
                                             <span>{{ $code }}</span>
                                             @php
@@ -299,13 +300,20 @@
         </button>
     </div>
     <div class="d-flex">
-        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+    @if($statusInstall < 2) {{-- Trạng thái 0: Chưa ĐP, 1: Đã ĐP --}}
         
-        @if($statusInstall != 3)
-            <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
-            <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
-        @endif
-    </div>
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+        <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
+        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+    
+    @elseif($statusInstall == 2) {{-- Trạng thái 2: Đã Hoàn Thành --}}
+        
+        {{-- Đã ẩn "Cập nhật" và "Hoàn thành", chỉ cho phép thanh toán --}}
+        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+    
+    @endif 
+    {{-- Trạng thái 3 (Đã Thanh Toán): Không hiển thị nút nào --}}
+</div>
 </div>
 
 <!-- Modal Lịch sử thay đổi -->
@@ -345,6 +353,213 @@
     // Lưu trữ giá trị ban đầu của các trường CTV và Đại lý
     let originalCtvData = {};
     let originalAgencyData = {};
+
+    // 1. "Cờ" validation: Lưu trạng thái lỗi của các trường
+    let validationErrors = {};
+
+    // 2. Hàm định dạng tiền VNĐ (1,000,000)
+    function formatCurrency(input) {
+        let value = input.val().replace(/[^0-9]/g, ''); // Chỉ giữ lại số
+        if (!value) {
+            input.val('');
+            return;
+        }
+        let num = parseInt(value, 10);
+        if (isNaN(num)) {
+            input.val('');
+            return;
+        }
+        input.val(num.toLocaleString('vi-VN')); // Định dạng kiểu VN
+    }
+
+    // 3. Hàm lấy giá trị số thô từ trường tiền tệ (1000000)
+    function getCurrencyValue($input) { 
+    let value = $input.val() || ''; // Lấy giá trị trực tiếp từ $input
+    return value.replace(/[^0-9]/g, '') || '0';
+}
+
+    // 4. Hàm hiển thị lỗi
+    function showError($field, message) {
+        // Xác định ID định danh duy nhất cho trường
+        let fieldId = $field.attr('id') || $field.closest('td').data('field') || $field.closest('td').data('agency');
+        if (!fieldId) fieldId = $field.attr('name'); // Dự phòng
+
+        hideError($field); // Xóa lỗi cũ trước
+        let $error = $(`<div class="text-danger mt-1 validation-error" data-error-for="${fieldId}">${message}</div>`);
+        
+        // Thêm lỗi vào đúng vị trí
+        if ($field.hasClass('form-control')) {
+            $field.closest('td').append($error);
+        } else {
+            $field.parent().append($error);
+        }
+        
+        validationErrors[fieldId] = true; // Gắn cờ lỗi
+        updateSubmitButtons(); // Cập nhật trạng thái nút
+    }
+
+    // 5. Hàm ẩn lỗi
+    function hideError($field) {
+        let fieldId = $field.attr('id') || $field.closest('td').data('field') || $field.closest('td').data('agency');
+        if (!fieldId) fieldId = $field.attr('name');
+
+        if ($field.hasClass('form-control')) {
+            $field.closest('td').find('.validation-error').remove();
+        } else {
+             $field.parent().find('.validation-error').remove();
+        }
+
+        delete validationErrors[fieldId]; // Bỏ cờ lỗi
+        updateSubmitButtons(); // Cập nhật trạng thái nút
+    }
+
+    // 6. Hàm cập nhật trạng thái các nút Submit
+    function updateSubmitButtons() {
+        // Kiểm tra xem có lỗi nào không
+        let hasErrors = Object.keys(validationErrors).length > 0;
+        let $buttons = $("#btnUpdate, #btnComplete, #btnPay");
+
+        if (hasErrors) {
+            $buttons.prop('disabled', true).css('opacity', '0.65').css('cursor', 'not-allowed');
+        } else {
+            $buttons.prop('disabled', false).css('opacity', '1').css('cursor', 'pointer');
+        }
+    }
+
+    // 7. Hàm xác thực cho các trường động (sotaikhoan, cccd, v.v.)
+    function validateDynamicField($input, fieldName) {
+        if (!$input || $input.length === 0) return; // Trường không tồn tại
+        
+        let value = $input.val().trim();
+        let $td = $input.closest('td');
+        hideError($input); // Xóa lỗi cũ
+
+        switch (fieldName) {
+            case 'sotaikhoan':
+            case 'agency_paynumber':
+                if (value && !/^[0-9]+$/.test(value)) {
+                    showError($input, "Chỉ được nhập số.");
+                } else if (value.length > 20) {
+                    showError($input, "Tối đa 20 ký tự.");
+                }
+                // Xác thực lại trường 'chi nhánh' phụ thuộc
+                // THAY ĐỔI: Sửa logic tìm kiếm để đảm bảo tìm đúng input (nếu nó đang được edit)
+                let $chinhanhInput = $td.closest('tbody').find('input[data-field="chinhanh"], input[data-agency="agency_branch"]');
+                if($chinhanhInput.length) validateDynamicField($chinhanhInput, $chinhanhInput.data('field') || $chinhanhInput.data('agency'));
+                break;
+
+            case 'chinhanh':
+            case 'agency_branch':
+                // THAY ĐỔI: Tìm sotaikhoanCell trong toàn bộ <tbody>, không phải <tr>
+                let $sotaikhoanCell = $td.closest('tbody').find('td[data-field="sotaikhoan"], td[data-agency="agency_paynumber"]');
+                let sotaikhoanValue = $sotaikhoanCell.find('input').length ? $sotaikhoanCell.find('input').val().trim() : $sotaikhoanCell.find('.text-value').text().trim();
+
+                if (!sotaikhoanValue) {
+                    showError($input, "Vui lòng nhập Số tài khoản trước.");
+                } else if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY]+$/.test(value)) { 
+                    showError($input, "Chỉ nhập chữ tiếng Việt và dấu cách, không nhập số hoặc ký tự đặc biệt.");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+            case 'agency_name':
+            case 'agency_address':
+                // Lưu ý: Cho phép chữ tiếng Việt, số, dấu cách, và các ký tự .,-/
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,-/]+$/.test(value)) { 
+                    showError($input, "Chỉ nhập chữ, số, dấu cách và ký tự (.,-/).");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+
+            case 'cccd':
+            case 'agency_cccd':
+                if (value && !/^[0-9]+$/.test(value)) {
+                    showError($input, "Chỉ được nhập số.");
+                } else if (value && value.length !== 12) {
+                    showError($input, "Bắt buộc đủ 12 số.");
+                }
+                 // Xác thực lại trường 'ngày cấp' phụ thuộc
+                 // THAY ĐỔI: Sửa logic tìm kiếm để đảm bảo tìm đúng input (nếu nó đang được edit)
+                let $ngaycapInput = $td.closest('tbody').find('input[data-field="ngaycap"], input[data-agency="agency_release_date"]');
+                if($ngaycapInput.length) validateDynamicField($ngaycapInput, $ngaycapInput.data('field') || $ngaycapInput.data('agency'));
+                break;
+
+            case 'ngaycap':
+            case 'agency_release_date':
+                // THAY ĐỔI: Tìm cccdCell trong toàn bộ <tbody>, không phải <tr>
+                let $cccdCell = $td.closest('tbody').find('td[data-field="cccd"], td[data-agency="agency_cccd"]');
+                let cccdValue = $cccdCell.find('input').length ? $cccdCell.find('input').val().trim() : $cccdCell.find('.text-value').text().trim();
+                
+                if (!cccdValue || cccdValue.length !== 12 || !/^[0-9]+$/.test(cccdValue)) {
+                    showError($input, "Vui lòng nhập CCCD (12 số) hợp lệ trước.");
+                } else if (value) {
+                    try {
+                        let today = new Date();
+                        today.setHours(0, 0, 0, 0); // Đặt về nửa đêm
+                        let selectedDate = new Date(value);
+                        
+                        if (selectedDate > today) {
+                            showError($input, "Ngày cấp không được quá ngày hiện tại.");
+                        }
+                    } catch(e) {
+                        showError($input, "Ngày không hợp lệ.");
+                    }
+                }
+                break;
+        }
+    }
+
+    // 8. Hàm xác thực cho Chi phí lắp đặt
+    function validateInstallCost($input) {
+    hideError($input);
+    let valueStr = $input.val().trim();
+    
+    // THAY ĐỔI: Chuyển từ getCurrencyValue($input.selector) sang getCurrencyValue($input)
+    let numValue = parseInt(getCurrencyValue($input), 10); // Lấy số thô
+
+    if (!valueStr) {
+        showError($input, "Chi phí không được để trống.");
+    } else if (isNaN(numValue)) { 
+        // Trường hợp này gần như không xảy ra vì getCurrencyValue luôn trả về chuỗi số hoặc '0'
+        showError($input, "Vui lòng nhập số hợp lệ.");
+    } else if (numValue <= 0) {
+        showError($input, "Chi phí phải là số nguyên dương.");
+    }
+}
+
+    // 9. Hàm xác thực cho Ngày hoàn thành
+    function validateCompletionDate($input) {
+        hideError($input);
+        let completionDateStr = $input.val();
+        if (!completionDateStr || typeof CREATION_DATE === 'undefined' || !CREATION_DATE) return; // Không có gì để so sánh
+
+        try {
+            let completionDate = new Date(completionDateStr);
+            let creationDate = new Date(CREATION_DATE);
+            
+            // Đặt về 0 giờ để so sánh ngày
+            completionDate.setHours(0, 0, 0, 0);
+            creationDate.setHours(0, 0, 0, 0);
+
+            if (completionDate < creationDate) {
+                let creationDateFormatted = new Date(CREATION_DATE).toLocaleDateString('vi-VN');
+                showError($input, `Ngày hoàn thành không được sớm hơn ngày tạo đơn (${creationDateFormatted}).`);
+            }
+        } catch (e) {
+            showError($input, "Ngày không hợp lệ.");
+        }
+    }
+    
+    // 10. Chạy tất cả validation cho các trường input tĩnh khi tải trang
+    function runAllInitialValidations() {
+        if ($("#install_cost_ctv").is(":visible")) validateInstallCost($('#install_cost_ctv'));
+        if ($("#successed_at_ctv").is(":visible")) validateCompletionDate($('#successed_at_ctv'));
+        if ($("#install_cost_agency").is(":visible")) validateInstallCost($('#install_cost_agency'));
+        if ($("#successed_at").is(":visible")) validateCompletionDate($('#successed_at'));
+        
+        updateSubmitButtons(); // Cập nhật nút bấm dựa trên cờ lỗi
+    }
 
     $(document).ready(function() {
         // Lưu giá trị ban đầu của các trường CTV
@@ -505,6 +720,10 @@
         saveOriginalAgencyData();
 
         $("#isInstallAgency").on("change", function() {
+            // NÂNG CẤP: Xóa tất cả cờ lỗi và chạy lại validation
+            validationErrors = {};
+            $('.validation-error').remove();
+            
             if ($(this).is(":checked")) {
                 // Clear các trường CTV (không lưu giá trị hiện tại)
                 clearCtvData();
@@ -519,12 +738,15 @@
                 restoreOriginalCtvData();
                 
                 $(".installCostRow").hide();
-                $(".error").hide();
+                $(".error").hide(); // 'error' là class cũ, có thể xóa
                 $("#table_collaborator").show();
                 $(".ctv_row").show();
                 $("#install_cost_row").show();
                 $("#install_file").show();
             }
+            
+            // NÂNG CẤP: Chạy lại validation cho các trường
+            runAllInitialValidations();
         });
 
         if ($("#isInstallAgency").is(":checked")) {
@@ -535,7 +757,7 @@
             $("#table_collaborator").hide();
         } else {
             $(".installCostRow").hide();
-            $(".error").hide();
+            $(".error").hide(); // 'error' là class cũ, có thể xóa
             $("#table_collaborator").show();
         }
 
@@ -571,19 +793,28 @@
             td.html(html);
         }
 
-        $(".install_cost").on("input", function() {
-            let value = $(this).val().trim();
-            let errorBox = $(".error");
-            let isValid = /^[0-9]+$/.test(value);
+        // --- NÂNG CẤP: Gắn validation cho các trường tĩnh ---
 
-            if (!isValid) {
-                errorBox.text("Vui lòng nhập số nguyên dương, không chứa dấu , hoặc .").show();
-            } else if (parseInt(value) < 0) {
-                errorBox.text("Chi phí lắp đặt không được âm.").show();
-            } else {
-                errorBox.hide();
-            }
+        // 1. Chi phí lắp đặt (cả CTV và Đại lý)
+        $(".install_cost").on("input", function() {
+            formatCurrency($(this)); // Định dạng tiền
+            validateInstallCost($(this)); // Xác thực
+        }).on("blur", function() {
+            validateInstallCost($(this)); // Xác thực khi rời đi
         });
+        
+        // 2. Ngày hoàn thành (cả CTV và Đại lý)
+        $("#successed_at_ctv, #successed_at").on("change", function() {
+            validateCompletionDate($(this));
+        }).on("blur", function() {
+            validateCompletionDate($(this)); // Xác thực khi rời đi
+        });
+        
+        // 3. Chạy validation ban đầu khi tải trang
+        runAllInitialValidations();
+        
+        // --- KẾT THÚC NÂNG CẤP TRƯỜNG TĨNH ---
+
 
         Update();
         
@@ -594,13 +825,49 @@
         });
     });
 
-    function validate() {
+    function validateBasicInfo() {
         if ($("#isInstallAgency").is(":checked")) {
-            return $("#install_cost_agency").val().trim() > 0;
+            // SỬA LỖI: Thêm $() để truyền vào một jQuery object, không phải string
+            return parseInt(getCurrencyValue( $('#install_cost_agency') ), 10) > 0;
         } else {
-            return $("#ctv_id").val() !== '' && $("#install_cost_ctv").val().trim() > 0;
+            // SỬA LỖI: Thêm $() để truyền vào một jQuery object, không phải string
+            return $("#ctv_id").val() !== '' && parseInt(getCurrencyValue( $('#install_cost_ctv') ), 10) > 0;
         }
     }
+    
+    // NÂNG CẤP: Hàm kiểm tra tổng thể mới
+    function validateAll() {
+        // 1. Chạy lại tất cả validation để bắt lỗi
+        runAllInitialValidations();
+        
+        // 2. Kiểm tra thông tin cơ bản (CTV, chi phí...)
+        if (!validateBasicInfo()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi thông tin cơ bản',
+                text: 'Vui lòng chọn CTV và nhập chi phí, hoặc chọn "Đại lý lắp đặt" và nhập chi phí.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return false;
+        }
+        
+        // 3. Kiểm tra cờ lỗi
+        let hasErrors = Object.keys(validationErrors).length > 0;
+        if (hasErrors) {
+             Swal.fire({
+                icon: 'error',
+                title: 'Lỗi điền thông tin',
+                text: 'Vui lòng sửa các lỗi được tô đỏ trước khi tiếp tục.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return false;
+        }
+        
+        return true; // Tất cả đều hợp lệ
+    }
+
 
     function UpdateCollaborator() {
         let id = $("#ctv_id").val();
@@ -619,6 +886,13 @@
             } else {
                 value = $td.find(".text-value").text().trim();
             }
+            
+            // NÂNG CẤP: Gửi ngày tháng đúng định dạng Y-m-d
+            if (field === 'ngaycap' && value && value.includes('/')) {
+                 let parts = value.split('/');
+                 if (parts.length === 3) value = parts[2] + '-' + parts[1] + '-' + parts[0];
+            }
+            
             data[field] = value;
         });
 
@@ -696,6 +970,12 @@
     function Update() {
         $("#btnUpdate, #btnComplete, #btnPay").on("click", function(e) {
             e.preventDefault();
+            
+            // 1. Kiểm tra validation tổng thể (đã sửa ở bước trước)
+            if (!validateAll()) {
+                return; // Dừng lại nếu có lỗi
+            }
+            
             Swal.fire({
                 title: 'Bạn có chắc chắn?',
                 text: "Hành động này không thể hoàn tác!",
@@ -709,16 +989,7 @@
                 if (result.isConfirmed) {
                     const urlParams = new URLSearchParams(window.location.search);
                     const type = urlParams.get('type');
-                    if (!validate()) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Lỗi điền thông tin',
-                            timer: 1500,
-                            showConfirmButton: false
-                        })
-                        return;
-                    }
-
+                    
                     let action = $(this).data('action');
                     let isInstallAgency = $("#isInstallAgency").is(":checked") ? 1 : 0;
                     let formData = new FormData();
@@ -732,11 +1003,17 @@
                     if (isInstallAgency === 1) {
                         formData.append("ctv_id", 1);
                         formData.append("successed_at", $("#successed_at").val().trim());
-                        formData.append("installcost", $("#install_cost_agency").val().trim());
+                        
+                        // SỬA LỖI TẠI ĐÂY: Thêm $()
+                        formData.append("installcost", getCurrencyValue( $('#install_cost_agency') ));
+                    
                     } else {
                         formData.append("ctv_id", $("#ctv_id").val());
                         formData.append("successed_at", $("#successed_at_ctv").val().trim());
-                        formData.append("installcost", $("#install_cost_ctv").val().trim());
+                        
+                        // SỬA LỖI TẠI ĐÂY: Thêm $()
+                        formData.append("installcost", getCurrencyValue( $('#install_cost_ctv') ));
+                        
                         let file = $("#install_review")[0].files[0];
                         if (file) {
                             formData.append("installreview", file);
@@ -759,8 +1036,6 @@
                                     showConfirmButton: false
                                 }).then(() => {
                                     UpdateCollaborator();
-                                    // CHỈ GỌI UpdateAgency() KHI CÓ THAY ĐỔI THÔNG TIN ĐẠI LÝ
-                                    // Kiểm tra xem có thay đổi thông tin đại lý không
                                     if (hasAgencyChanges()) {
                                         UpdateAgency();
                                     }
@@ -856,6 +1131,7 @@
         }
     });
 
+    // NÂNG CẤP: Gắn validation vào trình xử lý .edit-icon
     $(document).on("click", ".edit-icon", function() {
         let $td = $(this).closest("td");
         let $span = $td.find(".text-value");
@@ -863,14 +1139,19 @@
 
         let field = $td.data("field");
         let agency = $td.data("agency");
+        let fieldName = field || agency; // Tên định danh của trường
 
         let $input = $("<input>", {
             type: "text",
             value: oldValue,
             class: "form-control d-inline-block w-auto"
         });
+        
+        // Gắn data-field/data-agency vào input để dễ truy xuất
+        if (field) $input.attr('data-field', field);
+        if (agency) $input.attr('data-agency', agency);
 
-        if (field === "ngaycap" || agency === "agency_release_date") {
+        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
             $input.attr("type", "date");
             // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
             if (oldValue && oldValue.includes('/')) {
@@ -884,24 +1165,44 @@
             }
         }
 
-        // Xử lý khi blur (rời input)
-        $input.on("blur", function() {
-            let newValue = $(this).val().trim() || oldValue;
+        // --- BẮT ĐẦU GẮN VALIDATION ---
+        $input.on("input change", function() {
+            validateDynamicField($(this), fieldName);
+        });
+        // --- KẾT THÚC GẮN VALIDATION ---
 
-            if (field === "ngaycap" || agency === "agency_release_date") {
-                // Chuyển đổi format từ Y-m-d sang d/m/Y để hiển thị
-                if (newValue && newValue.includes('-')) {
-                    let parts = newValue.split('-');
-                    if (parts.length === 3) {
-                        let year = parts[0];
-                        let month = parts[1];
-                        let day = parts[2];
-                        newValue = day + '/' + month + '/' + year;
+        // Xử lý khi blur (rời input) - ĐÃ NÂNG CẤP
+        $input.on("blur", function() {
+            validateDynamicField($(this), fieldName); // Chạy validation lần cuối
+            let newValue = $(this).val().trim();
+
+            // Trường hợp 1: Người dùng xóa rỗng -> Luôn gỡ lỗi và cập nhật
+            if (newValue === '') {
+                hideError($(this)); // Gỡ lỗi
+                $span.text('').show(); // Cập nhật span thành rỗng
+            
+            // Trường hợp 2: Người dùng nhập đúng (không rỗng VÀ không có cờ lỗi)
+            } else if (!validationErrors[fieldName]) {
+                // Xử lý format ngày tháng trước khi hiển thị
+                if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
+                    if (newValue && newValue.includes('-')) {
+                        let parts = newValue.split('-');
+                        if (parts.length === 3) {
+                            let year = parts[0];
+                            let month = parts[1];
+                            let day = parts[2];
+                            newValue = day + '/' + month + '/' + year;
+                        }
                     }
                 }
+                $span.text(newValue).show(); // Cập nhật span với giá trị mới
+            
+            // Trường hợp 3: Người dùng nhập sai và rời đi (không rỗng VÀ có cờ lỗi)
+            } else {
+                hideError($(this)); // Gỡ lỗi (vì chúng ta không lưu giá trị sai)
+                $span.text(oldValue).show(); // Quay về giá trị cũ
             }
 
-            $span.text(newValue).show();
             $td.find(".edit-icon").show();
             $(this).remove();
         });
@@ -916,9 +1217,12 @@
         $(this).hide();
         $td.prepend($input);
         $input.focus();
+        
+        // Chạy validation ngay khi input xuất hiện
+        validateDynamicField($input, fieldName);
     });
 
-    // Hàm load lịch sử thay đổi
+    // Hàm load lịch sử thay đổi (không thay đổi)
     function loadHistory() {
         $('#historyLoading').show();
         $('#historyContent').hide();
@@ -951,7 +1255,7 @@
         });
     }
 
-    // Hàm hiển thị lịch sử
+    // Hàm hiển thị lịch sử (không thay đổi)
     function displayHistory(history) {
         let html = '';
         
@@ -978,7 +1282,6 @@
                             <div class="mt-3">
                                 <h6>Chi tiết thay đổi:</h6>
                                 
-                                <!-- Thông tin CTV -->
                                 ${getCtvChanges(item.changes_detail).length > 0 ? `
                                     <div class="mb-3">
                                         <h6 class="text-primary">
@@ -1011,7 +1314,6 @@
                                     </div>
                                 ` : ''}
                                 
-                                <!-- Thông tin Đại lý -->
                                 ${getAgencyChanges(item.changes_detail).length > 0 ? `
                                     <div class="mb-3">
                                         <h6 class="text-info">
@@ -1053,7 +1355,7 @@
         $('#historyList').html(html);
     }
 
-    // Hàm lấy icon cho action type
+    // Các hàm helper cho lịch sử (không thay đổi)
     function getActionIcon(actionType) {
         const icons = {
             'create': 'plus-circle',
@@ -1070,7 +1372,6 @@
         return icons[actionType] || 'info-circle';
     }
 
-    // Hàm lấy màu badge cho action type
     function getActionBadgeColor(actionType) {
         const colors = {
             'create': 'success',
@@ -1087,7 +1388,6 @@
         return colors[actionType] || 'secondary';
     }
 
-    // Hàm lấy màu cho trạng thái
     function getStatusColor(statusText) {
         const colors = {
             'Chưa điều phối': 'secondary',
@@ -1098,7 +1398,6 @@
         return colors[statusText] || 'muted';
     }
 
-    // Hàm định dạng comment thay đổi trạng thái với màu sắc
     function formatStatusComment(comment) {
         const regex = /Thay đổi trạng thái: (.+) → (.+)/;
         const match = comment.match(regex);
@@ -1113,7 +1412,6 @@
         return comment; // Return original comment if not a status change format
     }
 
-    // Hàm lọc thay đổi CTV
     function getCtvChanges(changes) {
         return changes.filter(change => 
             change.field_name.includes('CTV') || 
@@ -1123,7 +1421,6 @@
         );
     }
 
-    // Hàm lọc thay đổi Đại lý
     function getAgencyChanges(changes) {
         return changes.filter(change => 
             change.field_name.includes('đại lý') || 
@@ -1132,7 +1429,7 @@
         );
     }
 
-    // Hàm kiểm tra xem có thay đổi thông tin đại lý không
+    // Hàm kiểm tra xem có thay đổi thông tin đại lý không (không thay đổi)
     function hasAgencyChanges() {
         // Lấy giá trị hiện tại của các trường đại lý
         let currentAgencyData = {

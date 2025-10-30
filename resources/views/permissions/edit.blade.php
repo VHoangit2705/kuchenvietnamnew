@@ -161,6 +161,7 @@
                     childPermissions.show(); // hoặc slideDown()
 
                     // Đổi icon + thành -
+                    childPermissions.show();
                     const icon = group.find('.toggle-btn i');
                     icon.removeClass('fa-plus').addClass('fa-minus');
                 }
