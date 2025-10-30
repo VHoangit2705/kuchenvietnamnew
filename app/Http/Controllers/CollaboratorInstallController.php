@@ -299,6 +299,7 @@ class CollaboratorInstallController extends Controller
             ->join('products as p', function($join){
                 $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
             })
+            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
             ->where('p.view', $view)
             ->select('order_products.*')
             ->where('order_products.install', 1)
@@ -308,12 +309,6 @@ class CollaboratorInstallController extends Controller
                     // Chỉ hiển thị các đơn hàng chưa điều phối
                     $sub->whereNull('status_install')
                         ->orWhere('status_install', 0);
-                  })
-                  // Loại các đơn đã có bản ghi trong installation_orders (tránh trùng tab)
-                  ->whereNotExists(function($sub){
-                      $sub->select(DB::raw(1))
-                          ->from('installation_orders as io')
-                          ->whereRaw('io.order_code COLLATE utf8mb4_unicode_ci = orders.order_code2 COLLATE utf8mb4_unicode_ci');
                   });
                 // Chỉ lấy đơn thực sự chưa có CTV gán
                 $q->whereNull('collaborator_id');
@@ -382,12 +377,14 @@ class CollaboratorInstallController extends Controller
             })
             ->when($include_old_data = request('include_old_data'), function ($q) {
             })
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
         
         $lstOrderLe = OrderProduct::with('order')
             ->join('products as p', function($join){
                 $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
             })
+            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
             ->where('p.view', $view)
             ->select('order_products.*')
             ->where('order_products.install', 1)
@@ -471,6 +468,7 @@ class CollaboratorInstallController extends Controller
             })
             ->when($include_old_data = request('include_old_data'), function ($q) {
             })
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
 
 
@@ -511,6 +509,7 @@ class CollaboratorInstallController extends Controller
             ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
             ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
             ->orderByDesc('Ngaytao')
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
 
         // Đã điều phối status_install = 1 VÀ có CTV thật (không phải null và không phải agency flag)
@@ -556,6 +555,7 @@ class CollaboratorInstallController extends Controller
             ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
             ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
             ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
             
         // Đã hoàn thành status_install = 2
@@ -598,6 +598,7 @@ class CollaboratorInstallController extends Controller
             ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
             ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
             ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
             
         // Đại lý lắp đặt - status_install = 1 VÀ collaborator_id = AGENCY_INSTALL_FLAG_ID
@@ -642,6 +643,7 @@ class CollaboratorInstallController extends Controller
             ->when($customer_phone = request('customer_phone'), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
             ->when($agency_name = request('agency_name'), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
             ->when($agency_phone = request('agency_phone'), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"))
+            ->orderByDesc('created_at')
             ->orderByDesc('id');
             
         // Đã thanh toán status_install = 3
@@ -687,7 +689,7 @@ class CollaboratorInstallController extends Controller
             ->orderByDesc('id');
             
         $counts = [
-            'chuadieuphoi'    => (clone $lstOrder)->count(),
+            'donhang'        => (clone $lstOrder)->count(),
             'dieuphoidonhangle' => (clone $lstOrderLe)->count(),
             'dieuphoibaohanh' => (clone $lstWarranty)->count(),
             'dadieuphoi'      => (clone $lstDaDieuPhoi)->count(),
@@ -696,8 +698,9 @@ class CollaboratorInstallController extends Controller
             'dathanhtoan'     => (clone $lstPaidOrder)->count(),
         ];
 
-        $tab = $request->get('tab', 'chuadieuphoi');
+        $tab = $request->get('tab', 'donhang');
         $tabQuery = match ($tab) {
+            'donhang'        => $lstOrder,
             'dieuphoidonhangle' => $lstOrderLe,
             'dieuphoibaohanh' => $lstWarranty,
             'dadieuphoi'      => $lstDaDieuPhoi,
@@ -710,8 +713,10 @@ class CollaboratorInstallController extends Controller
         // Fix ordering - use appropriate date column based on the tab
         if ($tab === 'dieuphoibaohanh') {
             $data = $tabQuery->orderByDesc('Ngaytao')->orderByDesc('id')->paginate(50)->withQueryString();
+        } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
+            $data = $tabQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();
         } else {
-            $data = $tabQuery->orderByDesc('id')->paginate(50)->withQueryString();
+            $data = $tabQuery->orderByDesc('created_at')->orderByDesc('id')->paginate(50)->withQueryString();
         }
         
         // Debug log để kiểm tra dữ liệu
@@ -1384,8 +1389,8 @@ class CollaboratorInstallController extends Controller
 
             // Hàm chuẩn hóa trạng thái - tối ưu hóa và xử lý lộn xộn
             $parseStatus = function ($statusRaw) {
-                // Nếu cột L (trạng thái) rỗng → trạng thái đang xử lý (1)
-                if (empty($statusRaw)) return 1;
+                // Nếu cột L (trạng thái) rỗng → trạng thái chưa điều phối
+                if (empty($statusRaw)) return 0;
                 
                 // Loại bỏ khoảng trắng thừa và chuyển về chữ thường
                 $statusLower = mb_strtolower(trim($statusRaw));
@@ -1418,11 +1423,12 @@ class CollaboratorInstallController extends Controller
                     'đã xong', 'đã làm xong', 'đã lắp xong', 'lắp xong'
                 ];
                 
-                // Trạng thái đang xử lý (1)
+                // Trạng thái đang xử lý (Đã điều phối) (1)
                 $processingStatuses = [
                     'đang xử lý', 'đang làm', 'đang theo dõi', 'đang thực hiện', 'đang lắp',
                     'processing', 'in progress', 'đang tiến hành', 'đang thực hiện',
-                    'đang lắp đặt', 'lắp đặt', 'đang thi công', 'thi công', 'CTV bận', 'gọi thuê bao', 'Báo bận'
+                    'đang lắp đặt', 'lắp đặt', 'đang thi công', 'thi công', 'CTV bận', 'gọi thuê bao', 'Báo bận',
+                    'Chưa lắp', 'chưa có mạch'
                 ];
                 
                 // Trạng thái chưa điều phối (0)
