@@ -115,40 +115,44 @@
         });
     }
 
+    // Hàm định dạng ngày tháng Y-m-d để gán cho input type="date"
+    function formatDateToInput(dateString) {
+        return dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+    }
+
     $(document).on('click', '.edit-row', function() {
         const button = $(this);
         const id = button.data('id');
         $.ajax({
             url: '{{ route("ctv.getbyid") }}',
             type: 'POST',
-            data: {
-                id: id
-            },
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
+            data: { id: id },
             success: function(response) {
                 const item = response.data.collaborator;
-                const province = response.data.provinces;
-                const district = response.data.districts;
-                const ward = response.data.wards;
-                district.forEach(function(item) {
-                    $('#districtForm').append('<option value="' + item.district_id + '">' + item.name + '</option>');
-                });
-                ward.forEach(function(item) {
-                    $('#wardForm').append('<option value="' + item.wards_id + '">' + item.name + '</option>');
-                });
+                const districts = response.data.districts;
+                const wards = response.data.wards;
+
+                // Cập nhật tiêu đề và nút
                 $('#tieude').text("Cập nhật cộng tác viên");
                 $('#hoantat').text('Cập nhật');
+
+                // Điền dữ liệu vào form
+                $('#id').val(item.id);
                 $('#full_nameForm').val(item.full_name);
                 $('#date_of_birth').val(item.date_of_birth ? formatDateToInput(item.date_of_birth) : '');
                 $('#phoneForm').val(item.phone);
-                $('#provinceForm').val(item.province_id);
-                $('#districtForm').val(item.district_id);
-                $('#wardForm').val(item.ward_id);
                 $('#address').val(item.address);
-                $('#id').val(item.id);
-                
+
+                // Xử lý combobox
+                $('#provinceForm').val(item.province_id);
+
+                let $districtForm = $('#districtForm').empty().append('<option value="" disabled selected>Quận/Huyện</option>');
+                districts.forEach(d => $districtForm.append(`<option value="${d.district_id}">${d.name}</option>`));
+                $('#districtForm').val(item.district_id);
+
+                let $wardForm = $('#wardForm').empty().append('<option value="" disabled selected>Xã/Phường</option>');
+                wards.forEach(w => $wardForm.append(`<option value="${w.wards_id}">${w.name}</option>`));
+                $('#wardForm').val(item.ward_id);
             },
             error: function(xhr) {
                 alert('Có lỗi xảy ra khi lấy dữ liệu cộng tác viên.');
