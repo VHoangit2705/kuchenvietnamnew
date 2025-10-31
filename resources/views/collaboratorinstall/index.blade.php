@@ -163,45 +163,99 @@
     <div class="d-flex" style="overflow-x: auto; white-space: nowrap;">
         @include('collaboratorinstall.tableheader', ['counts' => $counts, 'activeTab' => $tab ?? ''])
     </div>
-    <!-- Nội dung tab -->
+    <!-- Nội dung tab - Lazy load qua AJAX -->
     <div id="tabContent">
-        @include('collaboratorinstall.tablecontent')
+        <div class="text-center p-4">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-    $(document).ready(function() {
-        window.loadTabData = function(tab, formData) {
-            let url = "{{ route('dieuphoi.index') }}?tab=" + tab + "&" + formData;
-            $.get(url, function(response) {
-                if (typeof response === 'object' && response.tab && response.table) {
-                    $('#collaborator_tab').html(response.tab);
-                    $('#tabContent').html(response.table);
-
-                    // Highlight tab active
-                    $('#collaborator_tab .nav-link').removeClass('active');
-                    $('#collaborator_tab .nav-link[data-tab="' + tab + '"]').addClass('active');
-
-                    localStorage.setItem('activeTab', tab);
-                }
-            });
+    // Đặt loadTabData và loadCounts ở global scope
+    window.loadTabData = function(tab, formData, page = 1) {
+        let url = "{{ route('dieuphoi.tabdata') }}?tab=" + tab + "&page=" + page;
+        if (formData) {
+            url += "&" + formData;
         }
+        
+        $('#tabContent').html('<div class="text-center p-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>');
+        
+        $.get(url, function(response) {
+            if (response && response.table) {
+                $('#tabContent').html(response.table);
+                localStorage.setItem('activeTab', tab);
+                
+                // Highlight tab active
+                $('#collaborator_tab .nav-link').removeClass('active');
+                $('#collaborator_tab .nav-link[data-tab="' + tab + '"]').addClass('active');
+            }
+        }).fail(function() {
+            $('#tabContent').html('<div class="alert alert-danger">Có lỗi xảy ra khi tải dữ liệu!</div>');
+        });
+    };
+
+    window.loadCounts = function(formData) {
+        let url = "{{ route('dieuphoi.counts') }}";
+        if (formData) {
+            url += "?" + formData;
+        }
+        
+        $.get(url, function(counts) {
+            if (counts) {
+                // Cập nhật counts cho từng tab
+                Object.keys(counts).forEach(function(tabKey) {
+                    $('.count-badge[data-count-for="' + tabKey + '"]').text('(' + (counts[tabKey] || 0) + ')');
+                });
+            }
+        });
+    };
+
+    $(document).ready(function() {
+        // Load counts và tab data khi trang mở
+        const activeTab = localStorage.getItem('activeTab') || 'donhang';
+        const formData = $('#searchForm').serialize();
+        
+        // Load counts trước
+        loadCounts(formData);
+        
+        // Sau đó load tab data
+        loadTabData(activeTab, formData, 1);
 
         // Xử lý click tab
         $('#collaborator_tab').on('click', '.nav-link', function(e) {
             e.preventDefault();
+            // Nếu đang ở tab active thì bỏ qua, không load lại
+            if ($(this).hasClass('active')) {
+                return;
+            }
             let tab = $(this).data('tab');
-            
             let formData = $('#searchForm').serialize();
-            loadTabData(tab, formData);
+            loadTabData(tab, formData, 1);
         });
 
         // Xử lý form search
         $('#searchForm').on('submit', function(e) {
             e.preventDefault();
-            let tab = localStorage.getItem('activeTab') || 'danhsach';
+            let tab = localStorage.getItem('activeTab') || 'donhang';
             let formData = $(this).serialize();
-            loadTabData(tab, formData);
+            
+            // Load lại counts và tab data
+            loadCounts(formData);
+            loadTabData(tab, formData, 1);
+        });
+
+        // Xử lý phân trang (khi click pagination link)
+        $(document).on('click', '.pagination a', function(e) {
+            e.preventDefault();
+            let url = $(this).attr('href');
+            let page = new URL(url).searchParams.get('page') || 1;
+            let tab = localStorage.getItem('activeTab') || 'donhang';
+            let formData = $('#searchForm').serialize();
+            
+            loadTabData(tab, formData, page);
         });
 
         Report();
@@ -215,8 +269,9 @@
         $('#phanloai').val('');
         
         // Reload dữ liệu với form trống
-        const tab = localStorage.getItem('activeTab') || 'dieuphoidonhang';
-        loadTabData(tab, '');
+        const tab = localStorage.getItem('activeTab') || 'donhang';
+        loadCounts('');
+        loadTabData(tab, '', 1);
     }
 
     function Report() {
@@ -269,16 +324,11 @@
         });
     }
 
-    // Xử lý form đồng bộ dữ liệu cũ
-    $('#excelUploadFormOld').on('submit', function(e) {
-        e.preventDefault();
-        uploadExcel('/upload-excel', this, 'excelModalOld');
-    });
 
     // Xử lý form đồng bộ dữ liệu mới với upsert
     $('#excelUploadFormNew').on('submit', function(e) {
         e.preventDefault();
-        uploadExcel('/upload-excel-sync', this, 'excelModalNew');
+        uploadExcel('{{ route('upload-excel-sync') }}', this, 'excelModalNew');
     });
 
     function uploadExcel(url, form, modalId) {
@@ -350,24 +400,16 @@
                             confirmButtonText: 'OK',
                             width: '600px'
                         });
-                    } else {
-                        // Kết quả cho chức năng cũ
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Thành công!',
-                            text: `Đã import ${data.imported} dòng dữ liệu.`,
-                            confirmButtonText: 'OK'
-                        });
-                    }
-                    
+                    } 
                     // Đóng modal và reload data
                     const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
                     if (modal) modal.hide();
                     
-                    const tab = localStorage.getItem('activeTab') || 'dieuphoidonhang';
+                    const tab = localStorage.getItem('activeTab') || 'donhang';
                     const formData = $('#searchForm').serialize();
                     if (typeof loadTabData === 'function') {
-                        loadTabData(tab, formData);
+                        loadCounts(formData);
+                        loadTabData(tab, formData, 1);
                     } else {
                         location.reload();
                     }

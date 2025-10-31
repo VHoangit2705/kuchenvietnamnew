@@ -28,9 +28,10 @@
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
-                <td>{{$code}}</td>
+                {{-- <td>{{$code}}</td> --}}
+                <td>{{ $code ?: ' N/A ' }}</td>
                 <td class="text-center">
-                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : '-' }}
+                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : 'N/A' }}
                   </td>
                 <td class="text-center">{{ $zone }}</td>
                 <td>{{ $item->order->agency_name ?? $item->agency_name ?? '' }}</td>

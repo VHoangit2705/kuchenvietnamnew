@@ -83,10 +83,10 @@
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
-                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? '' }}</td>
+                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? 'N/A' }}</td>
                                     <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $data->order->collaborator_id ?? $data->collaborator_id }}">
                                     <th>SĐT CTV:</th>
-                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? '' }}</td>
+                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số tài khoản:</th>
