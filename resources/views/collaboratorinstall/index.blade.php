@@ -300,31 +300,40 @@
                 $denngay.removeClass('is-invalid');
 
                 if ((fromDate && !toDate) || (!fromDate && toDate)) {
-                    toastr.warning("Vui lòng nhập cả 'Từ ngày' và 'Đến ngày'.");
-                    if (!fromDate) $tungay.addClass('is-invalid');
-                    if (!toDate) $denngay.addClass('is-invalid');
+                    if (!fromDate) {
+                        $tungay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                    }
+                    if (!toDate) {
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                    }
                     isValid = false;
                 }
 
                 // Kiểm tra logic ngày
                 if (fromDate && toDate) {
                     if (fromDate > toDate) {
-                        toastr.warning("'Từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'.");
-                        $tungay.addClass('is-invalid');
-                        $denngay.addClass('is-invalid');
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" phải sau hoặc bằng "Từ ngày".</div>');
                         isValid = false;
                     }
                     if (toDate > today) {
-                        toastr.warning("'Đến ngày' không được lớn hơn ngày hiện tại.");
-                        $denngay.addClass('is-invalid');
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" không được ở tương lai.</div>');
                         isValid = false;
                     }
+                }
+
+                // Nếu hợp lệ, xóa các thông báo lỗi có thể đã thêm
+                if (isValid) {
+                    $tungay.next('.invalid-feedback').remove();
+                    $denngay.next('.invalid-feedback').remove();
                 }
 
                 // GỌI HÀM CHECK TỔNG THỂ
                 checkFormValidity();
                 return isValid;
             }
+
+            // Gắn sự kiện change cho các ô ngày tháng
+            $('#tungay, #denngay').on('change', validateDates);
 
             // Hàm Validate nhập tên sản phẩm
             function validateProductsName(inputId, maxLength) {
