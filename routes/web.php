@@ -64,13 +64,19 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::post('/createcollaborator', [CollaboratorController::class, 'CreateCollaborator'])->name('ctv.create');
     Route::get('/collaborator/delete/{id}', [CollaboratorController::class, 'DeleteCollaborator'])->name('ctv.delete');
     Route::post('/congtacvien/capnhat', [CollaboratorController::class, 'UpdateCollaborator'])->name('ctv.update');
+    Route::post('/congtacvien/clear', [CollaboratorController::class, 'ClearCollaborator'])->name('ctv.clear'); //Clear CTV data
+    Route::post('/congtacvien/switch', [CollaboratorController::class, 'SwitchToCtv'])->name('ctv.switch'); //Switch to CTV
     Route::get('/congtacvien/{id}', [CollaboratorController::class, 'getCollaboratorByID'])->name('collaborator.show');
     Route::post('/daily/capnhat', [CollaboratorController::class, 'UpdateAgency'])->name('agency.update'); //Cập nhật đại lý
+    Route::get('/congtacvien/lichsu/{id}', [CollaboratorController::class, 'getCollaboratorHistory'])->name('ctv.history'); //Lịch sử thay đổi CTV
+    Route::get('/congtacvien/lichsu-order/{order_code}', [CollaboratorController::class, 'getOrderHistory'])->name('ctv.order.history'); //Lịch sử thay đổi theo order
     //Điều phối công tác viên
     Route::get('/dieuphoicongtacvien', [CollaboratorInstallController::class, 'Index'])->name('dieuphoi.index');
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
+    // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
+    Route::post('/upload-excel-sync', [CollaboratorInstallController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
     Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
 });
 

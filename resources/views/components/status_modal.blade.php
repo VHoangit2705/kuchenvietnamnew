@@ -46,8 +46,8 @@
 <!-- JavaScript để xử lý modal và AJAX -->
 <script>
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
-
-    function showError() {
+    // Đã đổi tên hàm để tránh trùng tên
+    function showPermissionError() {
         Swal.fire({ icon: 'error', title: 'Bạn không được quyền!' });
     }
 
