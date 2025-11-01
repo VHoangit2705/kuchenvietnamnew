@@ -367,7 +367,7 @@ class CollaboratorInstallController extends Controller
             },
             'dadieuphoi' => function () use ($view) {
                 return InstallationOrder::join('products as p', function($join){
-                        $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                        $join->on('installation_orders.product', '=', 'p.product_name');
                     })
                     ->where('p.view', $view)
                     ->select('installation_orders.*')
@@ -377,7 +377,7 @@ class CollaboratorInstallController extends Controller
             },
             'dailylapdat' => function () use ($view) {
                 return InstallationOrder::join('products as p', function($join){
-                        $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                        $join->on('installation_orders.product', '=', 'p.product_name');
                     })
                     ->where('p.view', $view)
                     ->select('installation_orders.*')
@@ -386,7 +386,7 @@ class CollaboratorInstallController extends Controller
             },
             'dahoanthanh' => function () use ($view) {
                 return InstallationOrder::join('products as p', function($join){
-                        $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                        $join->on('installation_orders.product', '=', 'p.product_name');
                     })
                     ->where('p.view', $view)
                     ->select('installation_orders.*')
@@ -394,7 +394,7 @@ class CollaboratorInstallController extends Controller
             },
             'dathanhtoan' => function () use ($view) {
                 return InstallationOrder::join('products as p', function($join){
-                        $join->on(DB::raw("installation_orders.product COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                        $join->on('installation_orders.product', '=', 'p.product_name');
                     })
                     ->where('p.view', $view)
                     ->select('installation_orders.*')
