@@ -1,6 +1,29 @@
 @extends('layout.layout')
 
 @section('content')
+<style>
+    #collaborator_tab .nav-link.active {
+        background-color: #666666 !important;
+        color: #ffffff !important;
+        border-color: #666666 #666666 transparent !important;
+        font-weight: bold;
+    }
+    
+    #collaborator_tab .nav-link.active .count-badge {
+        color: #ffffff !important;
+        font-weight: bold;
+    }
+    
+    #collaborator_tab .nav-link {
+        color: #495057;
+        transition: all 0.3s ease;
+    }
+    
+    #collaborator_tab .nav-link:hover:not(.active) {
+        background-color: #d9d9d9;
+        border-color: #d9d9d9 #d9d9d9 transparent;
+    }
+</style>
 <div class="container mt-4">
     <form id="searchForm">
         <!-- @csrf -->
@@ -161,7 +184,7 @@
 </div>
 <div class="container-fluid mt-3">
     <div class="d-flex" style="overflow-x: auto; white-space: nowrap;">
-        @include('collaboratorinstall.tableheader', ['counts' => $counts, 'activeTab' => $tab ?? ''])
+        @include('collaboratorinstall.tableheader', ['counts' => $counts, 'activeTab' => $tab ?? 'donhang'])
     </div>
     <!-- Nội dung tab - Lazy load qua AJAX -->
     <div id="tabContent">
@@ -214,9 +237,12 @@
     };
 
     $(document).ready(function() {
-        // Load counts và tab data khi trang mở
-        const activeTab = localStorage.getItem('activeTab') || 'donhang';
+        const activeTab = 'donhang';
+        localStorage.setItem('activeTab', activeTab);
         const formData = $('#searchForm').serialize();
+        
+        $('#collaborator_tab .nav-link').removeClass('active');
+        $('#collaborator_tab .nav-link[data-tab="' + activeTab + '"]').addClass('active');
         
         // Load counts trước
         loadCounts(formData);

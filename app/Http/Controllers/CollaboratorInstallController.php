@@ -265,7 +265,7 @@ class CollaboratorInstallController extends Controller
 
     public function Index(Request $request)
     {
-        $tab = $request->get('tab', 'donhang');
+        $tab = 'donhang';
         // Trả về view và counts
         $counts = [
             'donhang' => 0,
@@ -336,7 +336,7 @@ class CollaboratorInstallController extends Controller
                             // Chỉ lấy đơn thực sự chưa có CTV gán
                             ->whereNull('collaborator_id');
                     })
-                    ->orderByDesc('order_products.id');
+                    ->orderByDesc('orders.created_at');
             },
             'dieuphoidonhangle' => function () use ($view) {
                 return OrderProduct::with('order')
@@ -359,7 +359,7 @@ class CollaboratorInstallController extends Controller
                                 'warehouse_viettel'
                             ]);
                     })
-                    ->orderByDesc('order_products.id');
+                    ->orderByDesc('orders.created_at');
             },
             'dieuphoibaohanh' => function () use ($view) {
                 return WarrantyRequest::where('type', 'agent_home')
