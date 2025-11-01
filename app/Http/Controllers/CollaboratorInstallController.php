@@ -422,66 +422,54 @@ class CollaboratorInstallController extends Controller
         $agency_name = $request->input('agency_name');
 
         // Filter chung cho các tab dựa trên OrderProduct
+        // Sử dụng điều kiện trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
         if (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
             $query->when($madon, function ($q) use ($madon) {
-                $q->whereHas('order', function ($sub) use ($madon) {
-                    $sub->where('order_code2', 'like', "%$madon%");
-                });
+                $q->where('orders.order_code2', 'like', "%$madon%");
             })
             ->when($sanpham, function ($q) use ($sanpham) {
-                $q->where('product_name', 'like', "%$sanpham%");
+                // Chỉ định rõ table prefix để tránh xung đột khi có join nhiều bảng
+                $q->where('order_products.product_name', 'like', "%$sanpham%");
             })
             ->when($tungay && !empty($tungay), function ($q) use ($tungay) {
-                $q->whereHas('order', function ($sub) use ($tungay) {
-                    $sub->whereDate('created_at', '>=', $tungay);
-                });
+                // Sử dụng trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
+                $q->whereDate('orders.created_at', '>=', $tungay);
             })
             ->when($denngay && !empty($denngay), function ($q) use ($denngay) {
-                $q->whereHas('order', function ($sub) use ($denngay) {
-                    $sub->whereDate('created_at', '<=', $denngay);
-                });
+                // Sử dụng trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
+                $q->whereDate('orders.created_at', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
-                $q->whereHas('order', function ($sub) use ($trangthai) {
-                    if ($trangthai === '0') {
-                        $sub->whereNull('status_install')->orWhere('status_install', 0);
-                    } elseif ($trangthai === '1') {
-                        $sub->where('status_install', 1);
-                    } elseif ($trangthai === '2') {
-                        $sub->where('status_install', 2);
-                    } elseif ($trangthai === '3') {
-                        $sub->where('status_install', 3);
-                    }
-                });
+                if ($trangthai === '0') {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('orders.status_install')->orWhere('orders.status_install', 0);
+                    });
+                } elseif ($trangthai === '1') {
+                    $q->where('orders.status_install', 1);
+                } elseif ($trangthai === '2') {
+                    $q->where('orders.status_install', 2);
+                } elseif ($trangthai === '3') {
+                    $q->where('orders.status_install', 3);
+                }
             })
             ->when($phanloai, function ($q) use ($phanloai) {
-                $q->whereHas('order', function ($sub) use ($phanloai) {
-                    if ($phanloai === 'collaborator') {
-                        $sub->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
-                    } elseif ($phanloai === 'agency') {
-                        $sub->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
-                    }
-                });
+                if ($phanloai === 'collaborator') {
+                    $q->where('orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                } elseif ($phanloai === 'agency') {
+                    $q->where('orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                }
             })
             ->when($customer_name, function ($q) use ($customer_name) {
-                $q->whereHas('order', function ($sub) use ($customer_name) {
-                    $sub->where('customer_name', 'like', "%$customer_name%");
-                });
+                $q->where('orders.customer_name', 'like', "%$customer_name%");
             })
             ->when($customer_phone, function ($q) use ($customer_phone) {
-                $q->whereHas('order', function ($sub) use ($customer_phone) {
-                    $sub->where('customer_phone', 'like', "%$customer_phone%");
-                });
+                $q->where('orders.customer_phone', 'like', "%$customer_phone%");
             })
             ->when($agency_phone, function ($q) use ($agency_phone) {
-                $q->whereHas('order', function ($sub) use ($agency_phone) {
-                    $sub->where('agency_phone', 'like', "%$agency_phone%");
-                });
+                $q->where('orders.agency_phone', 'like', "%$agency_phone%");
             })
             ->when($agency_name, function ($q) use ($agency_name) {
-                $q->whereHas('order', function ($sub) use ($agency_name) {
-                    $sub->where('agency_name', 'like', "%$agency_name%");
-                });
+                $q->where('orders.agency_name', 'like', "%$agency_name%");
             });
         }
         // Filter cho WarrantyRequest (dieuphoibaohanh)

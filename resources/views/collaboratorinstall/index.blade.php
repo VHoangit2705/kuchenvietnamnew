@@ -37,85 +37,123 @@
                 <!-- Hàng 1: Thông tin cơ bản -->
                 <div class="row mb-3">
                     <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Mã đơn hàng</label>
-                        <input type="text" id="madon" name="madon" class="form-control" placeholder="Nhập mã đơn hàng" value="{{ request('madon') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Sản phẩm</label>
-                        <input type="text" id="sanpham" name="sanpham" class="form-control" placeholder="Nhập tên sản phẩm" value="{{ request('sanpham') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Từ ngày</label>
-                        <input type="date" id="tungay" name="tungay" class="form-control" value="{{ request('tungay') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Đến ngày</label>
-                        <input type="date" id="denngay" name="denngay" class="form-control" value="{{ request('denngay') }}">
-                    </div>
+                            <label class="form-label small text-muted">Mã đơn hàng</label>
+                            <input type="text" id="madon" name="madon" class="form-control"
+                                placeholder="Nhập mã đơn hàng" value="{{ request('madon') }}" maxlength="25">
+                            <div class="invalid-feedback">
+                                Lưu ý: chỉ nhập chữ và số.
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2 position-relative">
+                            <label class="form-label small text-muted">Sản phẩm</label>
+                            <input type="text" id="sanpham" name="sanpham" class="form-control"
+                                placeholder="Nhập tên sản phẩm" value="{{ request('sanpham') }}" maxlength="50">
+                            <div class="invalid-feedback">
+                                Lưu ý: chỉ nhập chữ và số.
+                            </div>
+                            <div id="sanpham-suggestions" class="list-group position-absolute w-100 d-none"
+                                style="z-index: 1000; max-height: 200px; overflow-y: auto; border: 1px solid #ced4da;">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Từ ngày</label>
+                            <input type="date" id="tungay" name="tungay" class="form-control"
+                                value="{{ request('tungay') }}">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Đến ngày</label>
+                            <input type="date" id="denngay" name="denngay" class="form-control"
+                                value="{{ request('denngay') }}">
+                        </div>
                 </div>
 
                 <!-- Hàng 2: Thông tin khách hàng và đại lý -->
                 <div class="row mb-3">
                     <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Tên khách hàng</label>
-                        <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Nhập tên khách hàng" value="{{ request('customer_name') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">SĐT khách hàng</label>
-                        <input type="text" id="customer_phone" name="customer_phone" class="form-control" placeholder="Nhập SĐT khách hàng" value="{{ request('customer_phone') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">Tên đại lý</label>
-                        <input type="text" id="agency_name" name="agency_name" class="form-control" placeholder="Nhập tên đại lý" value="{{ request('agency_name') }}">
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small text-muted">SĐT đại lý</label>
-                        <input type="text" id="agency_phone" name="agency_phone" class="form-control" placeholder="Nhập SĐT đại lý" value="{{ request('agency_phone') }}">
-                    </div>
+                            <label class="form-label small text-muted">Tên khách hàng</label>
+                            <input type="text" id="customer_name" name="customer_name" class="form-control"
+                                placeholder="Nhập tên khách hàng" value="{{ request('customer_name') }}" maxlength="80">
+                            <div class="invalid-feedback">
+                                Chỉ nhập chữ
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">SĐT khách hàng</label>
+                            <input type="text" id="customer_phone" name="customer_phone" class="form-control"
+                                placeholder="Nhập SĐT khách hàng" value="{{ request('customer_phone') }}" maxlength="11">
+                            <div class="invalid-feedback">
+                                Chỉ nhập số, tối đa 10 chữ số.
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">Tên đại lý</label>
+                            <input type="text" id="agency_name" name="agency_name" class="form-control"
+                                placeholder="Nhập tên đại lý" value="{{ request('agency_name') }}" maxlength="100">
+                            <div class="invalid-feedback">
+                                Chỉ nhập chữ.
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-muted">SĐT đại lý</label>
+                            <input type="text" id="agency_phone" name="agency_phone" class="form-control"
+                                placeholder="Nhập SĐT đại lý" value="{{ request('agency_phone') }}" maxlength="11">
+                            <div class="invalid-feedback">
+                                Chỉ nhập số, tối đa 11 chữ số.
+                            </div>
+                        </div>
                 </div>
 
                 <!-- Hàng 3: Trạng thái và phân loại -->
                 <div class="row mb-3">
-                    <div class="col-md-6 mb-2">
-                        <label class="form-label small text-muted">Trạng thái điều phối</label>
-                        <select id="trangthai" name="trangthai" class="form-control">
-                            <option value="">-- Chọn trạng thái --</option>
-                            <option value="0" {{ request('trangthai') == '0' ? 'selected' : '' }}>Chưa điều phối</option>
-                            <option value="1" {{ request('trangthai') == '1' ? 'selected' : '' }}>Đã điều phối</option>
-                            <option value="2" {{ request('trangthai') == '2' ? 'selected' : '' }}>Đã hoàn thành</option>
-                            <option value="3" {{ request('trangthai') == '3' ? 'selected' : '' }}>Đã thanh toán</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <label class="form-label small text-muted">Phân loại lắp đặt</label>
-                        <select id="phanloai" name="phanloai" class="form-control">
-                            <option value="">-- Chọn phân loại --</option>
-                            <option value="collaborator" {{ request('phanloai') == 'collaborator' ? 'selected' : '' }}>Cộng tác viên lắp đặt</option>
-                            <option value="agency" {{ request('phanloai') == 'agency' ? 'selected' : '' }}>Đại lý lắp đặt</option>
-                        </select>
-                    </div>
+                   <div class="col-md-6 mb-2">
+                            <label class="form-label small text-muted">Trạng thái điều phối</label>
+                            <select id="trangthai" name="trangthai" class="form-control">
+                                <option value="">-- Chọn trạng thái --</option>
+                                <option value="0" {{ request('trangthai') == '0' ? 'selected' : '' }}>Chưa điều phối
+                                </option>
+                                <option value="1" {{ request('trangthai') == '1' ? 'selected' : '' }}>Đã điều phối
+                                </option>
+                                <option value="2" {{ request('trangthai') == '2' ? 'selected' : '' }}>Đã hoàn thành
+                                </option>
+                                <option value="3" {{ request('trangthai') == '3' ? 'selected' : '' }}>Đã thanh toán
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small text-muted">Phân loại lắp đặt</label>
+                            <select id="phanloai" name="phanloai" class="form-control">
+                                <option value="">-- Chọn phân loại --</option>
+                                <option value="collaborator"
+                                    {{ request('phanloai') == 'collaborator' ? 'selected' : '' }}>
+                                    Cộng tác viên lắp đặt</option>
+                                <option value="agency" {{ request('phanloai') == 'agency' ? 'selected' : '' }}>Đại lý lắp
+                                    đặt</option>
+                            </select>
+                        </div>
                 </div>
 
                 <!-- Hàng 4: Nút điều khiển -->
                 <div class="row">
-                    <div class="col-12">
-                        <div class="d-flex gap-2 flex-wrap">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-1"></i>Tìm kiếm
-                            </button>
-                            <a href="#" id="reportCollaboratorInstall" class="btn btn-success">
-                                <i class="fas fa-chart-bar me-1"></i>Thống kê
-                            </a>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-sync-alt me-1"></i>Đồng Bộ
+                        <div class="col-12">
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type"submit" id="btnSearch" class="btn btn-primary">
+                                    <i class="fas fa-search me-1"></i>Tìm kiếm
                                 </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#" id="dataSynchronizationNew" data-bs-toggle="modal" data-bs-target="#excelModalNew">
-                                        <i class="fas fa-file-excel me-2"></i>Đồng bộ dữ liệu cũ (File Excel cũ)
-                                    </a></li>
-                                </ul>
-                            </div>
+                                <a href="#" id="reportCollaboratorInstall" class="btn btn-success">
+                                    <i class="fas fa-chart-bar me-1"></i>Thống kê
+                                </a>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-sync-alt me-1"></i>Đồng Bộ
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" id="dataSynchronizationNew"
+                                                data-bs-toggle="modal" data-bs-target="#excelModalNew">
+                                                <i class="fas fa-file-excel me-2"></i>Đồng bộ dữ liệu cũ (File Excel cũ)
+                                            </a></li>
+                                    </ul>
+                                </div>
                             <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
                                 <i class="fas fa-eraser me-1"></i>Xóa bộ lọc
                             </button>
@@ -237,12 +275,9 @@
     };
 
     $(document).ready(function() {
-        const activeTab = 'donhang';
-        localStorage.setItem('activeTab', activeTab);
+        // Load counts và tab data khi trang mở
+        const activeTab = localStorage.getItem('activeTab') || 'donhang';
         const formData = $('#searchForm').serialize();
-        
-        $('#collaborator_tab .nav-link').removeClass('active');
-        $('#collaborator_tab .nav-link[data-tab="' + activeTab + '"]').addClass('active');
         
         // Load counts trước
         loadCounts(formData);
@@ -253,18 +288,348 @@
         // Xử lý click tab
         $('#collaborator_tab').on('click', '.nav-link', function(e) {
             e.preventDefault();
-            // Nếu đang ở tab active thì bỏ qua, không load lại
-            if ($(this).hasClass('active')) {
-                return;
-            }
             let tab = $(this).data('tab');
             let formData = $('#searchForm').serialize();
             loadTabData(tab, formData, 1);
         });
+          // === HÀM KIỂM TRA TỔNG THỂ VÀ VÔ HIỆU HÓA NÚT ===
+            function checkFormValidity() {
+                // 1. Check tất cả input có class 'is-invalid' bên trong form
+                const hasInputErrors = $('#searchForm .is-invalid').length > 0;
 
+                // 2. Check logic ngày tháng (vì nó phức tạp hơn)
+                const fromDate = $('#tungay').val();
+                const toDate = $('#denngay').val();
+                const today = new Date().toISOString().split('T')[0];
+                let hasDateErrors = false;
+
+                // Cho phép chỉ nhập một trong hai ngày, hoặc cả hai, hoặc không nhập gì
+                if (fromDate && toDate && fromDate > toDate) {
+                    hasDateErrors = true; // Lỗi ngược ngày
+                }
+                if (toDate && toDate > today) {
+                    hasDateErrors = true; // Lỗi ngày tương lai
+                }
+                if (fromDate && fromDate > today) {
+                    hasDateErrors = true; // Lỗi ngày tương lai
+                }
+                // Kiểm tra nếu có class is-invalid trên các input ngày
+                if ($('#tungay').hasClass('is-invalid') || $('#denngay').hasClass('is-invalid')) {
+                    hasDateErrors = true;
+                }
+
+                // 3. Vô hiệu hóa nút nếu có BẤT KỲ lỗi nào
+                $('#btnSearch').prop('disabled', hasInputErrors || hasDateErrors);
+            }
+
+            // Xử lý validation mã đơn hàng
+            const madonInput = $('#madon');
+            const maxLength = 25;
+
+            madonInput.on('input', function() {
+                let value = $(this).val();
+                let sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, '');
+
+                let hasInvalidChars = (value !==
+                    sanitizedValue);
+                let isTooLong = (sanitizedValue.length >= maxLength);
+
+                if (hasInvalidChars) {
+                    $(this).val(sanitizedValue);
+                    value = sanitizedValue;
+                    isTooLong = (value.length >= maxLength);
+                }
+                if (hasInvalidChars || isTooLong) {
+                    $(this).addClass('is-invalid');
+                } else {
+                    $(this).removeClass('is-invalid');
+                }
+                checkFormValidity();
+            });
+
+            // Xử lý valiation ngày tháng
+            function validateDates() {
+                const $tungay = $('#tungay');
+                const $denngay = $('#denngay');
+                const fromDate = $tungay.val();
+                const toDate = $denngay.val();
+                const today = new Date().toISOString().split('T')[0];
+
+                let isValid = true;
+
+                // Xóa lỗi cũ
+                $tungay.removeClass('is-invalid');
+                $denngay.removeClass('is-invalid');
+
+                if ((fromDate && !toDate) || (!fromDate && toDate)) {
+                    if (!fromDate) {
+                        $tungay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                    }
+                    if (!toDate) {
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                    }
+                    isValid = false;
+                }
+
+                // Kiểm tra logic ngày
+                if (fromDate && toDate) {
+                    if (fromDate > toDate) {
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" phải sau hoặc bằng "Từ ngày".</div>');
+                        isValid = false;
+                    }
+                    if (toDate > today) {
+                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" không được ở tương lai.</div>');
+                        isValid = false;
+                    }
+                }
+
+                // Nếu hợp lệ, xóa các thông báo lỗi có thể đã thêm
+                if (isValid) {
+                    $tungay.next('.invalid-feedback').remove();
+                    $denngay.next('.invalid-feedback').remove();
+                }
+
+                // GỌI HÀM CHECK TỔNG THỂ
+                checkFormValidity();
+                return isValid;
+            }
+
+            // Hàm Validate nhập tên sản phẩm
+            function validateProductsName(inputId, maxLength) {
+                const inputField = $('#' + inputId);
+                inputField.on('input', function() {
+                    let value = $(this).val();
+                    // Xóa ký tự không phải chữ/số
+                    let sanitizedValue = value.replace(/[^\p{L}\p{N}\s]/gu, '');
+                    let hasInvalidChars = (value !== sanitizedValue && value !==
+                        '');
+                    let isTooLong = (sanitizedValue.length >=
+                        maxLength);
+
+                    if (hasInvalidChars) {
+                        $(this).val(sanitizedValue);
+                        isTooLong = (sanitizedValue.length >= maxLength);
+                    } else if (value.length > maxLength) {
+                        sanitizedValue = value.substring(0, maxLength);
+                        $(this).val(sanitizedValue);
+                        isTooLong = true;
+                    }
+
+                    if (hasInvalidChars || isTooLong) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                    checkFormValidity();
+                });
+            }
+            // Hàm Validate chỉ cho phép Chữ cái & Số (Và giới hạn độ dài)
+            function validateAlphaNumeric(inputId, maxLength) {
+                const inputField = $('#' + inputId);
+                inputField.on('input', function() {
+                    let value = $(this).val();
+                    // Xóa ký tự không phải chữ/số
+                    let sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, '');
+                    let hasInvalidChars = (value !== sanitizedValue && value !==
+                        '');
+                    let isTooLong = (sanitizedValue.length >=
+                        maxLength);
+
+                    if (hasInvalidChars) {
+                        $(this).val(sanitizedValue);
+                        isTooLong = (sanitizedValue.length >= maxLength);
+                    } else if (value.length > maxLength) {
+                        sanitizedValue = value.substring(0, maxLength);
+                        $(this).val(sanitizedValue);
+                        isTooLong = true;
+                    }
+
+                    if (hasInvalidChars || isTooLong) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                    checkFormValidity();
+                });
+            }
+
+            // Hàm Validate chỉ cho phép Chữ cái & Khoảng trắng (Và giới hạn độ dài)
+            function validateAlphaSpace(inputId, maxLength) {
+                const inputField = $('#' + inputId);
+                inputField.on('input', function() {
+                    let value = $(this).val();
+                    let sanitizedValue = value.replace(/[^\p{L}\s]/gu, '');
+
+                    if (sanitizedValue.length > maxLength) {
+                        sanitizedValue = sanitizedValue.substring(0, maxLength);
+                    }
+
+                    let hasError = (value !== sanitizedValue && value !== '');
+                    // --- SỬA ĐIỀU KIỆN NÀY ---
+                    let isTooLong = (sanitizedValue.length >= maxLength);
+
+                    if (value !== sanitizedValue) {
+                        $(this).val(sanitizedValue);
+                        value = sanitizedValue;
+                        isTooLong = (value.length >= maxLength);
+                    }
+
+                    if (hasError || isTooLong) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                    checkFormValidity();
+                });
+            }
+
+            // Hàm Validate chỉ cho phép Số (Và giới hạn độ dài)
+            function validateNumeric(inputId, maxLength) {
+                const inputField = $('#' + inputId);
+                inputField.on('input', function() {
+                    let value = $(this).val();
+                    let sanitizedValue = value.replace(/[^0-9]/g, '');
+
+                    if (sanitizedValue.length > maxLength) {
+                        sanitizedValue = sanitizedValue.substring(0, maxLength);
+                    }
+
+                    let hasError = (value !== sanitizedValue && value !== '');
+                    let isTooLong = (sanitizedValue.length >= maxLength);
+
+                    if (value !== sanitizedValue) {
+                        $(this).val(sanitizedValue);
+                        value = sanitizedValue;
+                        isTooLong = (value.length >= maxLength);
+                    }
+
+                    if (hasError || isTooLong) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                    checkFormValidity();
+                });
+            }
+
+            validateAlphaNumeric('madon', 25);
+            validateProductsName('sanpham', 50);
+            validateAlphaSpace('customer_name', 80);
+            validateNumeric('customer_phone', 11);
+            validateAlphaSpace('agency_name', 100);
+            validateNumeric('agency_phone', 11);
+
+            // Gắn event listener cho input date để validate khi thay đổi
+            $('#tungay, #denngay').on('change', function() {
+                validateDates();
+            });
+
+
+            const productList = {!! json_encode($products ?? []) !!};
+
+
+            $('#sanpham').on('input', function() {
+                const keyword = $(this).val().toLowerCase().trim();
+                const $suggestionsBox = $('#sanpham-suggestions');
+                $suggestionsBox.empty();
+
+                if (!keyword) {
+                    $suggestionsBox.addClass('d-none');
+                    return;
+                }
+
+                const matchedProducts = productList.filter(productName =>
+                    productName.toLowerCase().includes(keyword)
+                );
+
+                if (matchedProducts.length > 0) {
+                    matchedProducts.slice(0, 10).forEach(productName => {
+                        $suggestionsBox.append(
+                            `<button type="button" class="list-group-item list-group-item-action">${productName}</button>`
+                        );
+                    });
+                    $suggestionsBox.removeClass('d-none');
+                } else {
+                    $suggestionsBox.addClass('d-none');
+                }
+            });
+
+            $(document).on('mousedown', '#sanpham-suggestions button', function(e) {
+                e.preventDefault();
+                $('#sanpham').val($(this).text());
+                $('#sanpham-suggestions').addClass('d-none');
+            });
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#sanpham, #sanpham-suggestions').length) {
+                    $('#sanpham-suggestions').addClass('d-none');
+                }
+            });
+
+            // Hàm kiêm tra và xử lý khi submit form
+            function validateFormFields() {
+                let isValid = true;
+
+                // Helper function to check a single field
+                function checkField(inputId, regex, maxLength, allowOnlyDigits = false) {
+                    const inputField = $('#' + inputId);
+                    let value = inputField.val();
+                    let sanitizedValue;
+                    let currentValid = true;
+
+                    if (allowOnlyDigits) {
+                        sanitizedValue = value.replace(/[^0-9]/g, '');
+                    } else {
+                        if (inputId === 'madon') {
+                            sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, '');
+                        } else {
+                            sanitizedValue = value.replace(/[^\p{L}\s]/gu, '');
+                        }
+                    }
+
+                    // Kiểm tra ký tự không hợp lệ
+                    if (value !== sanitizedValue && value !== '') {
+                        // Không set isValid = false ngay, chỉ đánh dấu để thêm class
+                        currentValid = false;
+                        // Cập nhật giá trị ngay lập tức để kiểm tra độ dài chính xác
+                        inputField.val(sanitizedValue);
+                        value = sanitizedValue;
+                    }
+
+                    // Kiểm tra độ dài
+                    if (value.length > maxLength) {
+                        currentValid = false;
+                        // Cắt bớt nếu cần (dù maxlength đã làm)
+                        inputField.val(value.substring(0, maxLength));
+                    }
+
+                    // Thêm/xóa class is-invalid dựa trên currentValid
+                    if (!currentValid) {
+                        inputField.addClass('is-invalid');
+                        isValid = false; // Nếu có BẤT KỲ lỗi nào, toàn bộ form là không hợp lệ
+                    } else {
+                        inputField.removeClass('is-invalid');
+                    }
+                }
+
+                // Kiểm tra từng trường khi submit
+                checkField('madon', /[^a-zA-Z0-9]/g, 25);
+                checkField('customer_name', /[^\p{L}\s]/gu, 80);
+                checkField('customer_phone', /[^0-9]/g, 11, true);
+                checkField('agency_name', /[^\p{L}\s]/gu, 80);
+                checkField('agency_phone', /[^0-9]/g, 11, true);
+
+                return isValid; // Trả về true nếu tất cả hợp lệ, false nếu có lỗi
+            }
         // Xử lý form search
         $('#searchForm').on('submit', function(e) {
             e.preventDefault();
+            
+            // Validate ngày tháng trước khi submit
+            if (!validateDates()) {
+                return; // Dừng lại nếu validation fail
+            }
+            
             let tab = localStorage.getItem('activeTab') || 'donhang';
             let formData = $(this).serialize();
             
@@ -289,16 +654,34 @@
     
     // Hàm xóa bộ lọc
     function clearForm() {
-        $('#searchForm')[0].reset();
-        // Reset các select về giá trị mặc định
-        $('#trangthai').val('');
-        $('#phanloai').val('');
-        
-        // Reload dữ liệu với form trống
-        const tab = localStorage.getItem('activeTab') || 'donhang';
-        loadCounts('');
-        loadTabData(tab, '', 1);
-    }
+            // Reset form
+            $('#searchForm')[0].reset();
+            // Reset các select về giá trị mặc định
+            $('#trangthai').val('');
+            $('#phanloai').val('');
+            // Đảm bảo input date cũng được reset
+            $('#tungay').val('');
+            $('#denngay').val('');
+
+            // Xóa tất cả các class 'is-invalid'
+            $('#searchForm .is-invalid').removeClass('is-invalid');
+
+            // Trả về nút tìm kiếm về trạng thái ban đầu (enabled)
+            $('#btnSearch').prop('disabled', false).css('opacity', '1').css('cursor', 'pointer');
+
+            // Kiểm tra lại validation để đảm bảo logic đúng
+            checkFormValidity();
+
+            // Reload dữ liệu với form trống
+            const tab = localStorage.getItem('activeTab') || 'donhang';
+            // Serialize lại form sau khi reset để đảm bảo formData rỗng
+            const formData = $('#searchForm').serialize();
+            
+            // Load lại tab counts trước
+            loadCounts(formData);
+            // Sau đó load lại tab data
+            loadTabData(tab, formData, 1);
+        }
 
     function Report() {
         $('#reportCollaboratorInstall').on('click', function(e) {
