@@ -79,7 +79,8 @@ class WarrantyController extends Controller
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
-            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"));
+            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
+            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
 
         $counts = (clone $query)
             ->selectRaw("
@@ -160,7 +161,9 @@ class WarrantyController extends Controller
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
-            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"));
+            ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
+            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
+
 
         $counts = (clone $query)
             ->selectRaw("
@@ -271,6 +274,10 @@ class WarrantyController extends Controller
 
         if ($request->filled('kythuatvien')) {
             $query->where('staff_received', 'LIKE', '%' . $request->kythuatvien . '%');
+        }
+
+        if ($request->filled('product')) {
+            $query->where('product', 'LIKE', '%' . $request->product . '%');
         }
 
         // Thêm điều kiện chi nhánh nếu có
