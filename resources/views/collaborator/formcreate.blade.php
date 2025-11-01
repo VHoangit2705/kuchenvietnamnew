@@ -107,6 +107,16 @@
         }
     });
 
+    function validateRequired(form) {
+        let isValid = true;
+        $(form).find('input[required], select[required], textarea[required]').each(function() {
+            if (!$(this).val().trim()) {
+                isValid = false;
+            }
+        });
+        return isValid;
+    }
+
     $(document).ready(function() {
         $('#hoantat').on('click', function(e) {
             e.preventDefault();

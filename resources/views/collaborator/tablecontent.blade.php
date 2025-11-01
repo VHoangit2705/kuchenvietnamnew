@@ -18,7 +18,7 @@
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
                 <td>{{ $item->full_name }}</td>
-                <td class="text-center">{{ \Carbon\Carbon::parse($item->date_of_birth)->format('d/m/Y') }}</td>
+                <td class="text-center">{{ $item->date_of_birth ? \Carbon\Carbon::parse($item->date_of_birth)->format('d/m/Y') : '' }}</td>
                 <td class="text-center">{{ $item->phone }}</td>
                 <td>{{ $item->ward }}</td>
                 <td>{{ $item->district }}</td>
@@ -141,7 +141,7 @@
                 $('#tieude').text("Cập nhật cộng tác viên");
                 $('#hoantat').text('Cập nhật');
                 $('#full_nameForm').val(item.full_name);
-                $('#date_of_birth').val(formatDateToInput(item.date_of_birth));
+                $('#date_of_birth').val(item.date_of_birth ? formatDateToInput(item.date_of_birth) : '');
                 $('#phoneForm').val(item.phone);
                 $('#provinceForm').val(item.province_id);
                 $('#districtForm').val(item.district_id);
