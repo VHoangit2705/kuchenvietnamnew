@@ -319,8 +319,8 @@ class CollaboratorInstallController extends Controller
         $queryBuilders = [
             'donhang' => function () use ($view) {
                 return OrderProduct::with('order')
-                    ->join('products as p', function($join){
-                        $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                    ->join('products as p', function($join) {
+                        $join->on('order_products.product_name', '=', 'p.product_name');
                     })
                     ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
                     ->where('p.view', $view)
@@ -329,36 +329,37 @@ class CollaboratorInstallController extends Controller
                     ->whereHas('order', function ($q) {
                         $q->where('order_code2', 'not like', 'KU%')
                             ->where(function ($sub) {
-                    // Chỉ hiển thị các đơn hàng chưa điều phối
+                                // Chỉ hiển thị các đơn hàng chưa điều phối
                                 $sub->whereNull('status_install')
                                     ->orWhere('status_install', 0);
-                            });
-                // Chỉ lấy đơn thực sự chưa có CTV gán
-                        $q->whereNull('collaborator_id');
-                    });
+                            })
+                            // Chỉ lấy đơn thực sự chưa có CTV gán
+                            ->whereNull('collaborator_id');
+                    })
+                    ->orderByDesc('order_products.id');
             },
             'dieuphoidonhangle' => function () use ($view) {
                 return OrderProduct::with('order')
-                    ->join('products as p', function($join){
-                        $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                    ->join('products as p', function($join) {
+                        $join->on('order_products.product_name', '=', 'p.product_name');
                     })
                     ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
                     ->where('p.view', $view)
                     ->select('order_products.*')
                     ->where('order_products.install', 1)
                     ->whereHas('order', function ($q) {
-                        $q->where('order_code2', 'like', 'KU%')
-                            ->where(function ($sub) {
+                        $q->where(function ($sub) {
                                 $sub->whereNull('status_install')
                                     ->orWhere('status_install', 0);
                             })
-                            ->whereNotExists(function($sub){
-                                $sub->select(DB::raw(1))
-                                    ->from('installation_orders as io')
-                                    ->whereRaw('io.order_code COLLATE utf8mb4_unicode_ci = orders.order_code2 COLLATE utf8mb4_unicode_ci');
-                            });
-                        $q->whereNull('collaborator_id');
-                    });
+                            ->whereNull('collaborator_id')
+                            ->whereIn('type', [
+                                'warehouse_branch',
+                                'warehouse_ghtk',
+                                'warehouse_viettel'
+                            ]);
+                    })
+                    ->orderByDesc('order_products.id');
             },
             'dieuphoibaohanh' => function () use ($view) {
                 return WarrantyRequest::where('type', 'agent_home')

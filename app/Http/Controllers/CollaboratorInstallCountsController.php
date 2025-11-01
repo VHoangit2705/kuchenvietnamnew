@@ -31,7 +31,7 @@ class CollaboratorInstallCountsController extends Controller
     private function getDonHangCount($view, $request)
     {
         $query = OrderProduct::join('products as p', function($join){
-                $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                $join->on('order_products.product_name', '=', 'p.product_name');
             })
             ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
             ->where('p.view', $view)
@@ -53,23 +53,22 @@ class CollaboratorInstallCountsController extends Controller
     private function getDonHangLeCount($view, $request)
     {
         $query = OrderProduct::join('products as p', function($join){
-                $join->on(DB::raw("order_products.product_name COLLATE utf8mb4_unicode_ci"), '=', DB::raw("p.product_name COLLATE utf8mb4_unicode_ci"));
+                $join->on('order_products.product_name', '=', 'p.product_name');
             })
             ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
             ->where('p.view', $view)
             ->where('order_products.install', 1)
             ->whereHas('order', function ($q) {
-                $q->where('order_code2', 'like', 'KU%')
-                    ->where(function ($sub) {
+                $q->where(function ($sub) {
                         $sub->whereNull('status_install')
                             ->orWhere('status_install', 0);
                     })
-                    ->whereNotExists(function($sub){
-                        $sub->select(DB::raw(1))
-                            ->from('installation_orders as io')
-                            ->whereRaw('io.order_code COLLATE utf8mb4_unicode_ci = orders.order_code2 COLLATE utf8mb4_unicode_ci');
-                    });
-                $q->whereNull('collaborator_id');
+                    ->whereNull('collaborator_id')
+                    ->whereIn('type', [
+                        'warehouse_branch',
+                        'warehouse_ghtk',
+                        'warehouse_viettel'
+                    ]);
             });
 
         return $this->applyCommonFiltersToOrderProduct($query, $request)
