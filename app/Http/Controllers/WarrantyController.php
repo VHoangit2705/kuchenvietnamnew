@@ -210,7 +210,7 @@ class WarrantyController extends Controller
         
         $products = [];
         if (session('brand') == 'hurom') {
-            $products = Product::where('view', '1')->select('product_name')->get()->toArray();
+            $products = Product::where('view', '3')->select('product_name')->get()->toArray();
         }
         
 
