@@ -25,7 +25,7 @@
                         @else
                             <div style="position: relative;">
                                 <input type="text" id="product" name="product" class="form-control" 
-                                    placeholder="Nhập tên sản phẩm">
+                                    placeholder="Nhập tên sản phẩm" required>
                                 <div id="product-suggestions" class="list-group position-absolute w-100 d-none"></div>
                             </div>
                         @endif
@@ -39,7 +39,7 @@
                         <label for="serial_number" class="form-label mt-1">Mã seri tem bảo hành (<span 
                                 style="color: red;">*</span>)</label>
                         <input id="serial_number" name="serial" type="text" class="form-control"
-                            placeholder="Nhập mã seri tem bảo hành" style="text-transform: uppercase;">
+                            placeholder="Nhập mã seri tem bảo hành" style="text-transform: uppercase;" required>
                         <div class="error text-danger small mt-1"></div>
                         <label class="form-label mt-1 d-none" id="text_title"></label>
                     </div>
@@ -51,7 +51,7 @@
                     <div class="form-group">
                         <label for="type" class="form-label mt-1">Hình thức tiếp nhận bảo hành. (<span
                                 style="color: red;">*</span>)</label>
-                        <select id="type" name="type" class="form-control " >
+                        <select id="type" name="type" class="form-control " required>
                             <option value="" disabled selected>Chọn hình thức tiếp nhận bảo hành</option>
                             <option value="branch">Khách đến trực tiếp tại chi nhánh bảo hành</option>
                             <option value="remote">Khách gửi sản phẩm đến TT bảo hành</option>
@@ -65,7 +65,7 @@
                         <label for="full_name" class="form-label mt-1">Họ tên khách hàng. (<span
                                 style="color: red;">*</span>)</label>
                         <input id="full_name" name="full_name" type="text" class="form-control"
-                            placeholder="Nhập họ tên khách hàng"
+                            placeholder="Nhập họ tên khách hàng" required
                             value="{{ $warranty->order_product->order->customer_name ?? $warranty->full_name ?? '' }}">
                             <!--value="{{ $warranty->order_product->order->customer_name ?? '' }}">-->
                         <div class="error text-danger small mt-1"></div>
@@ -73,8 +73,8 @@
                     <div class="form-group">
                         <label for="phone_number" class="form-label mt-1">Số điện thoại. (<span
                                 style="color: red;">*</span>)</label>
-                        <input id="phone_number" name="phone_number" type="number" min="0" class="form-control"
-                            placeholder="Nhập số điện thoại"
+                        <input id="phone_number" name="phone_number" type="text" class="form-control"
+                            placeholder="Nhập số điện thoại" required
                             value="{{ $warranty->order_product->order->customer_phone ?? $warranty->phone_number ?? '' }}">
                             <!--value="{{ $warranty->order_product->order->customer_phone ?? '' }}">-->
                         <div class="error text-danger small mt-1"></div>
@@ -104,7 +104,7 @@
                     </div>
                     <div class="form-group">
                         <label for="address" class="form-label mt-1">Địa chỉ (<span style="color: red;">*</span>)</label>
-                        <input id="address" name="address" type="text" class="form-control" placeholder="Nhập địa chỉ"
+                        <input id="address" name="address" type="text" class="form-control" placeholder="Nhập địa chỉ" required
                              value="{{ $warranty->order_product->order->customer_address ?? $warranty->address ?? '' }}">
                              <!--value="{{ $warranty->order_product->order->customer_address ?? '' }}">-->
                         <div class="error text-danger small mt-1"></div>
@@ -128,8 +128,7 @@
                         <label for="shipment_date" class="form-label mt-1">Ngày xuất kho (Nhập bất kỳ ngày nào trong quá khứ
                             nếu sản phẩm đã hết hạn bảo hành nhưng không tìm được ngày xuất kho). (<span
                                 style="color: red;">*</span>)</label>
-                        
-                        <input id="shipment_date" name="shipment_date" type="text" class="form-control date-input" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input id="shipment_date" name="shipment_date" type="text" class="form-control date-input" placeholder="dd/mm/yyyy" maxlength="10" required
                             value="{{ !empty($warranty->created_at) ? \Carbon\Carbon::parse($warranty->created_at)->format('d/m/Y') 
                                     : (!empty($warranty->shipment_date) ? \Carbon\Carbon::parse($warranty->shipment_date)->format('d/m/Y'): '') }}">
                         <div class="error text-danger small mt-1"></div>
@@ -144,21 +143,21 @@
                     <div class="form-group description_error">
                         <label for="initial_fault_condition" class="form-label mt-1">Tình trạng lỗi ban đầu (nếu có từ phản
                             ánh của KH). (<span style="color: red;">*</span>)</label>
-                        <textarea id="initial_fault_condition" name="initial_fault_condition" class="form-control" rows="2"
+                        <textarea id="initial_fault_condition" name="initial_fault_condition" class="form-control" rows="2" required
                              maxlength="1024"></textarea>
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group description_error">
                         <label for="product_fault_condition" class="form-label mt-1">Mô tả ngoại quan sản phẩm khi tiếp nhận
                             (VD: vỏ móp méo, gãy đế tay cầm ....) * (<span style="color: red;">*</span>)</label>
-                        <textarea class="form-control" id="product_fault_condition" name="product_fault_condition" rows="2"
+                        <textarea class="form-control" id="product_fault_condition" name="product_fault_condition" rows="2" required
                              maxlength="1024"></textarea>
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group description_error">
                         <label for="product_quantity_description" class="form-label mt-1">Điền số lượng tên sản phẩm khi
                             nhận bàn giao (VD: 1 robot 2909; 1 đế sạc...). (<span style="color: red;">*</span>)</label>
-                        <textarea class="form-control" id="product_quantity_description" name="product_quantity_description"
+                        <textarea class="form-control" id="product_quantity_description" name="product_quantity_description" required
                             rows="2"  maxlength="1024"></textarea>
                         <div class="error text-danger small mb-3"></div>
                     </div>
@@ -204,11 +203,6 @@
             ClickCheckBox();
             ValidateInputDate();
             ShowCTVFiles();
-            $('#hoantat').on('click', function (e) {
-                e.preventDefault();
-                if (!ValidateForm()) return;
-                createWarrantyRequest();
-            });
             
             $('#province').on('change', function() {
                 let provinceId = $(this).val();
@@ -247,6 +241,14 @@
                             });
                         },
                     });
+                }
+            });
+
+            // Gắn sự kiện submit form
+            $('#hoantat').on('click', function (e) {
+                e.preventDefault();
+                if (validateAllFields()) {
+                    createWarrantyRequest();
                 }
             });
         });
@@ -334,119 +336,6 @@
                     });
                 }
             });
-        }
-
-        function ValidateForm() {
-            let isValid = true;
-            let firstErrorField = null;
-            // Xóa thông báo lỗi cũ
-            $('#warrantyCard .error').text('');
-            let requiredFields = [];
-            let selected = $('#type').val();
-            if (selected === 'agent_component') {
-                requiredFields.push(
-                    '#product',
-                    '#type',
-                    '#full_name',
-                    '#phone_number',
-                    '#address',
-                    '#shipment_date',
-                    '#return_date',
-                    '#ctv_phone',
-                    '#ctv_name',
-                    '#ctv_address'
-                );
-            } else {
-                requiredFields.push(
-                    '#product',
-                    '#serial_number',
-                    '#type',
-                    '#full_name',
-                    '#phone_number',
-                    '#address',
-                    '#shipment_date',
-                    '#return_date',
-                    '#initial_fault_condition',
-                    '#product_fault_condition',
-                    '#product_quantity_description',
-                );
-            }
-            // if (!$('#serialthanmayGroup').hasClass('d-none')) {
-            //     requiredFields.push('#serial_thanmay');
-            // }
-            // Duyệt các trường required
-            $.each(requiredFields, function (i, selector) {
-                const $field = $(selector);
-                const val = $field.val()?.trim();
-
-                if (!val) {
-                    $field.closest('.form-group').find('.error').text('Trường này là bắt buộc.');
-                    if (!firstErrorField) firstErrorField = $field;
-                    isValid = false;
-                }
-            });
-
-            // Kiểm tra số điện thoại
-            validatePhone('#phone_number');
-            validatePhone('#ctv_phone');
-
-            // Kiểm tra định dạng ngày
-            ['#shipment_date', '#return_date'].forEach(function (selector) {
-                const dateVal = $(selector).val()?.trim();
-                if (dateVal && !isValidDate(dateVal)) {
-                    $(selector).closest('.form-group').find('.error').text('Ngày không hợp lệ (dd/mm/yyyy).');
-                    if (!firstErrorField) firstErrorField = $(selector);
-                    isValid = false;
-                }
-            });
-
-            // Kiểm tra ngày hẹn trả >= hôm nay
-            const returnDateStr = $('#return_date').val()?.trim();
-            if (returnDateStr && isValidDate(returnDateStr)) {
-                const returnDate = parseDate(returnDateStr);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Đặt thời gian về 0 để so sánh chính xác
-                if (returnDate < today) {
-                    $('#return_date').closest('.form-group').find('.error').text('Ngày hẹn trả phải lớn hơn hoặc bằng ngày tiếp nhận.');
-                    if (!firstErrorField) firstErrorField = $('#return_date');
-                    isValid = false;
-                }
-            }
-            if (firstErrorField) {
-                firstErrorField.focus();
-            }
-            return isValid;
-        }
-        // Kiểm tra số điện thoại
-        function validatePhone(selector) {
-            const value = $(selector).val()?.trim();
-            if (value && !/^\d{10,12}$/.test(value)) {
-                $(selector).closest('.form-group').find('.error').text('SĐT phải có từ 10 đến 12 chữ số.');
-                if (!firstErrorField) firstErrorField = $(selector);
-                isValid = false;
-            }
-        }
-
-        // Hàm convert dd/mm/yyyy thành đối tượng Date
-        function parseDate(dateStr) {
-            const [day, month, year] = dateStr.split('/');
-            return new Date(`${year}-${month}-${day}`);
-        }
-
-        // Kiểm tra định dạng ngày hợp lệ
-        function isValidDate(dateStr) {
-            const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-            const match = dateStr.match(regex);
-            if (!match) return false;
-
-            const day = parseInt(match[1]);
-            const month = parseInt(match[2]);
-            const year = parseInt(match[3]);
-
-            if (year < 1900 || year > 2200 || month < 1 || month > 12 || day < 1 || day > 31) return false;
-
-            const d = new Date(year, month - 1, day);
-            return d && d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
         }
 
         function ValidateInputDate() {
@@ -633,6 +522,209 @@
                 }
             });
         }
+    </script>
+    <script>
+
+        // Validation form tạo phiếu bảo hành
+        let formErrors = {};
+
+        // Hàm hiển thị lỗi
+        function showError($field, message) {
+            const fieldId = $field.attr('id');
+            if (!fieldId) return;
+            hideError($field);
+            $field.closest('.form-group').find('.error').text(message);
+            formErrors[fieldId] = true;
+            updateSubmitButtonState();
+        }
+
+        // Hàm ẩn lỗi
+        function hideError($field) {
+            const fieldId = $field.attr('id');
+            if (!fieldId) return;
+            $field.closest('.form-group').find('.error').text('');
+            delete formErrors[fieldId];
+            updateSubmitButtonState();
+        }
+
+        // Cập nhật trạng thái nút Hoàn tất
+        function updateSubmitButtonState() {
+            const hasErrors = Object.keys(formErrors).length > 0;
+            $('#hoantat').prop('disabled', hasErrors);
+        }
+
+
+        // Tên sản phẩm: chữ và số, max 80
+        function validateProduct() {
+            const $input = $('#product');
+            const value = $input.val();
+            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\-()/]+$/.test(value)) {
+                showError($input, "Chỉ được nhập chữ, số và các ký tự .,-()/");
+            } else if (value.length > 80) {
+                showError($input, "Tối đa 80 ký tự.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Mã seri: chữ và số, max 25
+        function validateSerialNumber() {
+            const $input = $('#serial_number');
+            const value = $input.val();
+            if (value && !/^[a-zA-Z0-9]+$/.test(value)) {
+                showError($input, "Chỉ được nhập chữ và số.");
+            } else if (value.length > 25) {
+                showError($input, "Tối đa 25 ký tự.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Họ tên: chỉ chữ, max 50
+        function validateFullName() {
+            const $input = $('#full_name');
+            const value = $input.val();
+            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/.test(value)) {
+                showError($input, "Chỉ được nhập chữ.");
+            } else if (value.length > 50) {
+                showError($input, "Tối đa 50 ký tự.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Số điện thoại: đúng 10 số
+        function validatePhoneNumber() {
+            const $input = $('#phone_number');
+            const value = $input.val();
+            if (value && !/^\d{10}$/.test(value)) {
+                showError($input, "Số điện thoại phải có đúng 10 chữ số.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Địa chỉ: chữ, số, .,- và max 150
+        function validateAddress() {
+            const $input = $('#address');
+            const value = $input.val();
+            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\-\/]+$/.test(value)) {
+                showError($input, "Chỉ nhập chữ, số và các ký tự .,-/");
+            } else if (value.length > 150) {
+                showError($input, "Tối đa 150 ký tự.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Ngày: Ngày xuất kho < Ngày tiếp nhận, Ngày hẹn trả >= Ngày tiếp nhận
+        function validateDates() {
+            const $shipmentDate = $('#shipment_date');
+            const $returnDate = $('#return_date');
+            const receivedDateStr = $('#received_date').val();
+
+            const receivedDate = parseDate(receivedDateStr);
+            const shipmentDate = parseDate($shipmentDate.val());
+            const returnDate = parseDate($returnDate.val());
+
+            // Validate ngày xuất kho
+            if (shipmentDate && receivedDate && shipmentDate >= receivedDate) {
+                showError($shipmentDate, "Ngày xuất kho phải nhỏ hơn ngày tiếp nhận.");
+            } else {
+                hideError($shipmentDate);
+            }
+
+            // Validate ngày hẹn trả
+            if (returnDate && receivedDate && returnDate < receivedDate) {
+                showError($returnDate, "Ngày hẹn trả phải lớn hơn hoặc bằng ngày tiếp nhận.");
+            } else {
+                hideError($returnDate);
+            }
+        }
+
+        // Hàm Mô tả sài chung
+        function validateTextarea(selector) {
+            const $input = $(selector);
+            const value = $input.val();
+            
+            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\-)(\/]+$/.test(value)) {
+                showError($input, "Chỉ được nhập chữ, số và các ký tự .,-()/");
+            } else if (value.length > 150) {
+                showError($input, "Tối đa 150 ký tự.");
+            } else {
+                hideError($input);
+            }
+        }
+
+        // Hàm kiểm tra các trường bắt buộc
+        function validateRequiredFields() {
+            let isValid = true;
+            $('#warrantyCard [required]').each(function() {
+                const $field = $(this);
+                // Chỉ kiểm tra các trường đang hiển thị
+                if ($field.is(':visible') && !$field.val()) {
+                    showError($field, "Trường này là bắt buộc.");
+                    isValid = false;
+                } else if ($field.is(':visible') && $field.val()) {
+                    // Xóa lỗi "bắt buộc" nếu đã điền, nhưng giữ lại các lỗi khác
+                    if ($field.closest('.form-group').find('.error').text() === "Trường này là bắt buộc.") {
+                        hideError($field);
+                    }
+                }
+            });
+            return isValid;
+        }
+
+        // Hàm kiểm tra tổng thể khi submit
+        function validateAllFields() {
+            validateRequiredFields();
+            validateProduct();
+            validateSerialNumber();
+            validateFullName();
+            validatePhoneNumber();
+            validateAddress();
+            validateDates();
+            validateTextarea('#initial_fault_condition');
+            validateTextarea('#product_fault_condition');
+            validateTextarea('#product_quantity_description');
+
+            // Nếu còn lỗi, focus vào trường lỗi đầu tiên
+            if (Object.keys(formErrors).length > 0) {
+                const firstErrorId = Object.keys(formErrors)[0];
+                $('#' + firstErrorId).focus();
+                return false;
+            }
+            return true;
+        }
+
+        // Helper functions
+        function parseDate(dateStr) {
+            if (!dateStr || !/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return null;
+            const [day, month, year] = dateStr.split('/');
+            const date = new Date(`${year}-${month}-${day}`);
+            date.setHours(0, 0, 0, 0);
+            return date;
+        }
+
+        $(document).ready(function() {
+            // Gắn sự kiện 'input' cho các trường text và textarea
+            $('#product').on('input', validateProduct);
+            $('#serial_number').on('input', validateSerialNumber);
+            $('#full_name').on('input', validateFullName);
+            $('#phone_number').on('input', validatePhoneNumber);
+            $('#address').on('input', validateAddress);
+            $('#initial_fault_condition').on('input', () => validateTextarea('#initial_fault_condition'));
+            $('#product_fault_condition').on('input', () => validateTextarea('#product_fault_condition'));
+            $('#product_quantity_description').on('input', () => validateTextarea('#product_quantity_description'));
+
+            // Gắn sự kiện 'change' cho các trường date và select
+            $('#shipment_date, #return_date, #received_date').on('change', validateDates);
+            $('#type').on('change', function() {
+                // Khi chọn, xóa lỗi và kiểm tra lại các trường bắt buộc
+                hideError($(this));
+                validateRequiredFields();
+            });
+        });
     </script>
     <script>
         $(document).ready(function () {

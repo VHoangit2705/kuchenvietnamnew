@@ -24,4 +24,9 @@
             ĐÃ HOÀN THÀNH <span class="text-danger">({{ $counts['dahoanthanh'] ?? 0 }})</span>
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {{ $activeTab == 'dathanhtoan' ? 'active' : '' }}" data-tab="dathanhtoan" href="#">
+            ĐÃ THANH TOÁN <span class="text-danger">({{ $counts['dathanhtoan'] ?? 0 }})</span>
+        </a>
+    </li>
 </ul>
