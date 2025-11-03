@@ -221,7 +221,7 @@
     </div>
 </div>
 <div class="container-fluid mt-3">
-    <div class="d-flex" style="overflow-x: auto; white-space: nowrap;">
+    <div class="d-flex" style="overflow-x: auto; white-space: nowrap;" id="tabHeaderContainer">
         @include('collaboratorinstall.tableheader', ['counts' => $counts, 'activeTab' => $tab ?? 'donhang'])
     </div>
     <!-- Nội dung tab - Lazy load qua AJAX -->
@@ -258,25 +258,141 @@
         });
     };
 
-    window.loadCounts = function(formData) {
+    window.loadCounts = function(formData, callback, renderHeader) {
         let url = "{{ route('dieuphoi.counts') }}";
         if (formData) {
             url += "?" + formData;
         }
         
+        // Hiển thị hiệu ứng loading cho tất cả count badges
+        $('.count-badge').each(function() {
+            const $badge = $(this);
+            const originalText = $badge.text();
+            $badge.data('original-text', originalText).html('<span class="spinner-border spinner-border-sm" style="width: 0.75rem; height: 0.75rem;" role="status"><span class="visually-hidden">Loading...</span></span>');
+        });
+        
         $.get(url, function(counts) {
             if (counts) {
-                // Cập nhật counts cho từng tab
-                Object.keys(counts).forEach(function(tabKey) {
-                    $('.count-badge[data-count-for="' + tabKey + '"]').text('(' + (counts[tabKey] || 0) + ')');
-                });
+                // Nếu renderHeader = true, render lại toàn bộ tab header
+                if (renderHeader === true) {
+                    const activeTab = localStorage.getItem('activeTab') || 'donhang';
+                    renderTabHeader(counts, activeTab);
+                } else {
+                    // Chỉ cập nhật counts cho từng tab bằng vòng lặp
+                    Object.keys(counts).forEach(function(tabKey) {
+                        $('.count-badge[data-count-for="' + tabKey + '"]').text('(' + (counts[tabKey] || 0) + ')');
+                    });
+                    
+                    // Đảm bảo các badge không có trong response vẫn được khôi phục giá trị cũ
+                    $('.count-badge').each(function() {
+                        const $badge = $(this);
+                        // Kiểm tra nếu badge vẫn chứa spinner (nghĩa là chưa được cập nhật)
+                        if ($badge.find('.spinner-border').length > 0) {
+                            const tabKey = $badge.data('count-for');
+                            // Nếu tabKey không có trong counts, khôi phục giá trị cũ
+                            if (!counts.hasOwnProperty(tabKey)) {
+                                const originalText = $badge.data('original-text');
+                                $badge.text(originalText || '(0)');
+                            }
+                        }
+                    });
+                }
+                
+                if (typeof callback === 'function') {
+                    callback(counts);
+                }
             }
+        }).fail(function() {
+            // Nếu load thất bại, khôi phục text gốc cho tất cả badges
+            $('.count-badge').each(function() {
+                const $badge = $(this);
+                const originalText = $badge.data('original-text');
+                if (originalText) {
+                    $badge.text(originalText);
+                } else {
+                    $badge.text('(0)');
+                }
+            });
         });
+    };
+
+    window.checkFormValidity = function() {
+        // 1. Check tất cả input có class 'is-invalid' bên trong form
+        const hasInputErrors = $('#searchForm .is-invalid').length > 0;
+
+        // 2. Check logic ngày tháng (vì nó phức tạp hơn)
+        const fromDate = $('#tungay').val();
+        const toDate = $('#denngay').val();
+        const today = new Date().toISOString().split('T')[0];
+        let hasDateErrors = false;
+
+        // Yêu cầu phải nhập cả hai ngày
+        if ((fromDate && !toDate) || (!fromDate && toDate)) {
+            hasDateErrors = true; // Lỗi thiếu một trong hai ngày
+        }
+        // Kiểm tra logic khi có cả hai ngày
+        if (fromDate && toDate && fromDate > toDate) {
+            hasDateErrors = true; // Lỗi ngược ngày
+        }
+        if (toDate && toDate > today) {
+            hasDateErrors = true; // Lỗi ngày tương lai
+        }
+        if (fromDate && fromDate > today) {
+            hasDateErrors = true; // Lỗi ngày tương lai
+        }
+        // Kiểm tra nếu có class is-invalid trên các input ngày
+        if ($('#tungay').hasClass('is-invalid') || $('#denngay').hasClass('is-invalid')) {
+            hasDateErrors = true;
+        }
+
+        // 3. Vô hiệu hóa nút nếu có BẤT KỲ lỗi nào
+        $('#btnSearch').prop('disabled', hasInputErrors || hasDateErrors);
+    };
+
+    // Hàm render lại tab header từ counts (KHÔNG dùng API)
+    // Render trực tiếp bằng JavaScript dựa trên counts và activeTab
+    window.renderTabHeader = function(counts, activeTab) {
+        activeTab = activeTab || localStorage.getItem('activeTab') || 'donhang';
+        counts = counts || {};
+        
+        // Định nghĩa danh sách các tab
+        const tabs = [
+            { key: 'donhang', label: 'ĐƠN HÀNG' },
+            { key: 'dieuphoidonhangle', label: 'ĐƠN HÀNG LẺ' },
+            { key: 'dieuphoibaohanh', label: 'CA BẢO HÀNH' },
+            { key: 'dadieuphoi', label: 'ĐÃ ĐIỀU PHỐI' },
+            { key: 'dahoanthanh', label: 'ĐÃ HOÀN THÀNH' },
+            { key: 'dathanhtoan', label: 'ĐÃ THANH TOÁN' },
+            { key: 'dailylapdat', label: 'ĐẠI LÝ LẮP ĐẶT' }
+        ];
+        
+        // Render HTML
+        let html = '<ul class="nav nav-tabs flex-nowrap" id="collaborator_tab">';
+        
+        tabs.forEach(function(tab) {
+            const isActive = tab.key === activeTab ? 'active' : '';
+            const count = counts[tab.key] || 0;
+            
+            html += '<li class="nav-item">';
+            html += '<a class="nav-link ' + isActive + '" data-tab="' + tab.key + '" href="#">';
+            html += tab.label + ' <span class="text-danger count-badge" data-count-for="' + tab.key + '">(' + count + ')</span>';
+            html += '</a>';
+            html += '</li>';
+        });
+        
+        html += '</ul>';
+        
+        // Cập nhật HTML vào container
+        $('#tabHeaderContainer').html(html);
     };
 
     $(document).ready(function() {
         // Load counts và tab data khi trang mở
-        const activeTab = localStorage.getItem('activeTab') || 'donhang';
+        const serverTab = '{{ $tab ?? "donhang" }}';
+        const activeTab = serverTab || 'donhang';
+        
+        localStorage.setItem('activeTab', activeTab);
+        
         const formData = $('#searchForm').serialize();
         
         // Load counts trước
@@ -285,42 +401,19 @@
         // Sau đó load tab data
         loadTabData(activeTab, formData, 1);
 
-        // Xử lý click tab
-        $('#collaborator_tab').on('click', '.nav-link', function(e) {
+        // Xử lý click tab 
+        $(document).on('click', '#collaborator_tab .nav-link', function(e) {
             e.preventDefault();
+            // Nếu đang ở tab active thì bỏ qua, không load lại
+            // if ($(this).hasClass('active')) {
+            //     return;
+            // }
             let tab = $(this).data('tab');
             let formData = $('#searchForm').serialize();
             loadTabData(tab, formData, 1);
         });
           // === HÀM KIỂM TRA TỔNG THỂ VÀ VÔ HIỆU HÓA NÚT ===
-            function checkFormValidity() {
-                // 1. Check tất cả input có class 'is-invalid' bên trong form
-                const hasInputErrors = $('#searchForm .is-invalid').length > 0;
-
-                // 2. Check logic ngày tháng (vì nó phức tạp hơn)
-                const fromDate = $('#tungay').val();
-                const toDate = $('#denngay').val();
-                const today = new Date().toISOString().split('T')[0];
-                let hasDateErrors = false;
-
-                // Cho phép chỉ nhập một trong hai ngày, hoặc cả hai, hoặc không nhập gì
-                if (fromDate && toDate && fromDate > toDate) {
-                    hasDateErrors = true; // Lỗi ngược ngày
-                }
-                if (toDate && toDate > today) {
-                    hasDateErrors = true; // Lỗi ngày tương lai
-                }
-                if (fromDate && fromDate > today) {
-                    hasDateErrors = true; // Lỗi ngày tương lai
-                }
-                // Kiểm tra nếu có class is-invalid trên các input ngày
-                if ($('#tungay').hasClass('is-invalid') || $('#denngay').hasClass('is-invalid')) {
-                    hasDateErrors = true;
-                }
-
-                // 3. Vô hiệu hóa nút nếu có BẤT KỲ lỗi nào
-                $('#btnSearch').prop('disabled', hasInputErrors || hasDateErrors);
-            }
+            // Hàm checkFormValidity đã được đưa ra global scope ở trên
 
             // Xử lý validation mã đơn hàng
             const madonInput = $('#madon');
@@ -357,36 +450,53 @@
 
                 let isValid = true;
 
-                // Xóa lỗi cũ
+                // Xóa lỗi cũ - xóa cả class và thông báo lỗi
                 $tungay.removeClass('is-invalid');
                 $denngay.removeClass('is-invalid');
+                $tungay.next('.invalid-feedback').remove();
+                $denngay.next('.invalid-feedback').remove();
 
+                // Yêu cầu phải nhập cả hai ngày
                 if ((fromDate && !toDate) || (!fromDate && toDate)) {
                     if (!fromDate) {
-                        $tungay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                        $tungay.addClass('is-invalid').after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
                     }
                     if (!toDate) {
-                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
+                        $denngay.addClass('is-invalid').after('<div class="invalid-feedback d-block">Vui lòng nhập cả hai ngày.</div>');
                     }
                     isValid = false;
                 }
 
-                // Kiểm tra logic ngày
-                if (fromDate && toDate) {
-                    if (fromDate > toDate) {
-                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" phải sau hoặc bằng "Từ ngày".</div>');
-                        isValid = false;
+                // Kiểm tra ngày tương lai cho "Từ ngày"
+                if (fromDate && fromDate > today) {
+                    $tungay.addClass('is-invalid');
+                    // Chỉ thêm thông báo lỗi nếu chưa có (tránh trùng lặp)
+                    if ($tungay.next('.invalid-feedback').length === 0) {
+                        $tungay.after('<div class="invalid-feedback d-block">"Từ ngày" không được ở tương lai.</div>');
                     }
-                    if (toDate > today) {
-                        $denngay.addClass('is-invalid').next('.invalid-feedback').remove().end().after('<div class="invalid-feedback d-block">"Đến ngày" không được ở tương lai.</div>');
-                        isValid = false;
-                    }
+                    isValid = false;
                 }
 
-                // Nếu hợp lệ, xóa các thông báo lỗi có thể đã thêm
-                if (isValid) {
-                    $tungay.next('.invalid-feedback').remove();
-                    $denngay.next('.invalid-feedback').remove();
+                // Kiểm tra ngày tương lai cho "Đến ngày"
+                if (toDate && toDate > today) {
+                    $denngay.addClass('is-invalid');
+                    // Chỉ thêm thông báo lỗi nếu chưa có (tránh trùng lặp)
+                    if ($denngay.next('.invalid-feedback').length === 0) {
+                        $denngay.after('<div class="invalid-feedback d-block">"Đến ngày" không được ở tương lai.</div>');
+                    }
+                    isValid = false;
+                }
+
+                // Kiểm tra logic khi có cả hai ngày
+                if (fromDate && toDate) {
+                    if (fromDate > toDate) {
+                        $denngay.addClass('is-invalid');
+                        // Chỉ thêm thông báo lỗi nếu chưa có (tránh trùng lặp)
+                        if ($denngay.next('.invalid-feedback').length === 0) {
+                            $denngay.after('<div class="invalid-feedback d-block">"Đến ngày" phải sau hoặc bằng "Từ ngày".</div>');
+                        }
+                        isValid = false;
+                    }
                 }
 
                 // GỌI HÀM CHECK TỔNG THỂ
@@ -633,6 +743,27 @@
             let tab = localStorage.getItem('activeTab') || 'donhang';
             let formData = $(this).serialize();
             
+            // Tự động chuyển đến tab tương ứng với trạng thái đã chọn
+            const selectedStatus = $('#trangthai').val();
+            if (selectedStatus !== '') {
+                // Mapping trạng thái với tab
+                const statusToTabMap = {
+                    '0': 'donhang',           
+                    '1': 'dadieuphoi',        
+                    '2': 'dahoanthanh',       
+                    '3': 'dathanhtoan'        
+                };
+                
+                if (statusToTabMap.hasOwnProperty(selectedStatus)) {
+                    tab = statusToTabMap[selectedStatus];
+                    localStorage.setItem('activeTab', tab);
+                    
+                    // Cập nhật active state cho tab
+                    $('#collaborator_tab .nav-link').removeClass('active');
+                    $('#collaborator_tab .nav-link[data-tab="' + tab + '"]').addClass('active');
+                }
+            }
+            
             // Load lại counts và tab data
             loadCounts(formData);
             loadTabData(tab, formData, 1);
@@ -654,34 +785,37 @@
     
     // Hàm xóa bộ lọc
     function clearForm() {
-            // Reset form
-            $('#searchForm')[0].reset();
-            // Reset các select về giá trị mặc định
-            $('#trangthai').val('');
-            $('#phanloai').val('');
-            // Đảm bảo input date cũng được reset
-            $('#tungay').val('');
-            $('#denngay').val('');
+        // Reset form
+        $('#searchForm')[0].reset();
+        // Reset các select về giá trị mặc định
+        $('#trangthai').val('');
+        $('#phanloai').val('');
+        // Đảm bảo input date cũng được reset
+        $('#tungay').val('');
+        $('#denngay').val('');
 
-            // Xóa tất cả các class 'is-invalid'
-            $('#searchForm .is-invalid').removeClass('is-invalid');
+        // Xóa tất cả các class 'is-invalid'
+        $('#searchForm .is-invalid').removeClass('is-invalid');
 
-            // Trả về nút tìm kiếm về trạng thái ban đầu (enabled)
-            $('#btnSearch').prop('disabled', false).css('opacity', '1').css('cursor', 'pointer');
+        // Trả về nút tìm kiếm về trạng thái ban đầu (enabled)
+        $('#btnSearch').prop('disabled', false).css('opacity', '1').css('cursor', 'pointer');
 
-            // Kiểm tra lại validation để đảm bảo logic đúng
-            checkFormValidity();
-
-            // Reload dữ liệu với form trống
-            const tab = localStorage.getItem('activeTab') || 'donhang';
-            // Serialize lại form sau khi reset để đảm bảo formData rỗng
-            const formData = $('#searchForm').serialize();
-            
-            // Load lại tab counts trước
-            loadCounts(formData);
-            // Sau đó load lại tab data
-            loadTabData(tab, formData, 1);
+        // Kiểm tra lại validation để đảm bảo logic đúng
+        if (typeof window.checkFormValidity === 'function') {
+            window.checkFormValidity();
         }
+
+        // Reload dữ liệu với form trống
+        const tab = localStorage.getItem('activeTab') || 'donhang';
+        // Serialize lại form sau khi reset để đảm bảo formData rỗng
+        const formData = $('#searchForm').serialize();
+        
+        // Load lại counts (giữ nguyên tab thẻ, chỉ cập nhật số counts)
+        loadCounts(formData);
+        
+        // Load lại tab content
+        loadTabData(tab, formData, 1);
+    }
 
     function Report() {
         $('#reportCollaboratorInstall').on('click', function(e) {
