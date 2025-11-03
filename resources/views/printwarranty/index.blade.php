@@ -7,9 +7,10 @@
                 <input type="number" id="sophieu" name="sophieu" class="form-control" 
                 placeholder="Nhập số phiếu" value="{{ request('sophieu') }}">
             </div>
-            <div class="col-md-4 mb-1">
-                <input type="text" id="tensp" name="tensp" class="form-control" 
-                placeholder="Nhập tên sản phẩm" value="{{ request('productSearch') }}">
+            <div class="col-md-4 mb-1 position-relative"> <input type="text" id="tensp" name="tensp" class="form-control" 
+                placeholder="Nhập tên sản phẩm" value="{{ request('productSearch') }}"
+                autocomplete="off"> <div id="tensp-suggestions" class="list-group position-absolute w-100 d-none" style="z-index: 1000;">
+            </div>
             </div>
             <div class="col-md-4 mb-1">
                 <div class="d-flex align-items-center flex-grow-1">
@@ -142,6 +143,7 @@
             ProductInput();
             SubmitForm();
             Search();
+            setupModalValidation(); // Thêm hàm khởi tạo validation cho modal
             ShowHideComponents();
             checkFile();
             // xóa khoảng trắng
@@ -156,6 +158,48 @@
                 const text = (e.originalEvent || e).clipboardData.getData('text');
                 const cleanText = text.replace(/\s+/g, '');
                 document.execCommand('insertText', false, cleanText);
+            });
+
+            //Gợi ý sản phẩm cho ô tìm kiếm chính
+            const mainProductList = {!! json_encode(collect($products)->pluck('product_name')) !!};
+
+            $('#tensp').on('input', function() {
+                // 1. GỌI HÀM VALIDATE TRƯỚC TIÊN
+                validateTensp(); 
+
+                // 2. TIẾP TỤC XỬ LÝ HIỂN THỊ GỢI Ý
+                const keyword = $(this).val().toLowerCase().trim();
+                const $suggestionsBox = $('#tensp-suggestions');
+                $suggestionsBox.empty();
+
+                if (!keyword) {
+                    $suggestionsBox.addClass('d-none');
+                    return; // Dừng lại nếu ó ó từ khóa
+                }
+
+                const matchedProducts = mainProductList.filter(productName =>
+                    productName.toLowerCase().includes(keyword)
+                );
+
+                if (matchedProducts.length > 0) {
+                    matchedProducts.slice(0, 10).forEach(productName => {
+                        $suggestionsBox.append(
+                            `<button type="button" class="list-group-item list-group-item-action">${productName}</button>`
+                        );
+                    });
+                    $suggestionsBox.removeClass('d-none');
+                } else {
+                    $suggestionsBox.addClass('d-none');
+                }
+            });
+
+            // Khi người dùng chọn sản phẩm gợi ý
+            $(document).on('mousedown', '#tensp-suggestions button', function() {
+                $('#tensp').val($(this).text()); // Điền text vào ô input
+                $('#tensp-suggestions').addClass('d-none'); // Ẩn box gợi ý
+                
+                // Kích hoạt lại validation để xóa lỗi (nếu có)
+                validateTensp(); 
             });
         });
         
@@ -223,9 +267,10 @@
         function SubmitForm() {
             $('.submit-btn').on('click', function(e) {
                 e.preventDefault();
-                $('.error').text('');
-    
-                if (!validateForm()) return;
+                
+                // Chạy validation lần cuối trước khi submit
+                if (!validateModalForm()) return;
+
                 OpenWaitBox();
                 let actionType = $(this).data('action'); // 'add' hoặc 'close'
                 let product = $('#product').val();
@@ -292,108 +337,6 @@
             });
         }
         
-        function validateForm() {
-            const brand = "{{ session('brand') }}";
-            let productInput = $('#product').val().trim().toLowerCase();
-            let quantityInput = parseInt($('#quantity').val());
-    
-            $('.error').text('');
-
-            if (!productInput) {
-                $('.product_error').text('Sản phẩm không được để trống.')
-                $('#product').focus();
-                return false;
-            }
-
-            let isValidProduct = productList.some(p =>
-                p.product_name.trim().replace(/\r?\n|\r/g, '').toLowerCase() === productInput.replace(/\r?\n|\r/g, '')
-            );
-    
-            if (!isValidProduct) {
-                $('.product_error').text('Sản phẩm không hợp lệ. Vui lòng nhập lại.')
-                $('#product').focus();
-                return false;
-            }
-            
-            if ($('#auto_serial').is(':checked')) {
-                let quantityInput = parseInt($('#quantity').val());
-                if (!quantityInput || quantityInput <= 0) {
-                    $('.quantity_error').text('Số lượng phải lơn hơn 0.');
-                    $('#quantity').focus();
-                    return false;
-                }
-            }
-            if ($('#import_serial').is(':checked')) {
-                let serial_range = $('#serial_range').val().trim();
-                let error = validateSerialRanges(serial_range);
-                let isValid = /^[A-Za-z0-9,\-\s]+$/.test(serial_range);
-                if (!isValid) {
-                    $('.serial_range_error').text('Chỉ được nhập chữ, số, dấu phẩy (,) và dấu gạch ngang (-).');
-                    $('#serial_range').focus();
-                    return false;
-                }
-    
-                if (error) {
-                    $('.serial_range_error').text(error);
-                    $('#serial_range').focus();
-                    return false;
-                }
-            }
-            if ($('#import_excel').is(':checked')) {
-                let file = $('#serial_file')[0].files[0];
-                if (!file) {
-                    $('.serial_file_error').text('File không được để trống.');
-                    return false;
-                }
-            }
-
-            // if(brand == 'kuchen'){
-            //     if ($('#auto_serial').is(':checked')) {
-            //         let quantityInput = parseInt($('#quantity').val());
-            //         if (!quantityInput || quantityInput <= 0) {
-            //             $('.quantity_error').text('Số lượng phải lơn hơn 0.');
-            //             $('#quantity').focus();
-            //             return false;
-            //         }
-            //     }
-            //     else{
-            //         let serial_range = $('#serial_range').val().trim();
-            //         let error = validateSerialRanges(serial_range);
-            //         let isValid = /^[A-Za-z0-9,\-\s]+$/.test(serial_range);
-            //         if (!isValid) {
-            //             $('.serial_range_error').text('Chỉ được nhập chữ, số, dấu phẩy (,) và dấu gạch ngang (-).');
-            //             $('#serial_range').focus();
-            //             return false;
-            //         }
-
-            //         if (error) {
-            //             $('.serial_range_error').text(error);
-            //             $('#serial_range').focus();
-            //             return false;
-            //         }
-            //     }
-            // }
-
-            // if(brand == 'hurom'){
-            //     let serial_range = $('#serial_range').val().trim();
-            //     let error = validateSerialRanges(serial_range);
-            //     let isValid = /^[A-Za-z0-9,\-\s]+$/.test(serial_range);
-            //     if (!isValid) {
-            //         $('.serial_range_error').text('Chỉ được nhập chữ, số, dấu phẩy (,) và dấu gạch ngang (-).');
-            //         $('#serial_range').focus();
-            //         return false;
-            //     }
-    
-            //     if (error) {
-            //         $('.serial_range_error').text(error);
-            //         $('#serial_range').focus();
-            //         return false;
-            //     }
-            // }
-    
-            return true;
-        }
-        
         function validateSerialRanges(serialInput) {
             const cleanedInput = serialInput.toUpperCase().replace(/\n/g, ',').trim();
             const parts = cleanedInput.split(',').map(s => s.trim()).filter(s => s);
@@ -442,6 +385,154 @@
                 myModal.show();
             });
         }
+
+        // Validation modal
+        let modalValidationErrors = {};
+
+        function showModalError($field, message) {
+            const fieldId = $field.attr('id');
+            if (!fieldId) return;
+            
+            hideModalError($field);
+
+            const $errorDiv = $field.siblings('.error');
+            $errorDiv.text(message);
+            
+            modalValidationErrors[fieldId] = true;
+            updateModalSubmitButtonsState();
+        }
+
+        function hideModalError($field) {
+            const fieldId = $field.attr('id');
+            if (!fieldId) return;
+
+            const $errorDiv = $field.siblings('.error');
+            $errorDiv.text('');
+
+            delete modalValidationErrors[fieldId];
+            updateModalSubmitButtonsState();
+        }
+
+        function updateModalSubmitButtonsState() {
+            const hasErrors = Object.keys(modalValidationErrors).length > 0;
+            $('.submit-btn').prop('disabled', hasErrors);
+        }
+
+        function validateModalProduct() {
+            const $input = $('#product');
+            const value = $input.val().trim();
+            const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/;
+
+            if (!value) {
+                showModalError($input, "Tên sản phẩm không được để trống.");
+                return false;
+            }
+            if (!validRegex.test(value)) {
+                showModalError($input, "Tên sản phẩm chứa ký tự không hợp lệ.");
+                return false;
+            }
+            const isValidProduct = productList.some(p => p.product_name.trim().toLowerCase() === value.toLowerCase());
+            if (!isValidProduct) {
+                showModalError($input, "Sản phẩm không có trong danh sách. Vui lòng chọn từ gợi ý.");
+                return false;
+            }
+            hideModalError($input);
+            return true;
+        }
+
+        function validateModalQuantity() {
+            const $input = $('#quantity');
+            const value = $input.val();
+            if (!value) {
+                showModalError($input, "Số lượng không được để trống.");
+                return false;
+            }
+            if (!/^\d+$/.test(value)) {
+                showModalError($input, "Số lượng phải là số.");
+                return false;
+            }
+            if (parseInt(value) <= 0) {
+                showModalError($input, "Số lượng phải lớn hơn 0.");
+                return false;
+            }
+            if (value.length > 10) {
+                showModalError($input, "Số lượng không được vượt quá 10 chữ số.");
+                return false;
+            }
+            hideModalError($input);
+            return true;
+        }
+
+        function validateModalSerialRange() {
+            const $input = $('#serial_range');
+            const value = $input.val();
+            const validRegex = /^[A-Za-z0-9,\-]+$/;
+            if (!value) {
+                showModalError($input, "Dải serial không được để trống.");
+                return false;
+            }
+            if (value.length > 50) {
+                showModalError($input, "Dải serial không được vượt quá 50 ký tự.");
+                return false;
+            }
+            if (!validRegex.test(value.replace(/\s/g, ''))) {
+                showModalError($input, "Chỉ cho phép nhập chữ, số, dấu phẩy (,) và gạch ngang (-).");
+                return false;
+            }
+            const rangeError = validateSerialRanges(value);
+            if (rangeError) {
+                showModalError($input, rangeError);
+                return false;
+            }
+            hideModalError($input);
+            return true;
+        }
+
+        function validateModalForm() {
+            // Luôn chạy validate sản phẩm
+            validateModalProduct();
+
+            if ($('#auto_serial').is(':checked')) {
+                // Chỉ validate số lượng
+                validateModalQuantity();
+                // Xóa lỗi của các trường khác nếu có
+                hideModalError($('#serial_range'));
+                hideModalError($('#serial_file'));
+            }
+            if ($('#import_serial').is(':checked')) {
+                // Chỉ validate dải serial
+                validateModalSerialRange();
+                // Xóa lỗi của các trường khác nếu có
+                hideModalError($('#quantity'));
+                hideModalError($('#serial_file'));
+            }
+            if ($('#import_excel').is(':checked')) {
+                // Chỉ validate file
+                if (!$('#serial_file')[0].files[0]) {
+                    showModalError($('#serial_file'), 'Vui lòng chọn file Excel.');
+                } else {
+                    hideModalError($('#serial_file'));
+                }
+                // Xóa lỗi của các trường khác nếu có
+                hideModalError($('#quantity'));
+                hideModalError($('#serial_range'));
+            }
+            // Trả về kết quả dựa trên cờ lỗi
+            return Object.keys(modalValidationErrors).length === 0;
+        }
+
+        function setupModalValidation() {
+            // Khi thay đổi lựa chọn radio, xóa lỗi của các trường không liên quan
+            $('input[name="serial_option"]').on('change', function() {
+                hideModalError($('#quantity'));
+                hideModalError($('#serial_range'));
+                hideModalError($('#serial_file'));
+            });
+
+            $('#product').on('input change', validateModalProduct);
+            $('#quantity').on('input', validateModalQuantity);
+            $('#serial_range').on('input', validateModalSerialRange);
+        }
         
         function ProductInput() {
             $('#product').on('input', function() {
@@ -475,6 +566,7 @@
             $('#product').val($(this).text());
             $('#product_id').val($(this).data('id'));
             $('#product_suggestions').addClass('d-none');
+            validateModalProduct(); // Validate lại khi chọn từ gợi ý
         });
             // Ẩn gợi ý khi click ra ngoài
             $(document).on('click', function(e) {
@@ -494,49 +586,173 @@
                 });
             });
         }
-            
-        $('#exportActiveWarranty').on('click', function (e) {
+            $('#exportActiveWarranty').on('click', function(e) {
             e.preventDefault();
+
+            const COOLDOWN_PERIOD_MS = 1 * 60 * 1000; // 1 phút
+            const LAST_EXPORT_KEY = 'lastExportTimestamp_warranty';
+
+            const lastExportTime = localStorage.getItem(LAST_EXPORT_KEY);
+            const currentTime = Date.now();
+
+            if (lastExportTime) {
+                const timeDiff = currentTime - parseInt(lastExportTime, 10);
+                if (timeDiff < COOLDOWN_PERIOD_MS) {
+                    const timeLeftSeconds = Math.ceil((COOLDOWN_PERIOD_MS - timeDiff) / 1000);
+                    const minutes = Math.floor(timeLeftSeconds / 60);
+                    const seconds = timeLeftSeconds % 60;
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Thao tác quá nhanh!',
+                        text: `Vui lòng đợi ${minutes} phút ${seconds} giây nữa trước khi xuất lại.`
+                    });
+                    return;
+                }
+            }
+
             const tungay = $('#tungay').val();
             const denngay = $('#denngay').val();
             const queryParams = new URLSearchParams({
                 fromDate: tungay,
                 toDate: denngay
             });
+
             OpenWaitBox();
             fetch(`{{ route('baocaokichhoatbaohanh') }}?${queryParams.toString()}`)
-            .then(response => {
-                CloseWaitBox();
-                const contentType = response.headers.get("Content-Type");
-                if (contentType.includes("application/json")) {
-                    hasError = true;
-                    return response.json().then(json => {
-                        Swal.fire({
-                            icon: 'error',
-                            text: json.message
+                .then(response => {
+                    CloseWaitBox();
+                    const contentType = response.headers.get("Content-Type");
+                    if (contentType && contentType.includes("application/json")) {
+                        return response.json().then(json => {
+                            Swal.fire({
+                                icon: 'error',
+                                text: json.message
+                            });
                         });
+                    } else {
+                        // Chỉ lưu timestamp khi tải file thành công
+                        localStorage.setItem(LAST_EXPORT_KEY, currentTime.toString());
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = "Báo cáo kích hoạt bảo hành.xlsx";
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        });
+                    }
+                })
+                .catch(error => {
+                    CloseWaitBox();
+                    Swal.fire({
+                        icon: 'error',
+                        text: 'Lỗi server.'
                     });
-                } else {
-                    return response.blob().then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = "Báo cáo kích hoạt bảo hành.xlsx";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    });
-                }
-            })
-            .catch(error => {
-                hasError = true;
-                CloseWaitBox();
-                Swal.fire({
-                    icon: 'error',
-                    text: 'Lỗi server.'
+                    console.error(error);
                 });
-                console.error(error);
-            })
+        });
+
+        // 1. Cờ theo dõi trạng thái lỗi của form
+        let validationErrors = {};
+
+        // 2. Hàm hiển thị lỗi
+        function showError($field, message) {
+            let fieldId = $field.attr('id');
+            if (!fieldId) return;
+
+            hideError($field); // Xóa lỗi cũ trước khi hiển thị lỗi mới
+
+            // Thêm class is-invalid của Bootstrap và hiển thị thông báo
+            $field.addClass('is-invalid');
+            $field.closest('.col-md-4').append(`<div class="invalid-feedback d-block" data-error-for="${fieldId}">${message}</div>`);
+
+            validationErrors[fieldId] = true; // Gắn cờ lỗi
+            updateButtonState();
+        }
+
+        // 3. Hàm ẩn lỗi
+        function hideError($field) {
+            let fieldId = $field.attr('id');
+            if (!fieldId) return;
+
+            $field.removeClass('is-invalid');
+            $field.closest('.col-md-4').find(`.invalid-feedback[data-error-for="${fieldId}"]`).remove();
+
+            delete validationErrors[fieldId]; // Bỏ cờ lỗi
+            updateButtonState();
+        }
+
+        // 4. Hàm cập nhật trạng thái nút "Tìm kiếm"
+        function updateButtonState() {
+            let hasErrors = Object.keys(validationErrors).length > 0;
+            $('#searchCard').prop('disabled', hasErrors);
+        }
+
+        // 5. Các hàm validation cho từng trường
+
+        // Validate số phiếu: chỉ số, max 10 ký tự
+        function validateSophieu() {
+            const $input = $('#sophieu');
+            const value = $input.val();
+            hideError($input); // Luôn xóa lỗi cũ khi validate lại
+            if (value && !/^\d+$/.test(value)) {
+                showError($input, "Số phiếu chỉ được nhập số.");
+            } else if (value.length > 10) {
+                showError($input, "Số phiếu không vượt quá 10 ký tự.");
+            }
+        }
+
+        // Validate tên sản phẩm: chữ, số, và các ký tự ()-
+        function validateTensp() {
+            const $input = $('#tensp');
+            const value = $input.val();
+            const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/;
+            hideError($input);
+            if (value && !validRegex.test(value)) {
+                showError($input, "Tên sản phẩm chỉ nhập chữ, số và ký tự -().");
+            }
+        }
+
+        // Validate ngày: ngày sau không được nhỏ hơn ngày trước
+        function validateDates() {
+            const $fromDate = $('#tungay');
+            const $toDate = $('#denngay');
+            const fromDate = $fromDate.val();
+            const toDate = $toDate.val();
+
+            // Xóa lỗi cũ của cả 2 trường date
+            hideError($fromDate);
+            hideError($toDate);
+
+            if (fromDate && toDate && fromDate > toDate) {
+                showError($toDate, "'Đến ngày' phải lớn hơn hoặc bằng 'Từ ngày'.");
+            }
+        }
+
+        // 6. Gắn sự kiện và thực thi
+        $(document).ready(function() {
+            // Gắn sự kiện validation cho các trường
+            $('#sophieu').on('input', validateSophieu);
+            $('#tungay, #denngay').on('change', validateDates);
+
+            // Chạy validation một lần khi tải trang để kiểm tra các giá trị có sẵn
+            validateSophieu();
+            validateTensp();
+            validateDates();
+
+            // Xử lý khi nhấn nút tìm kiếm
+            $('#searchCard').on('click', function(e) {
+                // Kiểm tra lại một lần nữa trước khi gửi
+                validateSophieu();
+                validateTensp();
+                validateDates();
+
+                if (Object.keys(validationErrors).length > 0) {
+                    e.preventDefault(); // Ngăn chặn hành động mặc định nếu có lỗi
+                }
+            });
         });
     </script>
 @endsection
