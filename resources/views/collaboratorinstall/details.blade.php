@@ -307,7 +307,7 @@
         <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
 
     @elseif($statusInstall == 2) {{-- Trạng thái 2: Đã Hoàn Thành --}}
-    {{-- Đã ẩn "Cập nhật" và "Hoàn thành", chỉ cho phép thanh toán --}}
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
         <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
 
     @endif 
