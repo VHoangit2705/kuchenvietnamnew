@@ -204,7 +204,7 @@
                                     <th>Ngân hàng:</th>
                                     <td data-agency="agency_bank">
                                         <span class="text-value">{{ $agency->nganhang ?? '' }}</span>
-                                        <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:18px; display:none;"/>
+                                        <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
                                         @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
@@ -826,7 +826,7 @@
             let td = $("#" + fieldId);
             let html = `<span class=\"text-value\">${value ?? ''}</span>`;
             if (fieldId === 'nganhang') {
-                html += ` <img class=\"bank-logo ms-2\" alt=\"logo ngân hàng\" style=\"height:18px; display:none;\"/>`;
+                html += ` <img class=\"bank-logo ms-2\" alt=\"logo ngân hàng\" style=\"height:50px; display:none;\"/>`;
             }
             if (!value) {
                 html += `<i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>`;

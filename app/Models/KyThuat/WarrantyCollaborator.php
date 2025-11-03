@@ -28,6 +28,7 @@ class WarrantyCollaborator extends Model
 	protected $table = 'warranty_collaborator';
 	public $incrementing = false;
 	public $timestamps = false;
+	protected $appends = ['nganhang'];
 
 	protected $casts = [
 		'id' => 'int',
@@ -50,11 +51,17 @@ class WarrantyCollaborator extends Model
 		'avatar',
 		'created_at', // Sửa từ create_at thành created_at
 		'create_by',
+		'bank_name',
 		'sotaikhoan',
 		'chinhanh',
 		'cccd',
 		'ngaycap'
 	];
+
+	public function getNganhangAttribute()
+	{
+		return $this->attributes['bank_name'] ?? null;
+	}
 
 	public static function getById($id)
     {

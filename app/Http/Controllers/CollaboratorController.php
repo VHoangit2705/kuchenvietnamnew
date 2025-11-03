@@ -163,6 +163,7 @@ class CollaboratorController extends Controller
             $validator = Validator::make($request->all(), [
                 'id' => 'required|integer',
                 'sotaikhoan' => 'nullable|string|max:255',
+                'nganhang' => 'nullable|string|max:255',
                 'chinhanh' => 'nullable|string|max:255',
                 'cccd' => 'nullable|string|max:20',
                 'ngaycap' => 'nullable|date'
@@ -187,6 +188,7 @@ class CollaboratorController extends Controller
             // Chuẩn bị dữ liệu mới để so sánh
             $newData = [
                 'sotaikhoan' => $request->sotaikhoan,
+                'bank_name' => $request->nganhang,
                 'chinhanh' => $request->chinhanh,
                 'cccd' => $request->cccd,
                 'ngaycap' => $request->ngaycap
@@ -194,6 +196,7 @@ class CollaboratorController extends Controller
 
             // Cập nhật CTV trong database
             $collab->sotaikhoan = $request->sotaikhoan;
+            $collab->bank_name = $request->nganhang;
             $collab->chinhanh = $request->chinhanh;
             $collab->cccd = $request->cccd;
             $collab->ngaycap = $request->ngaycap;
