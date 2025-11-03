@@ -11,9 +11,12 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="replacement" name="replacement" class="form-control"
-                    value="{{ request('replacement') }}" placeholder="Nhập linh kiện sản phẩm">
-                <div id="suggestions-product-part" class="autocomplete-suggestions"></div>
+                <div style="position: relative;">
+                    <input type="text" id="replacement" name="replacement" class="form-control" value="{{ request('replacement') }}"
+                        placeholder="Nhập linh kiện thay thế">
+                    <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"
+                    style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -310,6 +313,46 @@
                 console.error(error);
             })
     });
+
+    // Gợi ý linh kiện thay thế
+    $(document).ready(function() {
+            const replacementList = {!! json_encode($linhkien) !!};
+            $('#replacement').on('input', function() {
+                const keyword = $(this).val().toLowerCase().trim();
+                const $suggestionsBox = $('#replacement-suggestions');
+                $suggestionsBox.empty();
+
+                if (!keyword) {
+                    $suggestionsBox.addClass('d-none');
+                    return;
+                }
+                const matchedReplacement = replacementList.filter(p =>
+                    p.product_name.toLowerCase().includes(keyword)
+                );
+
+                if (matchedReplacement.length > 0) {
+                    matchedReplacement.slice(0, 10).forEach(p => {
+                        $suggestionsBox.append(
+                            `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`
+                        );
+                    });
+                    $suggestionsBox.removeClass('d-none');
+                } else {
+                    $suggestionsBox.addClass('d-none');
+                }
+            });
+
+            $(document).on('click', '#replacement-suggestions button', function() {
+                $('#replacement').val($(this).text());
+                $('#replacement-suggestions').addClass('d-none');
+            });
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
+                    $('#replacement-suggestions').addClass('d-none');
+                }
+            });
+        });
 
     //Gợi ý từ
     function setupAutoComplete(inputSelector, suggestionBoxSelector, requestUrl) {
