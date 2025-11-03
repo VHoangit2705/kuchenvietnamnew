@@ -5,6 +5,7 @@
                 <th>STT</th>
                 <th style="min-width: 150px;">Họ tên</th>
                 <th style="min-width: 100px;">Điện thoại</th>
+                <th style="min-width: 140px;">Ngân hàng</th>
                 <th style="min-width: 120px;">Phường/Xã</th>
                 <th style="min-width: 120px;">Quận/Huyện</th>
                 <th style="min-width: 120px;">Tỉnh/TP</th>
@@ -18,6 +19,7 @@
                 <td class="text-center">{{ $loop->iteration}}</td>
                 <td>{{ $item->full_name }}</td>
                 <td class="text-center">{{ $item->phone }}</td>
+                <td>{{ $item->nganhang ?? $item->bank_name }}</td>
                 <td>{{ $item->ward }}</td>
                 <td>{{ $item->district }}</td>
                 <td>{{ $item->province }}</td>

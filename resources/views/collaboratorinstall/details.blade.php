@@ -92,9 +92,9 @@
                                 <tr class="ctv_row">
                                     <th>Ngân hàng:</th>
                                     <td id="nganhang" data-field="nganhang">
-                                        <span class="text-value">{{ $data->order->collaborator->nganhang ?? $data->collaborator->nganhang ?? '' }}</span>
+                                        <span class="text-value">{{ $data->order->collaborator->bank_name ?? $data->order->collaborator->nganhang ?? $data->collaborator->bank_name ?? $data->collaborator->nganhang ?? '' }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
-                                        @if (empty(optional(optional($data->order)->collaborator)->nganhang ?? optional($data->collaborator)->nganhang))
+                                        @if (empty(optional(optional($data->order)->collaborator)->bank_name ?? optional(optional($data->order)->collaborator)->nganhang ?? optional($data->collaborator)->bank_name ?? optional($data->collaborator)->nganhang))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -808,7 +808,10 @@
                     $("#ctv_phone").text(res.phone);
                     updateField("sotaikhoan", res.sotaikhoan);
                     updateField("chinhanh", res.chinhanh);
-                    updateField("nganhang", res.nganhang);
+                    const bankName = res.nganhang || res.bank_name || '';
+                    updateField("nganhang", bankName);
+                    // Đảm bảo cập nhật logo ngay lập tức
+                    updateBankLogoForCell($("#nganhang"));
                     updateField("cccd", res.cccd);
                     updateField("ngaycap", res.ngaycap);
 
