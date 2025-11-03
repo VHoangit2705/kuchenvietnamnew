@@ -28,14 +28,17 @@
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
-                <td>{{$code}}</td>
-                <td class="text-center">{{ \Carbon\Carbon::parse($created_at)->format('d/m/Y') }}</td>
+                {{-- <td>{{$code}}</td> --}}
+                <td>{{ $code ?: ' N/A ' }}</td>
+                <td class="text-center">
+                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : 'N/A' }}
+                  </td>
                 <td class="text-center">{{ $zone }}</td>
                 <td>{{ $item->order->agency_name ?? $item->agency_name ?? '' }}</td>
                 <td class="text-center">{{ $item->order->agency_phone ?? $item->agency_phone ?? '' }}</td>
                 <td>{{ $item->order->customer_name ?? $item->full_name }}</td>
                 <td>{{ $item->order->customer_phone ?? $item->phone_number }}</td>
-                <td>{{ $item->product_name ?? $item->product }}</td>
+                <td>{{ $item->product_name ?? $item->product ?? 'Không xác định' }}</td>
                 <td>{{ $item->order->collaborator->full_name ?? $item->collaborator->full_name ?? '' }}</td>
                 <td class="text-center">{{ number_format($item->order->install_cost ?? $item->install_cost, 0, ',', '.') }}</td>
                 <td class="text-center">

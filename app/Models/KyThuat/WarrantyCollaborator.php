@@ -32,7 +32,7 @@ class WarrantyCollaborator extends Model
 	protected $casts = [
 		'id' => 'int',
 		'date_of_birth' => 'datetime',
-		'create_at' => 'datetime',
+		'created_at' => 'datetime', // Sửa từ create_at thành created_at
 	];
 
 	protected $fillable = [
@@ -48,7 +48,7 @@ class WarrantyCollaborator extends Model
 		'ward',
 		'address',
 		'avatar',
-		'create_at',
+		'created_at', // Sửa từ create_at thành created_at
 		'create_by',
 		'sotaikhoan',
 		'chinhanh',
