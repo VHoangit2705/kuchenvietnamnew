@@ -5,6 +5,7 @@
     <div class="row g-4">
         <div class="col-12 col-md-6">
             <div class="card h-100">
+                {{-- Thông tin khách hàng --}}
                 <div class="card-header bg-secondary text-white position-relative">
                     <img src="{{ asset('icons/arrow.png') }}" alt="Quay lại" title="Quay lại" onclick="window.location.href='{{ route('dieuphoi.index') }}'"
                         style="height:15px; filter:brightness(0) invert(1); position:absolute; left:15px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -82,6 +83,24 @@
                                     <th>Địa chỉ:</th>
                                     <td colspan="3">{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}</td>
                                 </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {{-- Thông tin khách hàng --}}
+                <div class="card-header bg-secondary text-white position-relative ctv-info-section">
+                    <h5 class="mb-0 text-center">Thông tin công tác viên</h5>
+                </div>
+                <div class="card-body ctv-info-section">
+                    <div class="table-responsive col-12">
+                        <table class="table table-striped">
+                            <colgroup>
+                                <col style="width: 20%;">
+                                <col style="width: 30%;">
+                                <col style="width: 20%;">
+                                <col style="width: 50%;">
+                            </colgroup>
+                            <tbody>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
                                     <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? '' }}</td>
@@ -729,9 +748,7 @@
                 clearCtvData();
                 
                 $(".installCostRow").show();
-                $(".ctv_row").hide();
-                $("#install_cost_row").hide();
-                $("#install_file").hide();
+                $(".ctv-info-section").hide(); // Ẩn cả header và body của CTV
                 $("#table_collaborator").hide();
             } else {
                 // Khôi phục giá trị ban đầu
@@ -740,9 +757,7 @@
                 $(".installCostRow").hide();
                 $(".error").hide(); // 'error' là class cũ, có thể xóa
                 $("#table_collaborator").show();
-                $(".ctv_row").show();
-                $("#install_cost_row").show();
-                $("#install_file").show();
+                $(".ctv-info-section").show(); // Hiện lại cả header và body của CTV
             }
             
             // NÂNG CẤP: Chạy lại validation cho các trường
@@ -751,9 +766,7 @@
 
         if ($("#isInstallAgency").is(":checked")) {
             $(".installCostRow").show();
-            $(".ctv_row").hide();
-            $("#install_cost_row").hide();
-            $("#install_file").hide();
+            $(".ctv-info-section").hide();
             $("#table_collaborator").hide();
         } else {
             $(".installCostRow").hide();
