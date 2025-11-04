@@ -90,15 +90,25 @@
                                     <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
+                                    <th>Ngân hàng:</th>
+                                    <td id="nganhang" data-field="nganhang">
+                                        <span class="text-value">{{ $data->order->collaborator->bank_name ?? $data->order->collaborator->nganhang ?? $data->collaborator->bank_name ?? $data->collaborator->nganhang ?? '' }}</span>
+                                        <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
+                                        @if (empty(optional(optional($data->order)->collaborator)->bank_name ?? optional(optional($data->order)->collaborator)->nganhang ?? optional($data->collaborator)->bank_name ?? optional($data->collaborator)->nganhang))
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
+                                    </td>
                                     <th>Số tài khoản:</th>
-                                    <td id="sotaikhoan" data-field="sotaikhoan">
+                                    <td id="sotaikhoan" data-field="sotaikhoan" colspan="3">
                                         <span class="text-value">{{ $data->order->collaborator->sotaikhoan ?? $data->collaborator->sotaikhoan ?? ''}}</span>
                                         @if (empty(optional(optional($data->order)->collaborator)->sotaikhoan ?? optional($data->collaborator)->sotaikhoan))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
+                                </tr>
+                                <tr class="ctv_row">
                                     <th>Chi nhánh:</th>
-                                    <td id="chinhanh" data-field="chinhanh">
+                                    <td id="chinhanh" data-field="chinhanh" colspan="3">
                                         <span class="text-value">{{ $data->order->collaborator->chinhanh ?? $data->collaborator->chinhanh ?? ''}}</span>
                                         @if (empty(optional(optional($data->order)->collaborator)->chinhanh ?? optional($data->collaborator)->chinhanh))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
@@ -185,6 +195,16 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Ngân hàng:</th>
+                                    <td data-agency="agency_bank">
+                                        <span class="text-value">{{ $agency->nganhang ?? '' }}</span>
+                                        <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
                                         @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
@@ -350,6 +370,9 @@
     </div>
 </div>
 
+<!-- Datalist for bank names (populated via VietQR API) -->
+<datalist id="bankList"></datalist>
+
 <script>
     // Lưu trữ giá trị ban đầu của các trường CTV và Đại lý
     let originalCtvData = {};
@@ -463,6 +486,15 @@
                     showError($input, "Tối đa 80 ký tự.");
                 }
                 break;
+            case 'nganhang':
+            case 'agency_bank':
+                // Cho phép chữ, số, dấu cách và các ký tự (.,-/&)
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/&]+$/.test(value)) {
+                    showError($input, "Tên ngân hàng chỉ được chứa chữ, số, dấu cách và (.,-/&).");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
             case 'agency_name':
             case 'agency_address':
                 // Lưu ý: Cho phép chữ tiếng Việt, số, dấu cách, và các ký tự .,-/
@@ -571,6 +603,7 @@
                 ctv_id: $("#ctv_id").val(),
                 sotaikhoan: $("#sotaikhoan .text-value").text().trim(),
                 chinhanh: $("#chinhanh .text-value").text().trim(),
+                nganhang: $("#nganhang .text-value").text().trim(),
                 cccd: $("#cccd .text-value").text().trim(),
                 ngaycap: $("#ngaycap .text-value").text().trim(),
                 install_cost_ctv: $("#install_cost_ctv").val(),
@@ -585,6 +618,7 @@
                 agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
                 agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
                 agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+                agency_bank: $("td[data-agency='agency_bank'] .text-value").text().trim(),
                 agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
                 agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
                 agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()
@@ -601,6 +635,7 @@
             $("#ctv_id").val(originalCtvData.ctv_id);
             updateField("sotaikhoan", originalCtvData.sotaikhoan);
             updateField("chinhanh", originalCtvData.chinhanh);
+            updateField("nganhang", originalCtvData.nganhang);
             updateField("cccd", originalCtvData.cccd);
             updateField("ngaycap", originalCtvData.ngaycap);
             $("#install_cost_ctv").val(originalCtvData.install_cost_ctv);
@@ -684,6 +719,7 @@
             $("#ctv_id").val('');
             updateField("sotaikhoan", '');
             updateField("chinhanh", '');
+            updateField("nganhang", '');
             updateField("cccd", '');
             updateField("ngaycap", '');
             $("#install_cost_ctv").val('');
@@ -772,6 +808,10 @@
                     $("#ctv_phone").text(res.phone);
                     updateField("sotaikhoan", res.sotaikhoan);
                     updateField("chinhanh", res.chinhanh);
+                    const bankName = res.nganhang || res.bank_name || '';
+                    updateField("nganhang", bankName);
+                    // Đảm bảo cập nhật logo ngay lập tức
+                    updateBankLogoForCell($("#nganhang"));
                     updateField("cccd", res.cccd);
                     updateField("ngaycap", res.ngaycap);
 
@@ -787,11 +827,17 @@
 
         function updateField(fieldId, value) {
             let td = $("#" + fieldId);
-            let html = `<span class="text-value">${value ?? ''}</span>`;
+            let html = `<span class=\"text-value\">${value ?? ''}</span>`;
+            if (fieldId === 'nganhang') {
+                html += ` <img class=\"bank-logo ms-2\" alt=\"logo ngân hàng\" style=\"height:50px; display:none;\"/>`;
+            }
             if (!value) {
                 html += `<i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>`;
             }
             td.html(html);
+            if (fieldId === 'nganhang') {
+                updateBankLogoForCell(td);
+            }
         }
 
         // --- NÂNG CẤP: Gắn validation cho các trường tĩnh ---
@@ -824,6 +870,55 @@
             loadHistory();
             $('#historyModal').modal('show');
         });
+
+        // Nạp danh sách ngân hàng từ VietQR API vào datalist
+        const banksUrl = "{{ config('services.vietqr.banks_url', 'https://api.vietqr.io/v2/banks') }}";
+        window.bankNameToLogo = window.bankNameToLogo || {};
+        window.bankShortToLogo = window.bankShortToLogo || {};
+        window.bankCodeToLogo = window.bankCodeToLogo || {};
+        try {
+            fetch(banksUrl)
+                .then(res => res.json())
+                .then(json => {
+                    if (!json || !json.data) return;
+                    const list = document.getElementById('bankList');
+                    if (!list) return;
+                    list.innerHTML = '';
+                    json.data.forEach(function(b){
+                        const opt = document.createElement('option');
+                        opt.value = (b.shortName ? b.shortName : b.name);
+                        opt.label = b.name || b.shortName || '';
+                        list.appendChild(opt);
+                        const logo = b.logo || '';
+                        if (b.name && logo) window.bankNameToLogo[b.name.toLowerCase()] = logo;
+                        if (b.shortName && logo) window.bankShortToLogo[b.shortName.toLowerCase()] = logo;
+                        if (b.code && logo) window.bankCodeToLogo[b.code.toLowerCase()] = logo;
+                    });
+                    // Cập nhật logo ban đầu nếu có giá trị sẵn
+                    updateBankLogoForCell($("#nganhang"));
+                    updateBankLogoForCell($("td[data-agency='agency_bank']"));
+                })
+                .catch(() => {});
+        } catch (e) {}
+
+        window.resolveBankLogoByText = function(text){
+            if (!text) return null;
+            const key = text.toLowerCase();
+            return window.bankShortToLogo[key] || window.bankNameToLogo[key] || window.bankCodeToLogo[key] || null;
+        };
+
+        window.updateBankLogoForCell = function($td){
+            if (!$td || !$td.length) return;
+            const text = $td.find('.text-value').text().trim();
+            const logo = window.resolveBankLogoByText(text);
+            const $img = $td.find('img.bank-logo');
+            if (!$img.length) return;
+            if (logo) {
+                $img.attr('src', logo).show();
+            } else {
+                $img.hide().attr('src', '');
+            }
+        };
     });
 
     function validateBasicInfo() {
@@ -1165,6 +1260,9 @@
                 }
             }
         }
+        if (fieldName === "nganhang" || fieldName === "agency_bank") {
+            $input.attr('list', 'bankList');
+        }
 
         // --- BẮT ĐẦU GẮN VALIDATION ---
         $input.on("input change", function() {
@@ -1206,6 +1304,11 @@
 
             $td.find(".edit-icon").show();
             $(this).remove();
+
+            // Cập nhật logo ngân hàng sau khi rời input ở cả 2 trường hợp
+            if (fieldName === 'nganhang' || fieldName === 'agency_bank') {
+                updateBankLogoForCell($td);
+            }
         });
 
         // Xử lý nhấn Enter
@@ -1438,6 +1541,7 @@
             agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
             agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
             agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+            agency_bank: $("td[data-agency='agency_bank'] .text-value").text().trim(),
             agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
             agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
             agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()

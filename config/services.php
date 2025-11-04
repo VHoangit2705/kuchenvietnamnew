@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // VietQR public API configuration
+    'vietqr' => [
+        'banks_url' => env('VIETQR_BANKS_URL', 'https://api.vietqr.io/v2/banks'),
+    ],
+
 ];
