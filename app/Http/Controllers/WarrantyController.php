@@ -368,7 +368,12 @@ class WarrantyController extends Controller
         $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
         $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien'));
+        
+        // Lấy danh sách sản phẩm dựa trên brand
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        $sanpham = Product::where('view', $view)->select('product_name')->get();
+        
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
@@ -385,9 +390,10 @@ class WarrantyController extends Controller
             'des_error_type' => 'nullable',
         ]);
 
-        if ($request->solution === 'Thay thế linh kiện/hardware' && empty($request->replacement)) {
-            $validator->after(function ($validator) {
-                $validator->errors()->add('replacement', 'Linh kiện thay thế là bắt buộc khi chọn giải pháp này.');
+        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
+            $validator->after(function ($validator) use ($request) {
+                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
             });
         }
 
@@ -402,7 +408,15 @@ class WarrantyController extends Controller
             $data['replacement'] = $request->des_error_type;
         }
         if($request->replacement){
+            // Tìm sản phẩm trong cả linh kiện và sản phẩm chính
             $product = Product::getProductByName($request->replacement);
+            if (!$product) {
+                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
+                $view = session('brand') === 'hurom' ? 3 : 1;
+                $product = Product::where('product_name', $request->replacement)
+                    ->where('view', $view)
+                    ->first();
+            }
             $data['replacement_price'] = $product->price ?? $request->unit_price;
         }
         // Thêm thông tin bổ sung
@@ -963,10 +977,10 @@ class WarrantyController extends Controller
         $customerPhone = $request->phone_number;
         
         if ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
-            // 1. Không có serial_number và không có serial_thanmay
-            // Nếu cùng khách hàng (số điện thoại trùng) trong cùng chi nhánh và cùng ngày -> không được tạo phiếu
-            $existingWarranty = WarrantyRequest::where('phone_number', $customerPhone)
-                ->where('branch', $zone)
+            // 1. Không có cả serial_number và serial_thanmay
+            $existingWarranty = WarrantyRequest::where('product', $productName)
+                ->where('phone_number', $customerPhone)
+                ->where('branch', $zone) 
                 ->whereDate('received_date', $today)
                 ->first();
         } elseif ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && !empty($serialThanMay)) {
@@ -977,29 +991,23 @@ class WarrantyController extends Controller
                 ->first();
         } elseif ($serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
             // 3. Có serial_number nhưng không có serial_thanmay
-            // Kiểm tra trùng serial trong toàn hệ thống (không giới hạn theo nhân viên)
             $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
+                ->where('branch', $zone)
                 ->whereDate('received_date', $today)
                 ->first();
         } else {
             // 4. Có cả serial_number và serial_thanmay
-            // Kiểm tra trùng serial trong toàn hệ thống (không giới hạn theo nhân viên)
             $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
                 ->where('serial_thanmay', $serialThanMay)
+                ->where('branch', $zone)
                 ->whereDate('received_date', $today)
                 ->first();
         }
         
         if ($existingWarranty) {
-            $message = 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.';
-            if ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
-                $message = 'Khách hàng này đã có phiếu cho sản phẩm này hôm nay. Vui lòng kiểm tra lại.';
-            } elseif ($serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI') {
-                $message = 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.';
-            }
             return response()->json([
                 'success' => false,
-                'message' => $message,
+                'message' => 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.'
             ]);
         }
         
