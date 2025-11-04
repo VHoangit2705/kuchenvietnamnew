@@ -52,6 +52,7 @@ class WarrantyCollaborator extends Model
 		'create_by',
 		'sotaikhoan',
 		'chinhanh',
+		'bank_name',
 		'cccd',
 		'ngaycap'
 	];
