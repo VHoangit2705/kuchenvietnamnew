@@ -5,7 +5,7 @@
     <div class="row g-4">
         <div class="col-12 col-md-6">
             <div class="card h-100">
-                {{-- Thông tin khách hàng --}}
+            {{-- Thông tin khách hàng --}}
                 <div class="card-header bg-secondary text-white position-relative">
                     <img src="{{ asset('icons/arrow.png') }}" alt="Quay lại" title="Quay lại" onclick="window.location.href='{{ route('dieuphoi.index') }}'"
                         style="height:15px; filter:brightness(0) invert(1); position:absolute; left:15px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -81,17 +81,25 @@
                                 </tr>
                                 <tr>
                                     <th>Địa chỉ:</th>
-                                    <td colspan="3">{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}</td>
+                                    {{-- Nâng cấp: Thêm chức năng chỉnh sửa cho địa chỉ --}}
+                                    <td colspan="3" data-field="customer_address">
+                                        <span class="text-value">{{ $data->order->customer_address ?? $data->address }}</span>, {{ $fullAddress }}
+                                        {{-- Icon chỉnh sửa --}}
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
+                                        {{-- Input ẩn để lưu giá trị gốc --}}
+                                        <input type="hidden" id="customer_address_full" value="{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}">
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            {{-- Thông tin khách hàng --}}
-                <div class="card-header bg-secondary text-white position-relative ctv-info-section">
-                    <h5 class="mb-0 text-center">Thông tin công tác viên</h5>
+                
+            {{-- Thông tin cộng tác viên --}}
+                <div class="card-header bg-secondary text-white position-relative">
+                    <h5 class="mb-0 text-center">Thông tin cộng tác viên</h5>
                 </div>
-                <div class="card-body ctv-info-section">
+                <div class="card-body">
                     <div class="table-responsive col-12">
                         <table class="table table-striped">
                             <colgroup>
@@ -103,10 +111,10 @@
                             <tbody>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
-                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? '' }}</td>
+                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? 'N/A' }}</td>
                                     <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $data->order->collaborator_id ?? $data->collaborator_id }}">
                                     <th>SĐT CTV:</th>
-                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? '' }}</td>
+                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số tài khoản:</th>
@@ -488,6 +496,15 @@
                     showError($input, "Chỉ nhập chữ, số, dấu cách và ký tự (.,-/).");
                 } else if (value.length > 80) {
                     showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+            case 'customer_address':
+                // Validation cho địa chỉ khách hàng
+                // Cho phép chữ, số, dấu cách và các ký tự .,-/
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/]+$/.test(value)) {
+                    showError($input, "Chỉ nhập chữ, số, dấu cách và các ký tự (.,-/).");
+                } else if (value.length > 150) {
+                    showError($input, "Tối đa 150 ký tự.");
                 }
                 break;
 
@@ -1155,9 +1172,32 @@
         let fieldName = field || agency; // Tên định danh của trường
 
         let $input = $("<input>", {
-            type: "text",
+            // Sửa đổi: Nếu là địa chỉ khách hàng, dùng textarea để có nhiều không gian hơn
+            type: (fieldName === 'customer_address') ? 'textarea' : 'text',
             value: oldValue,
-            class: "form-control d-inline-block w-auto"
+            class: "form-control d-inline-block w-100"
+        });
+        
+        // Gắn data-field/data-agency vào input để dễ truy xuất
+        if (field) $input.attr('data-field', field);
+        if (agency) $input.attr('data-agency', agency);
+
+        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
+            $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
+        }
+        // Xử lý khi người dùng nhập liệu
+        $input.on("input change", function() {
+            validateDynamicField($(this), fieldName);
         });
         
         // Gắn data-field/data-agency vào input để dễ truy xuất
@@ -1227,6 +1267,10 @@
 
         // Ẩn span và icon, hiển thị input
         $span.hide();
+         // Ẩn icon bút// Nếu là địa chỉ khách hàng, ẩn cả phần địa chỉ tĩnh (tỉnh/huyện/xã)
+        if (fieldName === 'customer_address') {
+            $td.contents().filter(function() { return this.nodeType === 3; }).remove(); // Xóa text node ", {{ $fullAddress }}"
+        }      
         $(this).hide();
         $td.prepend($input);
         $input.focus();
