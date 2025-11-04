@@ -2,6 +2,12 @@
 
 @section('content')
 <style>
+@if(request('embed'))
+    /* Ẩn layout chung khi nhúng vào modal */
+    body { padding-top: 0 !important; background: #ffffff !important; }
+    header, footer, nav.navbar, .navbar, .topbar, .main-header, .sidebar, .page-header { display: none !important; }
+    .container, .container-fluid { max-width: 100% !important; }
+@endif
     .preview-container {
         max-width: 100%;
         overflow-x: auto;

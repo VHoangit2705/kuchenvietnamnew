@@ -161,6 +161,27 @@
                     </div>
                 </div>
             </div>
+<!-- Modal xem trước báo cáo -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Xem trước báo cáo Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="preview-loading text-center p-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <iframe src="" style="width: 100%; height: 75vh; border: 0;" class="d-none"></iframe>
+            </div>
+        </div>
+    </div>
+    </div>
         </div>
     </form>
 </div>
@@ -916,54 +937,77 @@
         // Load lại tab content
         loadTabData(tab, formData, 1);
     }
-
+    
     function Report() {
         $('#reportCollaboratorInstall').on('click', function(e) {
             e.preventDefault();
-            Swal.fire({
-                title: 'Đang xuất file...',
-                text: 'Vui lòng chờ trong giây lát',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
             const queryParams = new URLSearchParams({
                 start_date: $('#tungay').val(),
                 end_date: $('#denngay').val()
             });
-            fetch(`{{ route('collaborator.export') }}?${queryParams.toString()}`)
-                .then(response => {
-                    Swal.close();
-                    const contentType = response.headers.get("Content-Type");
-                    if (contentType.includes("application/json")) {
-                        hasError = true;
-                        return response.json().then(json => {
+
+            Swal.fire({
+                title: 'Chọn hành động',
+                text: 'Bạn muốn xem trước hay tải Excel?',
+                showDenyButton: true,
+                confirmButtonText: 'Tải Excel',
+                denyButtonText: 'Xem trước',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Đang xuất file...',
+                        text: 'Vui lòng chờ trong giây lát',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    fetch(`{{ route('collaborator.export') }}?${queryParams.toString()}`)
+                        .then(response => {
+                            Swal.close();
+                            const contentType = response.headers.get("Content-Type") || '';
+                            if (contentType.includes("application/json")) {
+                                return response.json().then(json => {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        text: json.message
+                                    });
+                                });
+                            } else {
+                                return response.blob().then(blob => {
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = "KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT.xlsx";
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                });
+                            }
+                        })
+                        .catch(() => {
+                            Swal.close();
                             Swal.fire({
                                 icon: 'error',
-                                text: json.message
+                                text: 'Lỗi server.'
                             });
                         });
-                    } else {
-                        return response.blob().then(blob => {
-                            const url = window.URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = "KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT.xlsx";
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        });
-                    }
-                })
-                .catch(error => {
-                    Swal.close();
-                    hasError = true;
-                    Swal.fire({
-                        icon: 'error',
-                        text: 'Lỗi server.'
+                } else if (result.isDenied) {
+                    queryParams.set('embed', '1');
+                    const previewUrl = `{{ route('collaborator.export.preview') }}` + `?${queryParams.toString()}`;
+                    const $iframe = $('#previewModal iframe');
+                    const $spinner = $('#previewModal .preview-loading');
+                    $spinner.removeClass('d-none');
+                    $iframe.addClass('d-none');
+                    $iframe.off('load').on('load', function() {
+                        $spinner.addClass('d-none');
+                        $iframe.removeClass('d-none');
                     });
-                })
+                    $iframe.attr('src', previewUrl);
+                    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+                    modal.show();
+                }
+            });
         });
     }
 
@@ -1119,5 +1163,11 @@
             }
         });
     }
+    // Dọn src khi đóng modal xem trước
+    $(document).on('hidden.bs.modal', '#previewModal', function() {
+        $('#previewModal iframe').attr('src', '');
+        $('#previewModal .preview-loading').removeClass('d-none');
+        $('#previewModal iframe').addClass('d-none');
+    });
 </script>
 @endsection
