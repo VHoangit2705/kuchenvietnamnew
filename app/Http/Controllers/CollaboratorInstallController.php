@@ -25,7 +25,6 @@ use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Enum;
 use Illuminate\Support\Facades\DB;
- 
 
 class CollaboratorInstallController extends Controller
 {
@@ -50,10 +49,9 @@ class CollaboratorInstallController extends Controller
     private function ensureAgencyCollaboratorExists()
     {
         try {
-            $agencyCtv = WarrantyCollaborator::find(Enum::AGENCY_INSTALL_FLAG_ID);
-            if (!$agencyCtv) {
-                WarrantyCollaborator::create([
-                    'id' => Enum::AGENCY_INSTALL_FLAG_ID,
+            WarrantyCollaborator::updateOrCreate(
+                ['id' => Enum::AGENCY_INSTALL_FLAG_ID], // điều kiện duy nhất
+                [
                     'full_name' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'phone' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'province' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
@@ -64,11 +62,11 @@ class CollaboratorInstallController extends Controller
                     'chinhanh' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'cccd' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
+                    'updated_at' => now(),
+                ]
+            );
         } catch (\Exception $e) {
-            Log::error('Lỗi tạo CTV flag Đại lý lắp đặt: ' . $e->getMessage());
+            Log::error('Lỗi tạo/đồng bộ CTV flag Đại lý lắp đặt: ' . $e->getMessage());
         }
     }
     
