@@ -634,7 +634,16 @@
                 validateDates();
             });
 
+            //Phần đánh dấu 1 hàng trong bảng
+            $('#tabContent').on('click', 'tbody tr', function() {
+            const isHighlighted = $(this).hasClass('highlight-row');
+            $('tbody tr').removeClass('highlight-row');
+            if (!isHighlighted) {
+                $(this).addClass('highlight-row');
+            }
+            });
 
+            // Dữ liệu sản phẩm từ server
             const productList = {!! json_encode($products ?? []) !!};
 
 
@@ -781,6 +790,79 @@
         });
 
         Report();
+
+        //Kéo ngang bảng trong .table-container bằng chuột
+        
+        // Biến trạng thái
+        let isGrabbing = false;
+        let startX, scrollLeft;
+        let $dragTarget; // Biến lưu trữ container .table-container đang được kéo
+
+        // 1. Gắn sự kiện 'mousedown' vào #tabContent, 
+        //    nhưng chỉ lắng nghe cho phần tử con .table-container
+        $('#tabContent').on('mousedown', '.table-container', function(e) {
+            // Chỉ kích hoạt khi nhấn chuột trái
+            if (e.button !== 0) return;
+
+            isGrabbing = true;
+            $dragTarget = $(this); // Lưu lại container này
+            $dragTarget.addClass('is-grabbing'); // Thêm class để đổi con trỏ
+
+            // Ghi lại vị trí bắt đầu và vị trí cuộn hiện tại
+            startX = e.pageX;
+            scrollLeft = $dragTarget.scrollLeft();
+
+            // Ngăn chặn hành vi chọn văn bản (bôi đen) mặc định khi kéo
+            e.preventDefault();
+        });
+
+        // 2. Gắn sự kiện 'mousemove' vào cả trang (document)
+        //    để bạn vẫn kéo được ngay cả khi chuột ra khỏi bảng
+        $(document).on('mousemove', function(e) {
+            if (!isGrabbing || !$dragTarget) return; // Nếu chưa mousedown, bỏ qua
+
+            e.preventDefault();
+            const x = e.pageX;
+            const walk = (x - startX) * 2; // Tính khoảng cách chuột di chuyển (nhân 2 để kéo nhạy hơn)
+            
+            // Thiết lập vị trí cuộn mới = vị trí cũ - khoảng cách di chuyển
+            $dragTarget.scrollLeft(scrollLeft - walk);
+        });
+
+        // 3. Gắn sự kiện 'mouseup' vào cả trang (document)
+        //    để dừng kéo khi nhả chuột ở bất cứ đâu
+        $(document).on('mouseup', function(e) {
+            if (isGrabbing) {
+                isGrabbing = false;
+                if ($dragTarget) {
+                    $dragTarget.removeClass('is-grabbing');
+                }
+                $dragTarget = null; // Xóa mục tiêu
+            }
+        });
+
+        // 4. Cũng dừng kéo nếu chuột đi ra ngoài cửa sổ trình duyệt
+        $(document).on('mouseleave', function() {
+            if (isGrabbing) {
+                isGrabbing = false;
+                if ($dragTarget) {
+                    $dragTarget.removeClass('is-grabbing');
+                }
+                $dragTarget = null;
+            }
+        });
+
+        // 5. Thêm class 'can-grab' vào .table-container
+        //    Chúng ta cũng dùng ủy quyền sự kiện cho việc này
+        $('#tabContent').on('mouseenter', '.table-container', function() {
+            const $container = $(this);
+            // Kiểm tra xem bảng có thực sự bị tràn không
+            if ($container[0].scrollWidth > $container[0].clientWidth) {
+                $container.addClass('can-grab');
+            }
+        }).on('mouseleave', '.table-container', function() {
+            $(this).removeClass('can-grab');
+        });
     });
     
     // Hàm xóa bộ lọc
