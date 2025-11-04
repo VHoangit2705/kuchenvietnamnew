@@ -5,6 +5,7 @@
     <div class="row g-4">
         <div class="col-12 col-md-6">
             <div class="card h-100">
+            {{-- Thông tin khách hàng --}}
                 <div class="card-header bg-secondary text-white position-relative">
                     <img src="{{ asset('icons/arrow.png') }}" alt="Quay lại" title="Quay lại" onclick="window.location.href='{{ route('dieuphoi.index') }}'"
                         style="height:15px; filter:brightness(0) invert(1); position:absolute; left:15px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -80,14 +81,40 @@
                                 </tr>
                                 <tr>
                                     <th>Địa chỉ:</th>
-                                    <td colspan="3">{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}</td>
+                                    {{-- Nâng cấp: Thêm chức năng chỉnh sửa cho địa chỉ --}}
+                                    <td colspan="3" data-field="customer_address">
+                                        <span class="text-value">{{ $data->order->customer_address ?? $data->address }}</span>, {{ $fullAddress }}
+                                        {{-- Icon chỉnh sửa --}}
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
+                                        {{-- Input ẩn để lưu giá trị gốc --}}
+                                        <input type="hidden" id="customer_address_full" value="{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}">
+                                    </td>
                                 </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+            {{-- Thông tin cộng tác viên --}}
+                <div class="card-header bg-secondary text-white position-relative">
+                    <h5 class="mb-0 text-center">Thông tin cộng tác viên</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive col-12">
+                        <table class="table table-striped">
+                            <colgroup>
+                                <col style="width: 20%;">
+                                <col style="width: 30%;">
+                                <col style="width: 20%;">
+                                <col style="width: 50%;">
+                            </colgroup>
+                            <tbody>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
-                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? '' }}</td>
+                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? 'N/A' }}</td>
                                     <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $data->order->collaborator_id ?? $data->collaborator_id }}">
                                     <th>SĐT CTV:</th>
-                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? '' }}</td>
+                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số tài khoản:</th>
@@ -300,20 +327,21 @@
         </button>
     </div>
     <div class="d-flex">
-    @if($statusInstall < 2) {{-- Trạng thái 0: Chưa ĐP, 1: Đã ĐP --}}
-        
+      @if($statusInstall < 2) {{-- Trạng thái 0: Chưa ĐP, 1: Đã ĐP --}}
+
         <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
         <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
         <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
-    
+
     @elseif($statusInstall == 2) {{-- Trạng thái 2: Đã Hoàn Thành --}}
-        
-        {{-- Đã ẩn "Cập nhật" và "Hoàn thành", chỉ cho phép thanh toán --}}
-        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
-    
+    <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
+    <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+
+    @elseif($statusInstall == 3) {{-- Trạng thái 3: Đã Thanh Toán --}}
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+
     @endif 
-    {{-- Trạng thái 3 (Đã Thanh Toán): Không hiển thị nút nào --}}
-</div>
+    </div>
 </div>
 
 <!-- Modal Lịch sử thay đổi -->
@@ -442,7 +470,6 @@
                 } else if (value.length > 20) {
                     showError($input, "Tối đa 20 ký tự.");
                 }
-                // Xác thực lại trường 'chi nhánh' phụ thuộc
                 // THAY ĐỔI: Sửa logic tìm kiếm để đảm bảo tìm đúng input (nếu nó đang được edit)
                 let $chinhanhInput = $td.closest('tbody').find('input[data-field="chinhanh"], input[data-agency="agency_branch"]');
                 if($chinhanhInput.length) validateDynamicField($chinhanhInput, $chinhanhInput.data('field') || $chinhanhInput.data('agency'));
@@ -469,6 +496,15 @@
                     showError($input, "Chỉ nhập chữ, số, dấu cách và ký tự (.,-/).");
                 } else if (value.length > 80) {
                     showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+            case 'customer_address':
+                // Validation cho địa chỉ khách hàng
+                // Cho phép chữ, số, dấu cách và các ký tự .,-/
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/]+$/.test(value)) {
+                    showError($input, "Chỉ nhập chữ, số, dấu cách và các ký tự (.,-/).");
+                } else if (value.length > 150) {
+                    showError($input, "Tối đa 150 ký tự.");
                 }
                 break;
 
@@ -1142,9 +1178,10 @@
         let fieldName = field || agency; // Tên định danh của trường
 
         let $input = $("<input>", {
-            type: "text",
+            // Sửa đổi: Nếu là địa chỉ khách hàng, dùng textarea để có nhiều không gian hơn
+            type: (fieldName === 'customer_address') ? 'textarea' : 'text',
             value: oldValue,
-            class: "form-control d-inline-block w-auto"
+            class: "form-control d-inline-block w-100"
         });
         
         // Gắn data-field/data-agency vào input để dễ truy xuất
@@ -1214,6 +1251,10 @@
 
         // Ẩn span và icon, hiển thị input
         $span.hide();
+         // Ẩn icon bút// Nếu là địa chỉ khách hàng, ẩn cả phần địa chỉ tĩnh (tỉnh/huyện/xã)
+        if (fieldName === 'customer_address') {
+            $td.contents().filter(function() { return this.nodeType === 3; }).remove(); // Xóa text node ", {{ $fullAddress }}"
+        }      
         $(this).hide();
         $td.prepend($input);
         $input.focus();

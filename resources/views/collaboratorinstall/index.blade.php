@@ -1,19 +1,42 @@
 @extends('layout.layout')
 
 @section('content')
-    <div class="container mt-4">
-        <form id="searchForm">
-            <!-- @csrf -->
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h4 class="mb-0">
-                        Tìm kiếm đơn hàng lắp đặt
-                    </h4>
-                </div>
-                <div class="card-body">
-                    <!-- Hàng 1: Thông tin cơ bản -->
-                    <div class="row mb-3">
-                        <div class="col-md-3 mb-2">
+<style>
+    #collaborator_tab .nav-link.active {
+        background-color: #666666 !important;
+        color: #ffffff !important;
+        border-color: #666666 #666666 transparent !important;
+        font-weight: bold;
+    }
+    
+    #collaborator_tab .nav-link.active .count-badge {
+        color: #ffffff !important;
+        font-weight: bold;
+    }
+    
+    #collaborator_tab .nav-link {
+        color: #495057;
+        transition: all 0.3s ease;
+    }
+    
+    #collaborator_tab .nav-link:hover:not(.active) {
+        background-color: #d9d9d9;
+        border-color: #d9d9d9 #d9d9d9 transparent;
+    }
+</style>
+<div class="container mt-4">
+    <form id="searchForm">
+        <!-- @csrf -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h4 class="mb-0">
+                    Tìm kiếm đơn hàng lắp đặt
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Hàng 1: Thông tin cơ bản -->
+                <div class="row mb-3">
+                    <div class="col-md-3 mb-2">
                             <label class="form-label small text-muted">Mã đơn hàng</label>
                             <input type="text" id="madon" name="madon" class="form-control"
                                 placeholder="Nhập mã đơn hàng" value="{{ request('madon') }}" maxlength="25">
@@ -42,11 +65,11 @@
                             <input type="date" id="denngay" name="denngay" class="form-control"
                                 value="{{ request('denngay') }}">
                         </div>
-                    </div>
+                </div>
 
-                    <!-- Hàng 2: Thông tin khách hàng và đại lý -->
-                    <div class="row mb-3">
-                        <div class="col-md-3 mb-2">
+                <!-- Hàng 2: Thông tin khách hàng và đại lý -->
+                <div class="row mb-3">
+                    <div class="col-md-3 mb-2">
                             <label class="form-label small text-muted">Tên khách hàng</label>
                             <input type="text" id="customer_name" name="customer_name" class="form-control"
                                 placeholder="Nhập tên khách hàng" value="{{ request('customer_name') }}" maxlength="80">
@@ -131,10 +154,9 @@
                                             </a></li>
                                     </ul>
                                 </div>
-                                <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
-                                    <i class="fas fa-eraser me-1"></i>Xóa bộ lọc
-                                </button>
-                            </div>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <i class="fas fa-eraser me-1"></i>Xóa bộ lọc
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -667,6 +689,36 @@
                         });
                     })
             });
+        });
+    };
+
+    window.checkFormValidity = function() {
+        // 1. Check tất cả input có class 'is-invalid' bên trong form
+        const hasInputErrors = $('#searchForm .is-invalid').length > 0;
+
+        // 2. Check logic ngày tháng (vì nó phức tạp hơn)
+        const fromDate = $('#tungay').val();
+        const toDate = $('#denngay').val();
+        const today = new Date().toISOString().split('T')[0];
+        let hasDateErrors = false;
+
+        // Yêu cầu phải nhập cả hai ngày
+        if ((fromDate && !toDate) || (!fromDate && toDate)) {
+            hasDateErrors = true; // Lỗi thiếu một trong hai ngày
+        }
+        // Kiểm tra logic khi có cả hai ngày
+        if (fromDate && toDate && fromDate > toDate) {
+            hasDateErrors = true; // Lỗi ngược ngày
+        }
+        if (toDate && toDate > today) {
+            hasDateErrors = true; // Lỗi ngày tương lai
+        }
+        if (fromDate && fromDate > today) {
+            hasDateErrors = true; // Lỗi ngày tương lai
+        }
+        // Kiểm tra nếu có class is-invalid trên các input ngày
+        if ($('#tungay').hasClass('is-invalid') || $('#denngay').hasClass('is-invalid')) {
+            hasDateErrors = true;
         }
 
         // Xử lý form đồng bộ dữ liệu cũ
