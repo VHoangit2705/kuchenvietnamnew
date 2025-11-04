@@ -1,4 +1,36 @@
-<div class="table-responsive">
+<style>
+    .table-container {
+        max-height: 75vh;
+        overflow-x: auto;
+    }
+
+    .table-container thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table-striped > tbody > tr:hover {
+        background-color: #afafaf;
+        cursor: pointer;
+    }
+
+    .table-striped > tbody > tr.highlight-row {
+        background-color: #afafaf;
+    }
+    .table-container.can-grab {
+    cursor: grab;
+    }
+
+    .table-container.is-grabbing {
+    cursor: grabbing;
+    }
+    .table-dark tr{
+        border: 0;
+    }
+</style>
+
+<div class="table-container">
     <table class="table table-bordered table-striped">
         <thead class="table-dark text-center">
             <tr>
@@ -28,14 +60,17 @@
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
-                <td>{{$code}}</td>
-                <td class="text-center">{{ \Carbon\Carbon::parse($created_at)->format('d/m/Y') }}</td>
+                {{-- <td>{{$code}}</td> --}}
+                <td>{{ $code ?: ' N/A ' }}</td>
+                <td class="text-center">
+                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : 'N/A' }}
+                  </td>
                 <td class="text-center">{{ $zone }}</td>
                 <td>{{ $item->order->agency_name ?? $item->agency_name ?? '' }}</td>
                 <td class="text-center">{{ $item->order->agency_phone ?? $item->agency_phone ?? '' }}</td>
                 <td>{{ $item->order->customer_name ?? $item->full_name }}</td>
                 <td>{{ $item->order->customer_phone ?? $item->phone_number }}</td>
-                <td>{{ $item->product_name ?? $item->product }}</td>
+                <td>{{ $item->product_name ?? $item->product ?? 'Không xác định' }}</td>
                 <td>{{ $item->order->collaborator->full_name ?? $item->collaborator->full_name ?? '' }}</td>
                 <td class="text-center">{{ number_format($item->order->install_cost ?? $item->install_cost, 0, ',', '.') }}</td>
                 <td class="text-center">
@@ -66,7 +101,7 @@
             @endforelse
         </tbody>
     </table>
-
+</div>
     <div class="d-flex justify-content-center mt-3">
         @if ($data->total() > 50)
         <nav aria-label="Page navigation">
@@ -104,7 +139,7 @@
                         <li class="page-item">
                             <a class="page-link" href="{{ $data->url($data->lastPage()) }}">Trang cuối</a>
                         </li>
-                        @endif
+                    @endif
             </ul>
         </nav>
         @endif

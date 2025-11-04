@@ -14,7 +14,8 @@
                     <label for="serial_number " class="form-label">Nhập mã đơn hàng trên phiếu bảo hành hoặc seri trên thân sản phẩm (dành cho tem bảo hành mới) (<span style="color: red;">*</span>)</label>
                     <input id="serial_number" name="serial_number" type="text" class="form-control mb-3" placeholder="Nhập mã tem bảo hành">
                     <div id="error-message" class="text-danger mb-3" style="display: none;"></div>
-                    <p>Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút dưới.</p>
+                    <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút dưới.</p>
+                    <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary" id="btn-check">Tra cứu</button>
                         <button onclick="window.location.href='{{ route('warranty.formcard') }} '" class="btn btn-warning text-dark">&#43; Tạo phiếu bảo hành</button>

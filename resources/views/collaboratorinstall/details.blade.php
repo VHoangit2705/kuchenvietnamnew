@@ -5,6 +5,7 @@
     <div class="row g-4">
         <div class="col-12 col-md-6">
             <div class="card h-100">
+            {{-- Thông tin khách hàng --}}
                 <div class="card-header bg-secondary text-white position-relative">
                     <img src="{{ asset('icons/arrow.png') }}" alt="Quay lại" title="Quay lại" onclick="window.location.href='{{ route('dieuphoi.index') }}'"
                         style="height:15px; filter:brightness(0) invert(1); position:absolute; left:15px; top:50%; transform:translateY(-50%); cursor:pointer;">
@@ -30,6 +31,7 @@
                                         $statusInstall = $data->order->status_install ?? $data->status_install;
                                         $type = $data->VAT ? 'donhang' : ($data->warranty_end ? 'baohanh' : 'danhsach');
                                         @endphp
+                                        <script>const CREATION_DATE = '{{ $created_at }}';</script>
                                         <div class="d-flex justify-content-between">
                                             <span>{{ $code }}</span>
                                             @php
@@ -79,14 +81,40 @@
                                 </tr>
                                 <tr>
                                     <th>Địa chỉ:</th>
-                                    <td colspan="3">{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}</td>
+                                    {{-- Nâng cấp: Thêm chức năng chỉnh sửa cho địa chỉ --}}
+                                    <td colspan="3" data-field="customer_address">
+                                        <span class="text-value">{{ $data->order->customer_address ?? $data->address }}</span>, {{ $fullAddress }}
+                                        {{-- Icon chỉnh sửa --}}
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
+                                        {{-- Input ẩn để lưu giá trị gốc --}}
+                                        <input type="hidden" id="customer_address_full" value="{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}">
+                                    </td>
                                 </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+            {{-- Thông tin cộng tác viên --}}
+                <div class="card-header bg-secondary text-white position-relative">
+                    <h5 class="mb-0 text-center">Thông tin cộng tác viên</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive col-12">
+                        <table class="table table-striped">
+                            <colgroup>
+                                <col style="width: 20%;">
+                                <col style="width: 30%;">
+                                <col style="width: 20%;">
+                                <col style="width: 50%;">
+                            </colgroup>
+                            <tbody>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
-                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? '' }}</td>
+                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? 'N/A' }}</td>
                                     <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $data->order->collaborator_id ?? $data->collaborator_id }}">
                                     <th>SĐT CTV:</th>
-                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? '' }}</td>
+                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Số tài khoản:</th>
@@ -184,7 +212,7 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
-                                        @if (empty($agency->address) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -193,7 +221,7 @@
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
                                         <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
-                                        @if (empty($agency->sotaikhoan) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -202,7 +230,7 @@
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
                                         <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
-                                        @if (empty($agency->chinhanh) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -211,7 +239,7 @@
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
                                         <span class="text-value">{{ $agency->cccd ?? '' }}</span>
-                                        @if (empty($agency->cccd) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -220,7 +248,7 @@
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
                                         <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
-                                        @if (empty($agency->ngaycap) && !empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -292,29 +320,467 @@
         </div>
     </div>
 </div>
-<div class="container-fluid mt-2 d-flex justify-content-end">
-    <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
-    <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
-    <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+<div class="container-fluid mt-2 d-flex justify-content-between">
+    <div>
+        <button id="btnViewHistory" class="mt-2 btn btn-outline-secondary fw-bold">
+            <i class="bi bi-clock-history me-1"></i> Xem lịch sử thay đổi
+        </button>
+    </div>
+    <div class="d-flex">
+      @if($statusInstall < 2) {{-- Trạng thái 0: Chưa ĐP, 1: Đã ĐP --}}
+
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+        <button id="btnComplete" class="mt-2 ms-1 btn btn-outline-success fw-bold" data-action="complete">Hoàn thành</button>
+        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+
+    @elseif($statusInstall == 2) {{-- Trạng thái 2: Đã Hoàn Thành --}}
+        <button id="btnUpdate" class="mt-2 btn btn-outline-primary fw-bold" data-action="update">Cập nhật</button>
+        <button id="btnPay" class="mt-2 ms-1 btn btn-outline-info fw-bold" data-action="payment">Đã thanh toán</button>
+
+    @endif 
+    {{-- Trạng thái 3 (Đã Thanh Toán): Không hiển thị nút nào --}}
+    </div>
 </div>
+
+<!-- Modal Lịch sử thay đổi -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="historyModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải lịch sử thay đổi...</p>
+                </div>
+                <div id="historyContent" style="display: none;">
+                    <div id="historyList"></div>
+                </div>
+                <div id="historyEmpty" class="text-center py-4" style="display: none;">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-2">Chưa có lịch sử thay đổi nào</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <p>Lưu ý các trường trống có thể là do đồng bộ từ file excel mà ko có đầy đủ thông tin của đại lý hoặc cộng tác viên</p>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Lưu trữ giá trị ban đầu của các trường CTV và Đại lý
+    let originalCtvData = {};
+    let originalAgencyData = {};
+
+    // 1. "Cờ" validation: Lưu trạng thái lỗi của các trường
+    let validationErrors = {};
+
+    // 2. Hàm định dạng tiền VNĐ (1,000,000)
+    function formatCurrency(input) {
+        let value = input.val().replace(/[^0-9]/g, ''); // Chỉ giữ lại số
+        if (!value) {
+            input.val('');
+            return;
+        }
+        let num = parseInt(value, 10);
+        if (isNaN(num)) {
+            input.val('');
+            return;
+        }
+        input.val(num.toLocaleString('vi-VN')); // Định dạng kiểu VN
+    }
+
+    // 3. Hàm lấy giá trị số thô từ trường tiền tệ (1000000)
+    function getCurrencyValue($input) { 
+    let value = $input.val() || ''; // Lấy giá trị trực tiếp từ $input
+    return value.replace(/[^0-9]/g, '') || '0';
+}
+
+    // 4. Hàm hiển thị lỗi
+    function showError($field, message) {
+        // Xác định ID định danh duy nhất cho trường
+        let fieldId = $field.attr('id') || $field.closest('td').data('field') || $field.closest('td').data('agency');
+        if (!fieldId) fieldId = $field.attr('name'); // Dự phòng
+
+        hideError($field); // Xóa lỗi cũ trước
+        let $error = $(`<div class="text-danger mt-1 validation-error" data-error-for="${fieldId}">${message}</div>`);
+        
+        // Thêm lỗi vào đúng vị trí
+        if ($field.hasClass('form-control')) {
+            $field.closest('td').append($error);
+        } else {
+            $field.parent().append($error);
+        }
+        
+        validationErrors[fieldId] = true; // Gắn cờ lỗi
+        updateSubmitButtons(); // Cập nhật trạng thái nút
+    }
+
+    // 5. Hàm ẩn lỗi
+    function hideError($field) {
+        let fieldId = $field.attr('id') || $field.closest('td').data('field') || $field.closest('td').data('agency');
+        if (!fieldId) fieldId = $field.attr('name');
+
+        if ($field.hasClass('form-control')) {
+            $field.closest('td').find('.validation-error').remove();
+        } else {
+             $field.parent().find('.validation-error').remove();
+        }
+
+        delete validationErrors[fieldId]; // Bỏ cờ lỗi
+        updateSubmitButtons(); // Cập nhật trạng thái nút
+    }
+
+    // 6. Hàm cập nhật trạng thái các nút Submit
+    function updateSubmitButtons() {
+        // Kiểm tra xem có lỗi nào không
+        let hasErrors = Object.keys(validationErrors).length > 0;
+        let $buttons = $("#btnUpdate, #btnComplete, #btnPay");
+
+        if (hasErrors) {
+            $buttons.prop('disabled', true).css('opacity', '0.65').css('cursor', 'not-allowed');
+        } else {
+            $buttons.prop('disabled', false).css('opacity', '1').css('cursor', 'pointer');
+        }
+    }
+
+    // 7. Hàm xác thực cho các trường động (sotaikhoan, cccd, v.v.)
+    function validateDynamicField($input, fieldName) {
+        if (!$input || $input.length === 0) return; // Trường không tồn tại
+        
+        let value = $input.val().trim();
+        let $td = $input.closest('td');
+        hideError($input); // Xóa lỗi cũ
+
+        switch (fieldName) {
+            case 'sotaikhoan':
+            case 'agency_paynumber':
+                if (value && !/^[0-9]+$/.test(value)) {
+                    showError($input, "Chỉ được nhập số.");
+                } else if (value.length > 20) {
+                    showError($input, "Tối đa 20 ký tự.");
+                }
+                // THAY ĐỔI: Sửa logic tìm kiếm để đảm bảo tìm đúng input (nếu nó đang được edit)
+                let $chinhanhInput = $td.closest('tbody').find('input[data-field="chinhanh"], input[data-agency="agency_branch"]');
+                if($chinhanhInput.length) validateDynamicField($chinhanhInput, $chinhanhInput.data('field') || $chinhanhInput.data('agency'));
+                break;
+
+            case 'chinhanh':
+            case 'agency_branch':
+                // THAY ĐỔI: Tìm sotaikhoanCell trong toàn bộ <tbody>, không phải <tr>
+                let $sotaikhoanCell = $td.closest('tbody').find('td[data-field="sotaikhoan"], td[data-agency="agency_paynumber"]');
+                let sotaikhoanValue = $sotaikhoanCell.find('input').length ? $sotaikhoanCell.find('input').val().trim() : $sotaikhoanCell.find('.text-value').text().trim();
+
+                if (!sotaikhoanValue) {
+                    showError($input, "Vui lòng nhập Số tài khoản trước.");
+                } else if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY]+$/.test(value)) { 
+                    showError($input, "Chỉ nhập chữ tiếng Việt và dấu cách, không nhập số hoặc ký tự đặc biệt.");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+            case 'agency_name':
+            case 'agency_address':
+                // Lưu ý: Cho phép chữ tiếng Việt, số, dấu cách, và các ký tự .,-/
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,-/]+$/.test(value)) { 
+                    showError($input, "Chỉ nhập chữ, số, dấu cách và ký tự (.,-/).");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+            case 'customer_address':
+                // Validation cho địa chỉ khách hàng
+                // Cho phép chữ, số, dấu cách và các ký tự .,-/
+                if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/]+$/.test(value)) {
+                    showError($input, "Chỉ nhập chữ, số, dấu cách và các ký tự (.,-/).");
+                } else if (value.length > 150) {
+                    showError($input, "Tối đa 150 ký tự.");
+                }
+                break;
+
+            case 'cccd':
+            case 'agency_cccd':
+                if (value && !/^[0-9]+$/.test(value)) {
+                    showError($input, "Chỉ được nhập số.");
+                } else if (value && value.length !== 12) {
+                    showError($input, "Bắt buộc đủ 12 số.");
+                }
+                 // Xác thực lại trường 'ngày cấp' phụ thuộc
+                 // THAY ĐỔI: Sửa logic tìm kiếm để đảm bảo tìm đúng input (nếu nó đang được edit)
+                let $ngaycapInput = $td.closest('tbody').find('input[data-field="ngaycap"], input[data-agency="agency_release_date"]');
+                if($ngaycapInput.length) validateDynamicField($ngaycapInput, $ngaycapInput.data('field') || $ngaycapInput.data('agency'));
+                break;
+
+            case 'ngaycap':
+            case 'agency_release_date':
+                // THAY ĐỔI: Tìm cccdCell trong toàn bộ <tbody>, không phải <tr>
+                let $cccdCell = $td.closest('tbody').find('td[data-field="cccd"], td[data-agency="agency_cccd"]');
+                let cccdValue = $cccdCell.find('input').length ? $cccdCell.find('input').val().trim() : $cccdCell.find('.text-value').text().trim();
+                
+                if (!cccdValue || cccdValue.length !== 12 || !/^[0-9]+$/.test(cccdValue)) {
+                    showError($input, "Vui lòng nhập CCCD (12 số) hợp lệ trước.");
+                } else if (value) {
+                    try {
+                        let today = new Date();
+                        today.setHours(0, 0, 0, 0); // Đặt về nửa đêm
+                        let selectedDate = new Date(value);
+                        
+                        if (selectedDate > today) {
+                            showError($input, "Ngày cấp không được quá ngày hiện tại.");
+                        }
+                    } catch(e) {
+                        showError($input, "Ngày không hợp lệ.");
+                    }
+                }
+                break;
+        }
+    }
+
+    // 8. Hàm xác thực cho Chi phí lắp đặt
+    function validateInstallCost($input) {
+    hideError($input);
+    let valueStr = $input.val().trim();
+    
+    // THAY ĐỔI: Chuyển từ getCurrencyValue($input.selector) sang getCurrencyValue($input)
+    let numValue = parseInt(getCurrencyValue($input), 10); // Lấy số thô
+
+    if (!valueStr) {
+        showError($input, "Chi phí không được để trống.");
+    } else if (isNaN(numValue)) { 
+        // Trường hợp này gần như không xảy ra vì getCurrencyValue luôn trả về chuỗi số hoặc '0'
+        showError($input, "Vui lòng nhập số hợp lệ.");
+    } else if (numValue <= 0) {
+        showError($input, "Chi phí phải là số nguyên dương.");
+    }
+}
+
+    // 9. Hàm xác thực cho Ngày hoàn thành
+    function validateCompletionDate($input) {
+        hideError($input);
+        let completionDateStr = $input.val();
+        if (!completionDateStr || typeof CREATION_DATE === 'undefined' || !CREATION_DATE) return; // Không có gì để so sánh
+
+        try {
+            let completionDate = new Date(completionDateStr);
+            let creationDate = new Date(CREATION_DATE);
+            
+            // Đặt về 0 giờ để so sánh ngày
+            completionDate.setHours(0, 0, 0, 0);
+            creationDate.setHours(0, 0, 0, 0);
+
+            if (completionDate < creationDate) {
+                let creationDateFormatted = new Date(CREATION_DATE).toLocaleDateString('vi-VN');
+                showError($input, `Ngày hoàn thành không được sớm hơn ngày tạo đơn (${creationDateFormatted}).`);
+            }
+        } catch (e) {
+            showError($input, "Ngày không hợp lệ.");
+        }
+    }
+    
+    // 10. Chạy tất cả validation cho các trường input tĩnh khi tải trang
+    function runAllInitialValidations() {
+        if ($("#install_cost_ctv").is(":visible")) validateInstallCost($('#install_cost_ctv'));
+        if ($("#successed_at_ctv").is(":visible")) validateCompletionDate($('#successed_at_ctv'));
+        if ($("#install_cost_agency").is(":visible")) validateInstallCost($('#install_cost_agency'));
+        if ($("#successed_at").is(":visible")) validateCompletionDate($('#successed_at'));
+        
+        updateSubmitButtons(); // Cập nhật nút bấm dựa trên cờ lỗi
+    }
+
     $(document).ready(function() {
+        // Lưu giá trị ban đầu của các trường CTV
+        function saveOriginalCtvData() {
+            originalCtvData = {
+                ctv_name: $("#ctv_name").text().trim(),
+                ctv_phone: $("#ctv_phone").text().trim(),
+                ctv_id: $("#ctv_id").val(),
+                sotaikhoan: $("#sotaikhoan .text-value").text().trim(),
+                chinhanh: $("#chinhanh .text-value").text().trim(),
+                cccd: $("#cccd .text-value").text().trim(),
+                ngaycap: $("#ngaycap .text-value").text().trim(),
+                install_cost_ctv: $("#install_cost_ctv").val(),
+                successed_at_ctv: $("#successed_at_ctv").val()
+            };
+        }
+
+        // Lưu giá trị ban đầu của các trường Đại lý
+        function saveOriginalAgencyData() {
+            originalAgencyData = {
+                agency_name: $("td[data-agency='agency_name'] .text-value").text().trim(),
+                agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
+                agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
+                agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+                agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
+                agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
+                agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()
+            };
+        }
+
+        // Khôi phục giá trị ban đầu của các trường CTV
+        function restoreOriginalCtvData() {
+            // Lưu thông tin đại lý hiện tại trước khi chuyển về CTV
+            saveAgencyDataBeforeSwitch();
+            
+            $("#ctv_name").text(originalCtvData.ctv_name);
+            $("#ctv_phone").text(originalCtvData.ctv_phone);
+            $("#ctv_id").val(originalCtvData.ctv_id);
+            updateField("sotaikhoan", originalCtvData.sotaikhoan);
+            updateField("chinhanh", originalCtvData.chinhanh);
+            updateField("cccd", originalCtvData.cccd);
+            updateField("ngaycap", originalCtvData.ngaycap);
+            $("#install_cost_ctv").val(originalCtvData.install_cost_ctv);
+            $("#successed_at_ctv").val(originalCtvData.successed_at_ctv);
+            
+            // Ghi log việc chuyển từ "Đại lý lắp đặt" về CTV
+            logSwitchToCtv();
+        }
+
+        // Lưu thông tin đại lý trước khi chuyển về CTV
+        function saveAgencyDataBeforeSwitch() {
+            let orderCode = "{{ $code }}";
+            let data = {
+                _token: $('meta[name="csrf-token"]').attr("content"),
+                order_code: orderCode
+            };
+            
+            // Thu thập thông tin đại lý hiện tại
+            $("td[data-agency]").each(function() {
+                let $td = $(this);
+                let agency = $td.data("agency");
+                let value;
+                if ($td.find("input").length) {
+                    value = $td.find("input").val().trim();
+                } else {
+                    value = $td.find(".text-value").text().trim();
+                }
+                
+                // Xử lý format ngày tháng cho agency_release_date
+                if (agency === "agency_release_date" && value && value.includes('/')) {
+                    // Chuyển từ d/m/Y sang Y-m-d cho database
+                    let parts = value.split('/');
+                    if (parts.length === 3) {
+                        let day = parts[0].padStart(2, '0');
+                        let month = parts[1].padStart(2, '0');
+                        let year = parts[2];
+                        value = year + '-' + month + '-' + day;
+                    }
+                }
+                
+                data[agency] = value;
+            });
+            
+            // Gửi AJAX để lưu thông tin đại lý trước khi chuyển
+            $.ajax({
+                url: "{{ route('agency.update') }}",
+                method: "POST",
+                data: data,
+                success: function(response) {
+                    console.log('Agency data saved before switch to CTV');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error saving agency data before switch:', error);
+                }
+            });
+        }
+
+        // AJAX call để ghi log chuyển về CTV
+        function logSwitchToCtv() {
+            let orderCode = "{{ $code }}";
+            $.ajax({
+                url: "{{ route('ctv.switch') }}",
+                method: "POST",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                    order_code: orderCode
+                },
+                success: function(response) {
+                    console.log('Logged switch to CTV');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error logging switch to CTV:', error);
+                }
+            });
+        }
+
+        // Clear các trường CTV về rỗng
+        function clearCtvData() {
+            $("#ctv_name").text('');
+            $("#ctv_phone").text('');
+            $("#ctv_id").val('');
+            updateField("sotaikhoan", '');
+            updateField("chinhanh", '');
+            updateField("cccd", '');
+            updateField("ngaycap", '');
+            $("#install_cost_ctv").val('');
+            $("#successed_at_ctv").val('');
+            
+            // Clear file input
+            $("#install_review").val('');
+            
+            // Gửi AJAX để clear CTV data trên server nếu cần
+            clearCtvDataOnServer();
+        }
+
+        // AJAX call để clear CTV data trên server
+        function clearCtvDataOnServer() {
+            let orderCode = "{{ $code }}";
+            $.ajax({
+                url: "{{ route('ctv.clear') }}",
+                method: "POST",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                    order_code: orderCode
+                },
+                success: function(response) {
+                    // CTV data cleared successfully
+                    console.log('CTV data cleared on server');
+                },
+                error: function(xhr, status, error) {
+                    console.log('Error clearing CTV data:', error);
+                }
+            });
+        }
+
+        // Lưu giá trị ban đầu khi trang load
+        saveOriginalCtvData();
+        saveOriginalAgencyData();
+
         $("#isInstallAgency").on("change", function() {
+            // NÂNG CẤP: Xóa tất cả cờ lỗi và chạy lại validation
+            validationErrors = {};
+            $('.validation-error').remove();
+            
             if ($(this).is(":checked")) {
+                // Clear các trường CTV (không lưu giá trị hiện tại)
+                clearCtvData();
+                
                 $(".installCostRow").show();
                 $(".ctv_row").hide();
                 $("#install_cost_row").hide();
                 $("#install_file").hide();
                 $("#table_collaborator").hide();
             } else {
+                // Khôi phục giá trị ban đầu
+                restoreOriginalCtvData();
+                
                 $(".installCostRow").hide();
-                $(".error").hide();
+                $(".error").hide(); // 'error' là class cũ, có thể xóa
                 $("#table_collaborator").show();
                 $(".ctv_row").show();
                 $("#install_cost_row").show();
                 $("#install_file").show();
-
             }
+            
+            // NÂNG CẤP: Chạy lại validation cho các trường
+            runAllInitialValidations();
         });
 
         if ($("#isInstallAgency").is(":checked")) {
@@ -325,7 +791,7 @@
             $("#table_collaborator").hide();
         } else {
             $(".installCostRow").hide();
-            $(".error").hide();
+            $(".error").hide(); // 'error' là class cũ, có thể xóa
             $("#table_collaborator").show();
         }
 
@@ -361,36 +827,89 @@
             td.html(html);
         }
 
-        $(".install_cost").on("input", function() {
-            let value = $(this).val().trim();
-            let errorBox = $(".error");
-            let isValid = /^[0-9]+$/.test(value);
+        // --- NÂNG CẤP: Gắn validation cho các trường tĩnh ---
 
-            if (!isValid) {
-                errorBox.text("Vui lòng nhập số nguyên dương, không chứa dấu , hoặc .").show();
-            } else if (parseInt(value) < 0) {
-                errorBox.text("Chi phí lắp đặt không được âm.").show();
-            } else {
-                errorBox.hide();
-            }
+        // 1. Chi phí lắp đặt (cả CTV và Đại lý)
+        $(".install_cost").on("input", function() {
+            formatCurrency($(this)); // Định dạng tiền
+            validateInstallCost($(this)); // Xác thực
+        }).on("blur", function() {
+            validateInstallCost($(this)); // Xác thực khi rời đi
         });
+        
+        // 2. Ngày hoàn thành (cả CTV và Đại lý)
+        $("#successed_at_ctv, #successed_at").on("change", function() {
+            validateCompletionDate($(this));
+        }).on("blur", function() {
+            validateCompletionDate($(this)); // Xác thực khi rời đi
+        });
+        
+        // 3. Chạy validation ban đầu khi tải trang
+        runAllInitialValidations();
+        
+        // --- KẾT THÚC NÂNG CẤP TRƯỜNG TĨNH ---
+
 
         Update();
+        
+        // Xử lý nút xem lịch sử
+        $('#btnViewHistory').on('click', function() {
+            loadHistory();
+            $('#historyModal').modal('show');
+        });
     });
 
-    function validate() {
+    function validateBasicInfo() {
         if ($("#isInstallAgency").is(":checked")) {
-            return $("#install_cost_agency").val().trim() > 0;
+            // SỬA LỖI: Thêm $() để truyền vào một jQuery object, không phải string
+            return parseInt(getCurrencyValue( $('#install_cost_agency') ), 10) > 0;
         } else {
-            return $("#ctv_id").val() !== '' && $("#install_cost_ctv").val().trim() > 0;
+            // SỬA LỖI: Thêm $() để truyền vào một jQuery object, không phải string
+            return $("#ctv_id").val() !== '' && parseInt(getCurrencyValue( $('#install_cost_ctv') ), 10) > 0;
         }
     }
+    
+    // NÂNG CẤP: Hàm kiểm tra tổng thể mới
+    function validateAll() {
+        // 1. Chạy lại tất cả validation để bắt lỗi
+        runAllInitialValidations();
+        
+        // 2. Kiểm tra thông tin cơ bản (CTV, chi phí...)
+        if (!validateBasicInfo()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi thông tin cơ bản',
+                text: 'Vui lòng chọn CTV và nhập chi phí, hoặc chọn "Đại lý lắp đặt" và nhập chi phí.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return false;
+        }
+        
+        // 3. Kiểm tra cờ lỗi
+        let hasErrors = Object.keys(validationErrors).length > 0;
+        if (hasErrors) {
+             Swal.fire({
+                icon: 'error',
+                title: 'Lỗi điền thông tin',
+                text: 'Vui lòng sửa các lỗi được tô đỏ trước khi tiếp tục.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return false;
+        }
+        
+        return true; // Tất cả đều hợp lệ
+    }
+
 
     function UpdateCollaborator() {
         let id = $("#ctv_id").val();
+        let orderCode = "{{ $code }}"; // Lấy order_code từ PHP
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
-            id: id
+            id: id,
+            order_code: orderCode
         };
         $("td[data-field]").each(function() {
             let $td = $(this);
@@ -401,16 +920,38 @@
             } else {
                 value = $td.find(".text-value").text().trim();
             }
+            
+            // NÂNG CẤP: Gửi ngày tháng đúng định dạng Y-m-d
+            if (field === 'ngaycap' && value && value.includes('/')) {
+                 let parts = value.split('/');
+                 if (parts.length === 3) value = parts[2] + '-' + parts[1] + '-' + parts[0];
+            }
+            
             data[field] = value;
         });
 
-        $.post("{{ route('ctv.update') }}", data);
+        $.ajax({
+            url: "{{ route('ctv.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                // Collaborator updated successfully
+            },
+            error: function(xhr, status, error) {
+                // Error updating collaborator
+            }
+        });
     }
 
     function UpdateAgency() {
+        let orderCode = "{{ $code }}"; // Lấy order_code từ PHP
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
+            order_code: orderCode
         };
+        
+        // Đảm bảo agency_phone luôn được gửi
+        let agencyPhone = '';
         $("td[data-agency]").each(function() {
             let $td = $(this);
             let agency = $td.data("agency");
@@ -420,14 +961,55 @@
             } else {
                 value = $td.find(".text-value").text().trim();
             }
+            
+            if (agency === "agency_phone") {
+                agencyPhone = value;
+            }
+            
+            // Xử lý format ngày tháng cho agency_release_date
+            if (agency === "agency_release_date" && value && value.includes('/')) {
+                // Chuyển từ d/m/Y sang Y-m-d cho database
+                let parts = value.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    value = year + '-' + month + '-' + day;
+                }
+            }
+            
             data[agency] = value;
         });
-        $.post("{{ route('agency.update') }}", data);
+        
+        // Kiểm tra nếu không có agency_phone
+        if (!agencyPhone) {
+            return;
+        }
+        
+        $.ajax({
+            url: "{{ route('agency.update') }}",
+            method: "POST",
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    // Agency update successful
+                }
+            },
+            error: function(xhr, status, error) {
+                // Error updating agency
+            }
+        });
     }
 
     function Update() {
         $("#btnUpdate, #btnComplete, #btnPay").on("click", function(e) {
             e.preventDefault();
+            
+            // 1. Kiểm tra validation tổng thể (đã sửa ở bước trước)
+            if (!validateAll()) {
+                return; // Dừng lại nếu có lỗi
+            }
+            
             Swal.fire({
                 title: 'Bạn có chắc chắn?',
                 text: "Hành động này không thể hoàn tác!",
@@ -441,16 +1023,7 @@
                 if (result.isConfirmed) {
                     const urlParams = new URLSearchParams(window.location.search);
                     const type = urlParams.get('type');
-                    if (!validate()) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Lỗi điền thông tin',
-                            timer: 1500,
-                            showConfirmButton: false
-                        })
-                        return;
-                    }
-
+                    
                     let action = $(this).data('action');
                     let isInstallAgency = $("#isInstallAgency").is(":checked") ? 1 : 0;
                     let formData = new FormData();
@@ -459,15 +1032,22 @@
                     formData.append("action", action);
                     formData.append("type", type);
                     formData.append("product", $('#product_name').val());
+                    
 
                     if (isInstallAgency === 1) {
                         formData.append("ctv_id", 1);
                         formData.append("successed_at", $("#successed_at").val().trim());
-                        formData.append("installcost", $("#install_cost_agency").val().trim());
+                        
+                        // SỬA LỖI TẠI ĐÂY: Thêm $()
+                        formData.append("installcost", getCurrencyValue( $('#install_cost_agency') ));
+                    
                     } else {
                         formData.append("ctv_id", $("#ctv_id").val());
                         formData.append("successed_at", $("#successed_at_ctv").val().trim());
-                        formData.append("installcost", $("#install_cost_ctv").val().trim());
+                        
+                        // SỬA LỖI TẠI ĐÂY: Thêm $()
+                        formData.append("installcost", getCurrencyValue( $('#install_cost_ctv') ));
+                        
                         let file = $("#install_review")[0].files[0];
                         if (file) {
                             formData.append("installreview", file);
@@ -490,7 +1070,9 @@
                                     showConfirmButton: false
                                 }).then(() => {
                                     UpdateCollaborator();
-                                    UpdateAgency();
+                                    if (hasAgencyChanges()) {
+                                        UpdateAgency();
+                                    }
                                     location.reload();
                                     loadTableData();
                                 });
@@ -505,7 +1087,6 @@
                         },
                         error: function(xhr) {
                             CloseWaitBox();
-                            debugger;
                             alert("Có lỗi xảy ra khi cập nhật!");
                         }
                     });
@@ -584,6 +1165,7 @@
         }
     });
 
+    // NÂNG CẤP: Gắn validation vào trình xử lý .edit-icon
     $(document).on("click", ".edit-icon", function() {
         let $td = $(this).closest("td");
         let $span = $td.find(".text-value");
@@ -591,33 +1173,96 @@
 
         let field = $td.data("field");
         let agency = $td.data("agency");
+        let fieldName = field || agency; // Tên định danh của trường
 
         let $input = $("<input>", {
-            type: "text",
+            // Sửa đổi: Nếu là địa chỉ khách hàng, dùng textarea để có nhiều không gian hơn
+            type: (fieldName === 'customer_address') ? 'textarea' : 'text',
             value: oldValue,
-            class: "form-control d-inline-block w-auto"
+            class: "form-control d-inline-block w-100"
         });
+        
+        // Gắn data-field/data-agency vào input để dễ truy xuất
+        if (field) $input.attr('data-field', field);
+        if (agency) $input.attr('data-agency', agency);
 
-        if (field === "ngaycap" || agency === "agency_release_date") {
+        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
             $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
+        }
+        // Xử lý khi người dùng nhập liệu
+        $input.on("input change", function() {
+            validateDynamicField($(this), fieldName);
+        });
+        
+        // Gắn data-field/data-agency vào input để dễ truy xuất
+        if (field) $input.attr('data-field', field);
+        if (agency) $input.attr('data-agency', agency);
+
+        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
+            $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
         }
 
-        // Xử lý khi blur (rời input)
-        // $input.on("blur", function() {
-        //     let newValue = $(this).val().trim() || oldValue;
+        // --- BẮT ĐẦU GẮN VALIDATION ---
+        $input.on("input change", function() {
+            validateDynamicField($(this), fieldName);
+        });
+        // --- KẾT THÚC GẮN VALIDATION ---
 
-        //     if (field === "ngaycap" || agency === "agency_release_date") {
-        //         let regex = /^(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])\/\d{4}$/;
-        //         if (!regex.test(newValue)) {
-        //             alert("Vui lòng nhập đúng định dạng dd/mm/yyyy");
-        //             return;
-        //         }
-        //     }
+        // Xử lý khi blur (rời input) - ĐÃ NÂNG CẤP
+        $input.on("blur", function() {
+            validateDynamicField($(this), fieldName); // Chạy validation lần cuối
+            let newValue = $(this).val().trim();
 
-        //     $span.text(newValue).show();
-        //     $td.find(".edit-icon").show();
-        //     $(this).remove();
-        // });
+            // Trường hợp 1: Người dùng xóa rỗng -> Luôn gỡ lỗi và cập nhật
+            if (newValue === '') {
+                hideError($(this)); // Gỡ lỗi
+                $span.text('').show(); // Cập nhật span thành rỗng
+            
+            // Trường hợp 2: Người dùng nhập đúng (không rỗng VÀ không có cờ lỗi)
+            } else if (!validationErrors[fieldName]) {
+                // Xử lý format ngày tháng trước khi hiển thị
+                if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
+                    if (newValue && newValue.includes('-')) {
+                        let parts = newValue.split('-');
+                        if (parts.length === 3) {
+                            let year = parts[0];
+                            let month = parts[1];
+                            let day = parts[2];
+                            newValue = day + '/' + month + '/' + year;
+                        }
+                    }
+                }
+                $span.text(newValue).show(); // Cập nhật span với giá trị mới
+            
+            // Trường hợp 3: Người dùng nhập sai và rời đi (không rỗng VÀ có cờ lỗi)
+            } else {
+                hideError($(this)); // Gỡ lỗi (vì chúng ta không lưu giá trị sai)
+                $span.text(oldValue).show(); // Quay về giá trị cũ
+            }
+
+            $td.find(".edit-icon").show();
+            $(this).remove();
+        });
 
         // Xử lý nhấn Enter
         $input.on("keypress", function(e) {
@@ -626,9 +1271,246 @@
 
         // Ẩn span và icon, hiển thị input
         $span.hide();
+         // Ẩn icon bút// Nếu là địa chỉ khách hàng, ẩn cả phần địa chỉ tĩnh (tỉnh/huyện/xã)
+        if (fieldName === 'customer_address') {
+            $td.contents().filter(function() { return this.nodeType === 3; }).remove(); // Xóa text node ", {{ $fullAddress }}"
+        }      
         $(this).hide();
         $td.prepend($input);
         $input.focus();
+        
+        // Chạy validation ngay khi input xuất hiện
+        validateDynamicField($input, fieldName);
     });
+
+    // Hàm load lịch sử thay đổi (không thay đổi)
+    function loadHistory() {
+        $('#historyLoading').show();
+        $('#historyContent').hide();
+        $('#historyEmpty').hide();
+        
+        let orderCode = "{{ $code }}";
+        if (!orderCode) {
+            $('#historyLoading').hide();
+            $('#historyEmpty').show();
+            return;
+        }
+        
+        $.ajax({
+            url: "{{ route('ctv.order.history', ':order_code') }}".replace(':order_code', orderCode),
+            method: "GET",
+            success: function(response) {
+                $('#historyLoading').hide();
+                if (response.success && response.data.history.length > 0) {
+                    displayHistory(response.data.history);
+                    $('#historyContent').show();
+                } else {
+                    $('#historyEmpty').show();
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#historyLoading').hide();
+                $('#historyEmpty').show();
+                console.error('Lỗi khi tải lịch sử:', error);
+            }
+        });
+    }
+
+    // Hàm hiển thị lịch sử (không thay đổi)
+    function displayHistory(history) {
+        let html = '';
+        
+        history.forEach(function(item, index) {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-${getActionIcon(item.action_type)} me-2"></i>
+                                ${item.action_type_text || item.action_type}
+                            </h6>
+                            <small class="text-muted">${item.formatted_edited_at}</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-${getActionBadgeColor(item.action_type)}">${item.action_type_text || item.action_type}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">${formatStatusComment(item.comments || 'Không có ghi chú')}</p>
+                        <p class="card-text"><strong>Người thực hiện:</strong> ${item.edited_by || 'Hệ thống'}</p>
+                        
+                        ${item.changes_detail && item.changes_detail.length > 0 ? `
+                            <div class="mt-3">
+                                <h6>Chi tiết thay đổi:</h6>
+                                
+                                ${getCtvChanges(item.changes_detail).length > 0 ? `
+                                    <div class="mb-3">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-person me-1"></i>Thông tin CTV
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered">
+                                                <thead class="table-primary">
+                                                    <tr>
+                                                        <th style="width: 25%;">Trường</th>
+                                                        <th style="width: 35%;">Giá trị cũ</th>
+                                                        <th style="width: 35%;">Giá trị mới</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${getCtvChanges(item.changes_detail).map(change => `
+                                                        <tr>
+                                                            <td><strong>${change.field_name}</strong></td>
+                                                            <td>
+                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${getAgencyChanges(item.changes_detail).length > 0 ? `
+                                    <div class="mb-3">
+                                        <h6 class="text-info">
+                                            <i class="bi bi-building me-1"></i>Thông tin Đại lý
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered">
+                                                <thead class="table-info">
+                                                    <tr>
+                                                        <th style="width: 25%;">Trường</th>
+                                                        <th style="width: 35%;">Giá trị cũ</th>
+                                                        <th style="width: 35%;">Giá trị mới</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${getAgencyChanges(item.changes_detail).map(change => `
+                                                        <tr>
+                                                            <td><strong>${change.field_name}</strong></td>
+                                                            <td>
+                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        $('#historyList').html(html);
+    }
+
+    // Các hàm helper cho lịch sử (không thay đổi)
+    function getActionIcon(actionType) {
+        const icons = {
+            'create': 'plus-circle',
+            'update': 'pencil-square',
+            'delete': 'trash',
+            'update_agency': 'building',
+            'switch_to_agency': 'arrow-right-circle',
+            'switch_to_ctv': 'arrow-left-circle',
+            'clear': 'x-circle',
+            'status_change': 'arrow-repeat',
+            'complete': 'check-circle',
+            'payment': 'credit-card'
+        };
+        return icons[actionType] || 'info-circle';
+    }
+
+    function getActionBadgeColor(actionType) {
+        const colors = {
+            'create': 'success',
+            'update': 'primary',
+            'delete': 'danger',
+            'update_agency': 'info',
+            'switch_to_agency': 'warning',
+            'switch_to_ctv': 'secondary',
+            'clear': 'dark',
+            'status_change': 'primary',
+            'complete': 'success',
+            'payment': 'info'
+        };
+        return colors[actionType] || 'secondary';
+    }
+
+    function getStatusColor(statusText) {
+        const colors = {
+            'Chưa điều phối': 'secondary',
+            'Đã điều phối': 'primary',
+            'Đã hoàn thành': 'success',
+            'Đã thanh toán': 'info'
+        };
+        return colors[statusText] || 'muted';
+    }
+
+    function formatStatusComment(comment) {
+        const regex = /Thay đổi trạng thái: (.+) → (.+)/;
+        const match = comment.match(regex);
+
+        if (match && match.length === 3) {
+            const oldStatusText = match[1].trim();
+            const newStatusText = match[2].trim();
+            const oldStatusColor = getStatusColor(oldStatusText);
+            const newStatusColor = getStatusColor(newStatusText);
+            return `Thay đổi trạng thái: <span class="text-${oldStatusColor} fw-bold">${oldStatusText}</span> → <span class="text-${newStatusColor} fw-bold">${newStatusText}</span>`;
+        }
+        return comment; // Return original comment if not a status change format
+    }
+
+    function getCtvChanges(changes) {
+        return changes.filter(change => 
+            change.field_name.includes('CTV') || 
+            (!change.field_name.includes('đại lý') && 
+             !change.field_name.includes('Đại lý') &&
+             !change.field_name.includes('agency'))
+        );
+    }
+
+    function getAgencyChanges(changes) {
+        return changes.filter(change => 
+            change.field_name.includes('đại lý') || 
+            change.field_name.includes('Đại lý') ||
+            change.field_name.includes('agency')
+        );
+    }
+
+    // Hàm kiểm tra xem có thay đổi thông tin đại lý không (không thay đổi)
+    function hasAgencyChanges() {
+        // Lấy giá trị hiện tại của các trường đại lý
+        let currentAgencyData = {
+            agency_name: $("td[data-agency='agency_name'] .text-value").text().trim(),
+            agency_phone: $("td[data-agency='agency_phone'] .text-value").text().trim(),
+            agency_address: $("td[data-agency='agency_address'] .text-value").text().trim(),
+            agency_paynumber: $("td[data-agency='agency_paynumber'] .text-value").text().trim(),
+            agency_branch: $("td[data-agency='agency_branch'] .text-value").text().trim(),
+            agency_cccd: $("td[data-agency='agency_cccd'] .text-value").text().trim(),
+            agency_release_date: $("td[data-agency='agency_release_date'] .text-value").text().trim()
+        };
+
+        // So sánh với giá trị ban đầu đã lưu
+        for (let field in originalAgencyData) {
+            if (originalAgencyData[field] !== currentAgencyData[field]) {
+                return true; // Có thay đổi
+            }
+        }
+        
+        return false; // Không có thay đổi
+    }
 </script>
 @endsection

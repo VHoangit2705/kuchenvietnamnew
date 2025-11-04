@@ -108,10 +108,9 @@
                                     <option value="KUCHEN VINH">KUCHEN VINH</option>
                                     <option value="KUCHEN HÀ NỘI">KUCHEN HÀ NỘI</option>
                                     <option value="KUCHEN HCM">KUCHEN HCM</option>
-                                    {{-- Chỗ này để phân quyền Hurom nếu cần --}}
-                                    {{-- <option value="HUROM VINH">HUROM VINH</option>
+                                    <!--<option value="HUROM VINH">HUROM VINH</option>
                                     <option value="HUROM HÀ NỘI">HUROM HÀ NỘI</option>
-                                    <option value="HUROM HCM">HUROM HCM</option> --}}
+                                    <option value="HUROM HCM">HUROM HCM</option>-->
                                 </select>
                             </div>
                             <div class="mb-2 d-flex justify-content-end">
