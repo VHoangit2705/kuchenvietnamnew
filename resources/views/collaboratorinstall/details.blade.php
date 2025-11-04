@@ -1205,35 +1205,17 @@
         $input.on("input change", function() {
             validateDynamicField($(this), fieldName);
         });
-        
-        // Gắn data-field/data-agency vào input để dễ truy xuất
-        if (field) $input.attr('data-field', field);
-        if (agency) $input.attr('data-agency', agency);
-
-        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
-            $input.attr("type", "date");
-            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
-            if (oldValue && oldValue.includes('/')) {
-                let parts = oldValue.split('/');
-                if (parts.length === 3) {
-                    let day = parts[0].padStart(2, '0');
-                    let month = parts[1].padStart(2, '0');
-                    let year = parts[2];
-                    $input.val(year + '-' + month + '-' + day);
-                }
-            }
-        }
-
-        // --- BẮT ĐẦU GẮN VALIDATION ---
-        $input.on("input change", function() {
-            validateDynamicField($(this), fieldName);
-        });
-        // --- KẾT THÚC GẮN VALIDATION ---
 
         // Xử lý khi blur (rời input) - ĐÃ NÂNG CẤP
         $input.on("blur", function() {
             validateDynamicField($(this), fieldName); // Chạy validation lần cuối
-            let newValue = $(this).val().trim();
+            let newValue = $(this).val().trim(); 
+
+            // Nếu là địa chỉ khách hàng, chỉ cập nhật phần địa chỉ chi tiết
+            if (fieldName === 'customer_address') {
+                let fullAddressStaticPart = ", {{ $fullAddress }}";
+                $td.html(`<span class="text-value">${newValue}</span>${fullAddressStaticPart} <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>`);
+            }
 
             // Trường hợp 1: Người dùng xóa rỗng -> Luôn gỡ lỗi và cập nhật
             if (newValue === '') {
@@ -1263,7 +1245,10 @@
             }
 
             $td.find(".edit-icon").show();
-            $(this).remove();
+            // Nếu không phải là địa chỉ khách hàng, xóa input
+            if (fieldName !== 'customer_address') {
+                $(this).remove();
+            }
         });
 
         // Xử lý nhấn Enter
