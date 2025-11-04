@@ -792,64 +792,47 @@
         Report();
 
         //Kéo ngang bảng trong .table-container bằng chuột
-        //Kéo ngang bảng trong .table-container bằng chuột
         
         // Biến trạng thái
-        let isMouseDown = false; // Cờ cho biết chuột đang được nhấn
-        let isGrabbing = false;  // Cờ cho biết chế độ kéo-cuộn đang được kích hoạt
+        let isGrabbing = false;
         let startX, scrollLeft;
         let $dragTarget; // Biến lưu trữ container .table-container đang được kéo
 
         // 1. Gắn sự kiện 'mousedown' vào #tabContent, 
         //    nhưng chỉ lắng nghe cho phần tử con .table-container
         $('#tabContent').on('mousedown', '.table-container', function(e) {
-            // Chỉ xử lý khi nhấn chuột trái
+            // Chỉ kích hoạt khi nhấn chuột trái
             if (e.button !== 0) return;
 
-            // Nếu người dùng click vào scrollbar thì không làm gì cả
-            if (e.target.scrollHeight > e.target.clientHeight && e.offsetX > e.target.clientWidth) {
-                return;
-            }
-
-            isMouseDown = true;
-            isGrabbing = false; // Reset cờ kéo-cuộn
+            isGrabbing = true;
             $dragTarget = $(this); // Lưu lại container này
+            $dragTarget.addClass('is-grabbing'); // Thêm class để đổi con trỏ
 
             // Ghi lại vị trí bắt đầu và vị trí cuộn hiện tại
             startX = e.pageX;
             scrollLeft = $dragTarget.scrollLeft();
 
-            // KHÔNG gọi e.preventDefault() ở đây để cho phép chọn văn bản
+            // Ngăn chặn hành vi chọn văn bản (bôi đen) mặc định khi kéo
+            e.preventDefault();
         });
 
         // 2. Gắn sự kiện 'mousemove' vào cả trang (document)
         //    để bạn vẫn kéo được ngay cả khi chuột ra khỏi bảng
         $(document).on('mousemove', function(e) {
-            if (!isMouseDown || !$dragTarget) return; // Nếu chưa mousedown, bỏ qua
-
-            const x = e.pageX;
-            const walk = x - startX;
-            
-            // Chỉ kích hoạt chế độ kéo-cuộn nếu di chuyển chuột đủ xa (ví dụ: 5px)
-            if (!isGrabbing && Math.abs(walk) > 5) {
-                isGrabbing = true; // Kích hoạt chế độ kéo-cuộn
-                $dragTarget.addClass('is-grabbing'); // Thêm class để đổi con trỏ
-            }
-
-            if (!isGrabbing) return; // Nếu chưa ở chế độ kéo-cuộn, không làm gì cả
+            if (!isGrabbing || !$dragTarget) return; // Nếu chưa mousedown, bỏ qua
 
             e.preventDefault();
-            const scrollDistance = walk * 2; // Nhân 2 để kéo nhạy hơn
+            const x = e.pageX;
+            const walk = (x - startX) * 2; // Tính khoảng cách chuột di chuyển (nhân 2 để kéo nhạy hơn)
             
             // Thiết lập vị trí cuộn mới = vị trí cũ - khoảng cách di chuyển
-            $dragTarget.scrollLeft(scrollLeft - scrollDistance);
+            $dragTarget.scrollLeft(scrollLeft - walk);
         });
 
         // 3. Gắn sự kiện 'mouseup' vào cả trang (document)
         //    để dừng kéo khi nhả chuột ở bất cứ đâu
         $(document).on('mouseup', function(e) {
-            isMouseDown = false;
-            if (isGrabbing) { // Chỉ reset nếu đã ở chế độ kéo-cuộn
+            if (isGrabbing) {
                 isGrabbing = false;
                 if ($dragTarget) {
                     $dragTarget.removeClass('is-grabbing');
@@ -860,8 +843,7 @@
 
         // 4. Cũng dừng kéo nếu chuột đi ra ngoài cửa sổ trình duyệt
         $(document).on('mouseleave', function() {
-            isMouseDown = false;
-            if (isGrabbing) { // Chỉ reset nếu đã ở chế độ kéo-cuộn
+            if (isGrabbing) {
                 isGrabbing = false;
                 if ($dragTarget) {
                     $dragTarget.removeClass('is-grabbing');
@@ -882,7 +864,6 @@
             $(this).removeClass('can-grab');
         });
     });
-        
     
     // Hàm xóa bộ lọc
     function clearForm() {
