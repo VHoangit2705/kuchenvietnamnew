@@ -19,7 +19,7 @@
                 <td class="text-center">{{ $loop->iteration}}</td>
                 <td>{{ $item->full_name }}</td>
                 <td class="text-center">{{ $item->phone }}</td>
-                <td>{{ $item->nganhang ?? $item->bank_name }}</td>
+                <td>{{$item->bank_name ?? ''}} - {{$item->chinhanh ?? ''}}</td>
                 <td>{{ $item->ward }}</td>
                 <td>{{ $item->district }}</td>
                 <td>{{ $item->province }}</td>
