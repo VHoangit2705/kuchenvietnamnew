@@ -57,7 +57,8 @@ class Order extends Model
 		'lock_timestamp' => 'datetime',
 		'send_camon' => 'int',
 		'send_khbh' => 'int',
-		'notif_date' => 'datetime'
+		'notif_date' => 'datetime',
+		'check_return' => 'int'
 	];
 
 	protected $fillable = [
@@ -89,7 +90,8 @@ class Order extends Model
 		'notif_date',
 		'collaborator_id',
 		'install_cost',
-		'successed_at'
+		'successed_at',
+		'check_return'
 	];
 
 	public function feedback()
