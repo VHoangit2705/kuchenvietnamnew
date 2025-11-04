@@ -1,4 +1,33 @@
-<div class="table-responsive">
+<style>
+    .table-container {
+        max-height: 75vh;
+        overflow-x: auto;
+    }
+
+    .table-container thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table-striped > tbody > tr:hover {
+        background-color: #afafaf;
+        cursor: pointer;
+    }
+
+    .table-striped > tbody > tr.highlight-row {
+        background-color: #afafaf;
+    }
+    .table-container.can-grab {
+    cursor: grab;
+    }
+
+    .table-container.is-grabbing {
+    cursor: grabbing;
+    }
+</style>
+
+<div class="table-container">
     <table class="table table-bordered table-striped">
         <thead class="table-dark text-center">
             <tr>
@@ -69,7 +98,7 @@
             @endforelse
         </tbody>
     </table>
-
+</div>
     <div class="d-flex justify-content-center mt-3">
         @if ($data->total() > 50)
         <nav aria-label="Page navigation">
@@ -107,7 +136,7 @@
                         <li class="page-item">
                             <a class="page-link" href="{{ $data->url($data->lastPage()) }}">Trang cuối</a>
                         </li>
-                        @endif
+                    @endif
             </ul>
         </nav>
         @endif
