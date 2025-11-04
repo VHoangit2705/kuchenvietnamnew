@@ -1318,6 +1318,28 @@
                 }
             }
         }
+        // Xử lý khi người dùng nhập liệu
+        $input.on("input change", function() {
+            validateDynamicField($(this), fieldName);
+        });
+        
+        // Gắn data-field/data-agency vào input để dễ truy xuất
+        if (field) $input.attr('data-field', field);
+        if (agency) $input.attr('data-agency', agency);
+
+        if (fieldName === "ngaycap" || fieldName === "agency_release_date") {
+            $input.attr("type", "date");
+            // Chuyển đổi format từ d/m/Y sang Y-m-d cho input date
+            if (oldValue && oldValue.includes('/')) {
+                let parts = oldValue.split('/');
+                if (parts.length === 3) {
+                    let day = parts[0].padStart(2, '0');
+                    let month = parts[1].padStart(2, '0');
+                    let year = parts[2];
+                    $input.val(year + '-' + month + '-' + day);
+                }
+            }
+        }
         if (fieldName === "nganhang" || fieldName === "agency_bank") {
             $input.attr('list', 'bankList');
         }
