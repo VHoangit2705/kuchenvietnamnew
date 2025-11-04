@@ -902,50 +902,13 @@
     function Report() {
         $('#reportCollaboratorInstall').on('click', function(e) {
             e.preventDefault();
-            Swal.fire({
-                title: 'Đang xuất file...',
-                text: 'Vui lòng chờ trong giây lát',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
             const queryParams = new URLSearchParams({
                 start_date: $('#tungay').val(),
                 end_date: $('#denngay').val()
             });
-            fetch(`{{ route('collaborator.export') }}?${queryParams.toString()}`)
-                .then(response => {
-                    Swal.close();
-                    const contentType = response.headers.get("Content-Type");
-                    if (contentType.includes("application/json")) {
-                        hasError = true;
-                        return response.json().then(json => {
-                            Swal.fire({
-                                icon: 'error',
-                                text: json.message
-                            });
-                        });
-                    } else {
-                        return response.blob().then(blob => {
-                            const url = window.URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = "KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT.xlsx";
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        });
-                    }
-                })
-                .catch(error => {
-                    Swal.close();
-                    hasError = true;
-                    Swal.fire({
-                        icon: 'error',
-                        text: 'Lỗi server.'
-                    });
-                })
+            // Mở preview trong tab mới
+            const previewUrl = `{{ route('collaborator.export.preview') }}?${queryParams.toString()}`;
+            window.open(previewUrl, '_blank');
         });
     }
 

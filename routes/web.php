@@ -12,7 +12,7 @@ use App\Http\Controllers\ImportExcelSyncController;
 use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
-
+use App\Http\Controllers\ExportReportController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -81,7 +81,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
     Route::post('/upload-excel-sync', [ImportExcelSyncController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
-    Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke', [ExportReportController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke/preview', [ExportReportController::class, 'ReportCollaboratorInstallPreview'])->name('collaborator.export.preview');
 });
 
 // Report
