@@ -23,6 +23,60 @@ class ReportHelper
     }
 
     /**
+     * Tạo khóa sắp xếp ngân hàng theo tên ngân hàng (gom các bản ghi cùng ngân hàng)
+     * - Ưu tiên dùng bank_name nếu có
+     * - Nếu không có, cố gắng lấy tên ngân hàng ở đầu chuỗi chi nhánh trước dấu '-' hoặc từ khóa 'CN/Chi nhánh'
+     * - Chuẩn hóa lỗi chính tả/alias phổ biến
+     *
+     * @param string|null $bankName
+     * @param string|null $chinhanh
+     * @return string lowercase normalized sort key
+     */
+    public static function bankSortKey($bankName, $chinhanh)
+    {
+        $name = trim(self::cleanString($bankName ?? ''));
+        $branch = trim(self::cleanString($chinhanh ?? ''));
+
+        $base = $name;
+        if ($base === '' && $branch !== '') {
+            $candidate = $branch;
+            // Cắt phần sau dấu '-'
+            $parts = preg_split('/\s*-\s*/u', $candidate);
+            if ($parts && $parts[0] !== '') {
+                $candidate = $parts[0];
+            }
+            // Cắt phần sau 'CN' hoặc 'Chi nhánh'
+            $parts = preg_split('/\s+(CN|Chi\s*nhánh)\b/iu', $candidate);
+            if ($parts && $parts[0] !== '') {
+                $candidate = $parts[0];
+            }
+            // Lấy token chữ cái ở đầu (vd: Vietcombank CN ...)
+            if (preg_match('/^([A-Za-z]+)(?:\s|$)/u', $candidate, $m)) {
+                $base = $m[1];
+            } else {
+                $base = $candidate;
+            }
+        }
+
+        $base = preg_replace('/\s+/', ' ', trim($base));
+        $lower = mb_strtolower($base, 'UTF-8');
+
+        // Chuẩn hóa alias/lỗi chính tả phổ biến
+        $alias = [
+            'techcomnbank' => 'techcombank',
+            'mb bank' => 'mbbank',
+            'mb' => 'mbbank',
+            'vietin bank' => 'vietinbank',
+            'tp bank' => 'tpbank',
+        ];
+        if (isset($alias[$lower])) {
+            $lower = $alias[$lower];
+        }
+
+        return $lower;
+    }
+
+    /**
      * Helper function để convert số sang từ tiếng Việt (recursive)
      *
      * @param int $num
@@ -186,8 +240,8 @@ class ReportHelper
         $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->setCellValue('A1', 'Công ty TNHH Kuchen Việt Nam');
         $sheet->setCellValue('A2', 'Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1')->getFont()->setName('Times New Roman')->setBold(true)->setSize(14);
+        $sheet->getStyle('A2')->getFont()->setName('Times New Roman')->setBold(true)->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal('center');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal('center');
         
@@ -196,15 +250,16 @@ class ReportHelper
         $sheet->mergeCells("A4:{$lastCol}4");
         $sheet->setCellValue('A3', $title);
         $sheet->setCellValue('A4', "Từ ngày: $fromDate - đến ngày: $toDate");
-        $sheet->getStyle('A3')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A3')->getFont()->setName('Times New Roman')->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getAlignment()->setHorizontal('center')->setVertical('center');
-        $sheet->getStyle('A4')->getAlignment()->setHorizontal('right');
-        $sheet->getStyle('A4')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('A4')->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('A4')->getFont()->setName('Times New Roman')->setBold(true)->setSize(13);
         
         // Column headers
         $sheet->fromArray([$columns], NULL, 'A5');
-        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setName('Times New Roman')->setBold(true)->setSize(14);
         $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setVertical('center');
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal('center');
         
         // Auto-size columns
         for ($col = 1; $col <= count($columns); $col++) {
@@ -234,7 +289,7 @@ class ReportHelper
         $sheet->mergeCells("{$mergeStart}{$row}:{$mergeEnd}{$row}");
         $sheet->setCellValue("{$mergeStart}{$row}", 'TỔNG CỘNG');
         $sheet->setCellValue("{$amountCol}{$row}", $totalCost);
-        $sheet->getStyle("{$mergeStart}{$row}:{$lastCol}{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("{$mergeStart}{$row}:{$lastCol}{$row}")->getFont()->setName('Times New Roman')->setBold(true);
         $sheet->getStyle("{$amountCol}{$row}")->getNumberFormat()->setFormatCode('#,##0');
         $row++;
         
@@ -242,7 +297,7 @@ class ReportHelper
         $amountInWords = self::numberToWords($totalCost);
         $sheet->mergeCells("A{$row}:{$lastCol}{$row}");
         $sheet->setCellValue("A{$row}", "Bằng chữ: $amountInWords");
-        $sheet->getStyle("A{$row}")->getFont()->setItalic(true);
+        $sheet->getStyle("A{$row}")->getFont()->setName('Times New Roman')->setBold(true)->setItalic(true);
         $row++;
         
         return $row;
@@ -288,7 +343,7 @@ class ReportHelper
             $sheet->mergeCells("{$startCol}{$row}:{$endCol}{$row}");
             $sheet->setCellValue("{$startCol}{$row}", $signatures[$index] ?? '');
         }
-        $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getFont()->setName('Times New Roman')->setBold(true);
         $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getAlignment()->setHorizontal('center');
         $row++;
         
@@ -299,7 +354,7 @@ class ReportHelper
             $sheet->mergeCells("{$startCol}{$row}:{$endCol}{$row}");
             $sheet->setCellValue("{$startCol}{$row}", '(Ký, ghi rõ họ tên)');
         }
-        $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getFont()->setItalic(true)->setSize(12);
+        $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getFont()->setName('Times New Roman')->setItalic(true)->setSize(12);
         $sheet->getStyle("A{$row}:{$lastCol}{$row}")->getAlignment()->setHorizontal('center');
     }
 

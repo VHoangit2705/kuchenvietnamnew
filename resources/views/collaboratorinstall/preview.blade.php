@@ -145,7 +145,7 @@
                                 <td colspan="4"></td>
                             </tr>
                             <tr>
-                                <td colspan="9" style="font-style: italic; padding: 10px;">
+                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet1AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
@@ -207,7 +207,7 @@
                                 <td class="text-right">{{ number_format($sheet2Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td colspan="8" style="font-style: italic; padding: 10px;">
+                                <td colspan="8" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet2AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
@@ -272,7 +272,7 @@
                                 <td colspan="3"></td>
                             </tr>
                             <tr>
-                                <td colspan="9" style="font-style: italic; padding: 10px;">
+                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet3AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
@@ -332,7 +332,7 @@
                                 <td class="text-right">{{ number_format($sheet4Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td colspan="7" style="font-style: italic; padding: 10px;">
+                                <td colspan="7" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet4AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>

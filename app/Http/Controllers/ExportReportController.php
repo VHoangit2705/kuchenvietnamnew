@@ -37,12 +37,26 @@ class ExportReportController extends Controller
             $denngay
         )->get();
 
+        // Sắp xếp theo tên ngân hàng (gom liên tục), sau đó theo tên CTV
+        $dataCollaborator = $dataCollaborator->sortBy(function ($i) {
+            $bankKey = ReportHelper::bankSortKey($i->collaborator->bank_name ?? null, $i->collaborator->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($i->collaborator->full_name ?? '');
+            return $bankKey . '|' . $nameKey;
+        })->values();
+
         $dataAgency = ReportHelper::applyDateFilter(
             InstallationOrder::where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
                 ->where('status_install', 2),
             $tungay,
             $denngay
         )->get();
+
+        // Sắp xếp theo tên ngân hàng (gom liên tục), sau đó theo tên đại lý
+        $dataAgency = $dataAgency->sortBy(function ($i) {
+            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name ?? null, $i->agency->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
+            return $bankKey . '|' . $nameKey;
+        })->values();
 
         $fromDateFormatted = Carbon::parse($tungay)->format('d-m-Y');
         $toDateFormatted   = Carbon::parse($denngay)->format('d-m-Y');
@@ -124,6 +138,13 @@ class ExportReportController extends Controller
         $sheet2->getStyle('E:E')->getNumberFormat()->setFormatCode('@'); // Account
 
         $dataCollaboratorgrouped = collect($dataCollaborator)->groupBy(fn($i) => $i->collaborator->phone ?? 'N/A');
+        // Sắp xếp nhóm theo tên ngân hàng
+        $dataCollaboratorgrouped = $dataCollaboratorgrouped->sortBy(function ($items) {
+            $c = $items->first()->collaborator ?? null;
+            $bankKey = ReportHelper::bankSortKey($c->bank_name ?? null, $c->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($c->full_name ?? '');
+            return $bankKey . '|' . $nameKey;
+        });
 
         $row = 6;
         $stt = 1;
@@ -180,6 +201,7 @@ class ExportReportController extends Controller
         foreach ($dataAgency as $item) {
             $cost = $item->install_cost ?? 0;
             $totalCost += $cost;
+            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name ?? null, $item->agency->chinhanh ?? null);
             $sheet3->fromArray([[
                 $stt,
                 ReportHelper::cleanString($item->agency->name ?? ''),
@@ -188,7 +210,7 @@ class ExportReportController extends Controller
                 ReportHelper::extractModel($item->product ?? ''),
                 $cost,
                 ReportHelper::cleanString($item->agency->sotaikhoan ?? ''),
-                ReportHelper::cleanString($item->agency->chinhanh ?? ''),
+                $bankInfoAgency,
                 ReportHelper::cleanString($item->order_code ?? '')
             ]], NULL, "A$row");
             // Force TEXT for account and uppercase order code
@@ -225,6 +247,13 @@ class ExportReportController extends Controller
         $sheet4->getStyle('D:D')->getNumberFormat()->setFormatCode('@'); // Account
 
         $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
+        // Sắp xếp nhóm theo tên ngân hàng
+        $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
+            $a = $items->first()->agency ?? null;
+            $bankKey = ReportHelper::bankSortKey($a->bank_name ?? null, $a->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($a->name ?? '');
+            return $bankKey . '|' . $nameKey;
+        });
 
         $row = 6;
         $stt = 1;
@@ -233,12 +262,13 @@ class ExportReportController extends Controller
             $agency = $items->first()->agency ?? null;
             $total = $items->sum('install_cost');
             $totalCost4 += $total;
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name ?? null, $agency->chinhanh ?? null);
             $sheet4->fromArray([[
                 $stt,
                 ReportHelper::cleanString($agency->name ?? ''),
                 ReportHelper::normalizePhone($phone),
                 ReportHelper::cleanString($agency->sotaikhoan ?? ''),
-                ReportHelper::cleanString($agency->chinhanh ?? ''),
+                $bankInfoAgency,
                 $items->count(),
                 $total
             ]], NULL, "A$row");
@@ -283,12 +313,26 @@ class ExportReportController extends Controller
             $denngay
         )->get();
 
+        // Preview: đảm bảo sắp xếp tương tự export
+        $dataCollaborator = $dataCollaborator->sortBy(function ($i) {
+            $bankKey = ReportHelper::bankSortKey($i->collaborator->bank_name ?? null, $i->collaborator->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($i->collaborator->full_name ?? '');
+            return $bankKey . '|' . $nameKey;
+        })->values();
+
         $dataAgency = ReportHelper::applyDateFilter(
             InstallationOrder::where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
                 ->where('status_install', 2),
             $tungay,
             $denngay
         )->get();
+
+        // Preview: sắp xếp theo ngân hàng
+        $dataAgency = $dataAgency->sortBy(function ($i) {
+            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name ?? null, $i->agency->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
+            return $bankKey . '|' . $nameKey;
+        })->values();
 
         $fromDateFormatted = Carbon::parse($tungay)->format('d-m-Y');
         $toDateFormatted   = Carbon::parse($denngay)->format('d-m-Y');
@@ -318,6 +362,12 @@ class ExportReportController extends Controller
         $sheet1AmountInWords = ReportHelper::numberToWords($sheet1Total);
 
         $dataCollaboratorgrouped = collect($dataCollaborator)->groupBy(fn($i) => $i->collaborator->phone ?? 'N/A');
+        $dataCollaboratorgrouped = $dataCollaboratorgrouped->sortBy(function ($items) {
+            $c = $items->first()->collaborator ?? null;
+            $bankKey = ReportHelper::bankSortKey($c->bank_name ?? null, $c->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($c->full_name ?? '');
+            return $bankKey . '|' . $nameKey;
+        });
         $sheet2Data = [];
         $stt = 1;
         $sheet2Total = 0;
@@ -346,6 +396,7 @@ class ExportReportController extends Controller
         foreach ($dataAgency as $item) {
             $cost = $item->install_cost ?? 0;
             $sheet3Total += $cost;
+            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name ?? null, $item->agency->chinhanh ?? null);
             $sheet3Data[] = [
                 'stt' => $stt++,
                 'name' => ReportHelper::cleanString($item->agency->name ?? ''),
@@ -355,13 +406,19 @@ class ExportReportController extends Controller
                 'model' => ReportHelper::extractModel($item->product ?? ''),
                 'cost' => $cost,
                 'account' => ReportHelper::cleanString($item->agency->sotaikhoan ?? ''),
-                'bank' => ReportHelper::cleanString($item->agency->chinhanh ?? ''),
+                'bank' => $bankInfoAgency,
                 'order_code' => ReportHelper::cleanString($item->order_code ?? '')
             ];
         }
         $sheet3AmountInWords = ReportHelper::numberToWords($sheet3Total);
 
         $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
+        $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
+            $a = $items->first()->agency ?? null;
+            $bankKey = ReportHelper::bankSortKey($a->bank_name ?? null, $a->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($a->name ?? '');
+            return $bankKey . '|' . $nameKey;
+        });
         $sheet4Data = [];
         $stt = 1;
         $sheet4Total = 0;
@@ -369,12 +426,13 @@ class ExportReportController extends Controller
             $agency = $items->first()->agency ?? null;
             $total = $items->sum('install_cost');
             $sheet4Total += $total;
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name ?? null, $agency->chinhanh ?? null);
             $sheet4Data[] = [
                 'stt' => $stt++,
                 'name' => ReportHelper::cleanString($agency->name ?? ''),
                 'phone' => ReportHelper::cleanString($phone),
                 'account' => ReportHelper::cleanString($agency->sotaikhoan ?? ''),
-                'bank' => ReportHelper::cleanString($agency->chinhanh ?? ''),
+                'bank' => $bankInfoAgency,
                 'count' => $items->count(),
                 'total' => $total
             ];
