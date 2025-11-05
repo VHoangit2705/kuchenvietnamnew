@@ -53,7 +53,7 @@ class ExportReportController extends Controller
 
         // Sắp xếp theo tên ngân hàng (gom liên tục), sau đó theo tên đại lý
         $dataAgency = $dataAgency->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name ?? null, $i->agency->chinhanh ?? null);
+            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name_agency ?? null, $i->agency->chinhanh ?? null);
             $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
             return $bankKey . '|' . $nameKey;
         })->values();
@@ -201,7 +201,7 @@ class ExportReportController extends Controller
         foreach ($dataAgency as $item) {
             $cost = $item->install_cost ?? 0;
             $totalCost += $cost;
-            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name ?? null, $item->agency->chinhanh ?? null);
+            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name_agency ?? null, $item->agency->chinhanh ?? null);
             $sheet3->fromArray([[
                 $stt,
                 ReportHelper::cleanString($item->agency->name ?? ''),
@@ -250,7 +250,7 @@ class ExportReportController extends Controller
         // Sắp xếp nhóm theo tên ngân hàng
         $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
             $a = $items->first()->agency ?? null;
-            $bankKey = ReportHelper::bankSortKey($a->bank_name ?? null, $a->chinhanh ?? null);
+            $bankKey = ReportHelper::bankSortKey($a->bank_name_agency ?? null, $a->chinhanh ?? null);
             $nameKey = ReportHelper::cleanString($a->name ?? '');
             return $bankKey . '|' . $nameKey;
         });
@@ -262,7 +262,7 @@ class ExportReportController extends Controller
             $agency = $items->first()->agency ?? null;
             $total = $items->sum('install_cost');
             $totalCost4 += $total;
-            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name ?? null, $agency->chinhanh ?? null);
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name_agency ?? null, $agency->chinhanh ?? null);
             $sheet4->fromArray([[
                 $stt,
                 ReportHelper::cleanString($agency->name ?? ''),
@@ -329,7 +329,7 @@ class ExportReportController extends Controller
 
         // Preview: sắp xếp theo ngân hàng
         $dataAgency = $dataAgency->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name ?? null, $i->agency->chinhanh ?? null);
+            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name_agency ?? null, $i->agency->chinhanh ?? null);
             $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
             return $bankKey . '|' . $nameKey;
         })->values();
@@ -396,7 +396,7 @@ class ExportReportController extends Controller
         foreach ($dataAgency as $item) {
             $cost = $item->install_cost ?? 0;
             $sheet3Total += $cost;
-            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name ?? null, $item->agency->chinhanh ?? null);
+            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name_agency ?? null, $item->agency->chinhanh ?? null);
             $sheet3Data[] = [
                 'stt' => $stt++,
                 'name' => ReportHelper::cleanString($item->agency->name ?? ''),
@@ -415,7 +415,7 @@ class ExportReportController extends Controller
         $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
         $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
             $a = $items->first()->agency ?? null;
-            $bankKey = ReportHelper::bankSortKey($a->bank_name ?? null, $a->chinhanh ?? null);
+            $bankKey = ReportHelper::bankSortKey($a->bank_name_agency ?? null, $a->chinhanh ?? null);
             $nameKey = ReportHelper::cleanString($a->name ?? '');
             return $bankKey . '|' . $nameKey;
         });
@@ -426,7 +426,7 @@ class ExportReportController extends Controller
             $agency = $items->first()->agency ?? null;
             $total = $items->sum('install_cost');
             $sheet4Total += $total;
-            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name ?? null, $agency->chinhanh ?? null);
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name_agency ?? null, $agency->chinhanh ?? null);
             $sheet4Data[] = [
                 'stt' => $stt++,
                 'name' => ReportHelper::cleanString($agency->name ?? ''),
