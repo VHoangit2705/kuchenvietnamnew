@@ -107,6 +107,17 @@ class ImportExcelSyncController extends Controller
                 return mb_strlen($digits) > 11 ? mb_substr($digits, -11) : $digits;
             };
 
+            // Tạo map phone đã chuẩn hóa cho Agency để chống tạo trùng khi định dạng khác nhau
+            $existingAgenciesByNormalizedPhone = [];
+            foreach ($existingAgencies as $phone => $id) {
+                $normalized = null;
+                try { $normalized = preg_replace('/\D+/', '', (string)$phone); } catch (\Throwable $e) { $normalized = (string)$phone; }
+                if ($normalized !== null && $normalized !== '') {
+                    $normalized = mb_strlen($normalized) > 11 ? mb_substr($normalized, -11) : $normalized;
+                    $existingAgenciesByNormalizedPhone[$normalized] = $id;
+                }
+            }
+
             // Hàm chuẩn hóa ngày tháng - cải thiện để xử lý nhiều format
             $parseDate = function ($dateRaw) {
                 if (empty($dateRaw)) return null;
@@ -497,20 +508,40 @@ class ImportExcelSyncController extends Controller
                                         if (isset($existingCollaborators[$collabPhone])) {
                                             $collaboratorCache[$collabPhone] = $existingCollaborators[$collabPhone];
                                         } else {
-                                            try {
-                                                $collaborator = new WarrantyCollaborator();
-                                                $collaborator->full_name = $collabName;
-                                                $collaborator->phone = $collabPhone;
-                                                $collaborator->sotaikhoan = $collabAccount;
-                                                $collaborator->chinhanh = $bank;
-                                                $collaborator->created_at = now();
-                                                $collaborator->save();
+                                            // Kiểm tra lại trong database để đảm bảo không tạo trùng
+                                            $existingCollaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                                            if ($existingCollaborator) {
+                                                // Đã tồn tại trong database, sử dụng ID hiện có
+                                                $collaboratorCache[$collabPhone] = $existingCollaborator->id;
+                                                // Cập nhật vào existingCollaborators để các dòng sau không phải query lại
+                                                $existingCollaborators[$collabPhone] = $existingCollaborator->id;
+                                            } else {
+                                                // Chưa tồn tại, tạo mới
+                                                try {
+                                                    $collaborator = new WarrantyCollaborator();
+                                                    $collaborator->full_name = $collabName;
+                                                    $collaborator->phone = $collabPhone;
+                                                    $collaborator->sotaikhoan = $collabAccount;
+                                                    $collaborator->chinhanh = $bank;
+                                                    $collaborator->created_at = now();
+                                                    $collaborator->save();
 
-                                                $collaboratorCache[$collabPhone] = $collaborator->id;
-                                                $stats['collaborators_created']++;
-                                            } catch (\Exception $e) {
-                                                $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
-                                                $collaboratorCache[$collabPhone] = null;
+                                                    $collaboratorCache[$collabPhone] = $collaborator->id;
+                                                    // Cập nhật vào existingCollaborators để các dòng sau không phải query lại
+                                                    $existingCollaborators[$collabPhone] = $collaborator->id;
+                                                    $stats['collaborators_created']++;
+                                                } catch (\Exception $e) {
+                                                    // Nếu lỗi do duplicate (có thể xảy ra trong trường hợp race condition)
+                                                    // Thử tìm lại trong database
+                                                    $existingCollaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                                                    if ($existingCollaborator) {
+                                                        $collaboratorCache[$collabPhone] = $existingCollaborator->id;
+                                                        $existingCollaborators[$collabPhone] = $existingCollaborator->id;
+                                                    } else {
+                                                        $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
+                                                        $collaboratorCache[$collabPhone] = null;
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -523,22 +554,32 @@ class ImportExcelSyncController extends Controller
                             // 2. Xử lý Agency - Tối ưu hóa với pre-loaded data
                             if (!empty($agencyName) && !empty($agencyPhone)) {
                                 if (!isset($agencyCache[$agencyPhone])) {
-                                    // Kiểm tra trong pre-loaded data trước
-                                    if (isset($existingAgencies[$agencyPhone])) {
-                                        $agencyCache[$agencyPhone] = $existingAgencies[$agencyPhone];
+                                    // Kiểm tra trong pre-loaded data trước (theo phone đã chuẩn hóa)
+                                    if (isset($existingAgencies[$agencyPhone]) || isset($existingAgenciesByNormalizedPhone[$agencyPhone])) {
+                                        $agencyId = $existingAgencies[$agencyPhone] ?? $existingAgenciesByNormalizedPhone[$agencyPhone];
+                                        $agencyCache[$agencyPhone] = $agencyId;
                                     } else {
                                         try {
-                                            // Tạo agency mới
-                                            $agency = new Agency();
-                                            $agency->name = $agencyName;
-                                            $agency->phone = $agencyPhone;
-                                            $agency->sotaikhoan = $collabAccount;
-                                            $agency->chinhanh = $bank;
-                                            $agency->created_ad = now();
-                                            $agency->save();
-                                            
-                                            $agencyCache[$agencyPhone] = $agency->id;
-                                            $stats['agencies_created']++;
+                                            // Tránh tạo trùng lần cuối bằng cách kiểm tra DB theo phone chuẩn hóa
+                                            $existing = Agency::where('phone', $agencyPhone)->first();
+                                            if ($existing) {
+                                                $agencyCache[$agencyPhone] = $existing->id;
+                                            } else {
+                                                // Tạo agency mới
+                                                $agency = new Agency();
+                                                $agency->name = $agencyName;
+                                                $agency->phone = $agencyPhone;
+                                                $agency->sotaikhoan = $collabAccount;
+                                                $agency->chinhanh = $bank;
+                                                $agency->created_ad = now();
+                                                $agency->save();
+
+                                                $agencyCache[$agencyPhone] = $agency->id;
+                                                // Cập nhật maps để các dòng sau nhận diện
+                                                $existingAgencies[$agencyPhone] = $agency->id;
+                                                $existingAgenciesByNormalizedPhone[$agencyPhone] = $agency->id;
+                                                $stats['agencies_created']++;
+                                            }
                                         } catch (\Exception $e) {
                                             $stats['errors'][] = "Lỗi tạo agency: " . $e->getMessage();
                                         }
