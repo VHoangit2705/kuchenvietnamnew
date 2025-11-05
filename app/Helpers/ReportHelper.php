@@ -5,6 +5,8 @@ namespace App\Helpers;
 use Illuminate\Database\Eloquent\Builder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use Carbon\Carbon;
 
 class ReportHelper
@@ -194,14 +196,14 @@ class ReportHelper
         $sheet->mergeCells("A4:{$lastCol}4");
         $sheet->setCellValue('A3', $title);
         $sheet->setCellValue('A4', "Từ ngày: $fromDate - đến ngày: $toDate");
-        $sheet->getStyle('A3')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getAlignment()->setHorizontal('center')->setVertical('center');
         $sheet->getStyle('A4')->getAlignment()->setHorizontal('right');
-        $sheet->getStyle('A4')->getFont()->setBold(true);
+        $sheet->getStyle('A4')->getFont()->setBold(true)->setSize(13);
         
         // Column headers
         $sheet->fromArray([$columns], NULL, 'A5');
-        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true);
+        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setVertical('center');
         
         // Auto-size columns
@@ -209,7 +211,8 @@ class ReportHelper
             $letter = Coordinate::stringFromColumnIndex($col);
             $sheet->getColumnDimension($letter)->setAutoSize(true);
         }
-        $sheet->getParent()->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(14);
+        // Default font for the entire workbook (body): size 13
+        $sheet->getParent()->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(13);
     }
 
     /**
@@ -254,10 +257,11 @@ class ReportHelper
      * @param string $startCol Column letter to start merge
      * @return int New row number
      */
-    public static function addDateLocation($sheet, $row, $lastCol, $startCol = 'H')
+    public static function addDateLocation($sheet, $row, $lastCol, $startCol = 'H', $endCol = null)
     {
         $currentDate = Carbon::now('Asia/Ho_Chi_Minh');
-        $sheet->mergeCells("{$startCol}{$row}:{$lastCol}{$row}");
+        $endCol = $endCol ?: $lastCol;
+        $sheet->mergeCells("{$startCol}{$row}:{$endCol}{$row}");
         $sheet->setCellValue("{$startCol}{$row}", "Nghệ An, Ngày {$currentDate->format('d')} tháng {$currentDate->format('m')} năm {$currentDate->format('Y')}");
         $sheet->getStyle("{$startCol}{$row}")->getAlignment()->setHorizontal('right');
         $row += 5; // Cách 5 dòng trước phần ký
@@ -300,6 +304,45 @@ class ReportHelper
     }
 
     /**
+     * Áp dụng border mảnh cho toàn bộ bảng (header + dữ liệu + tổng)
+     *
+     * @param Worksheet $sheet
+     * @param int $startRow
+     * @param int $endRow
+     * @param string $lastCol
+     * @return void
+     */
+    public static function applyTableBorders($sheet, $startRow, $endRow, $lastCol)
+    {
+        if ($endRow < $startRow) {
+            return;
+        }
+        $range = "A{$startRow}:{$lastCol}{$endRow}";
+        $sheet->getStyle($range)
+            ->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(Border::BORDER_THIN);
+    }
+
+    /**
+     * Ép một cột trong khoảng hàng thành kiểu TEXT (không scientific notation)
+     *
+     * @param Worksheet $sheet
+     * @param string $columnLetter
+     * @param int $startRow
+     * @param int $endRow
+     * @return void
+     */
+    public static function forceTextColumn($sheet, $columnLetter, $startRow, $endRow)
+    {
+        for ($r = $startRow; $r <= $endRow; $r++) {
+            $coord = $columnLetter . $r;
+            $value = (string)$sheet->getCell($coord)->getValue();
+            $sheet->setCellValueExplicit($coord, $value, DataType::TYPE_STRING);
+        }
+    }
+
+    /**
      * Format date từ Carbon object
      *
      * @param mixed $date
@@ -307,7 +350,81 @@ class ReportHelper
      */
     public static function formatDate($date)
     {
-        return $date ? Carbon::parse($date)->format('d-m-Y') : '';
+        return $date ? Carbon::parse($date)->format('d/m/Y') : '';
+    }
+
+    /**
+     * Chuẩn hóa số điện thoại thành chuỗi văn bản, luôn có '0' đầu và giữ nguyên trong Excel
+     *
+     * @param string|null $phone
+     * @return string "'0xxxxxxxxx" để Excel coi như text
+     */
+    public static function normalizePhone($phone)
+    {
+        $digits = preg_replace('/[^0-9]/', '', (string)$phone);
+        if ($digits === '') {
+            return '';
+        }
+        if ($digits[0] !== '0') {
+            $digits = '0' . $digits;
+        }
+        return $digits; // Trả về chuỗi số; cột sẽ được set format TEXT trong Excel
+    }
+
+    /**
+     * Trích xuất model ở cuối tên sản phẩm.
+     * Ví dụ: "Bếp điện từ KU MI389" => "KU MI389"
+     * - Lấy cụm token cuối cùng chỉ gồm A-Z/0-9/-/\/
+     * - Cho phép nhiều token (ví dụ "KU MI389").
+     * - Yêu cầu trong cụm phải có ít nhất một chữ số.
+     *
+     * @param string|null $productName
+     * @return string
+     */
+    public static function extractModel($productName)
+    {
+        $name = trim(self::cleanString($productName ?? ''));
+        if ($name === '') {
+            return '';
+        }
+
+        $tokens = preg_split('/\s+/', $name) ?: [];
+        $capture = [];
+        $started = false;
+
+        for ($i = count($tokens) - 1; $i >= 0; $i--) {
+            $t = trim($tokens[$i], ",.;:()[]{}\-–—\u{2013}\u{2014}");
+            if ($t === '') {
+                if ($started) break;
+                continue;
+            }
+
+            // Dùng token gốc (Unicode) nhưng chỉ chấp nhận ASCII A-Z/0-9/-/\/
+            $upper = mb_strtoupper($t, 'UTF-8');
+            if (preg_match('/^[A-Z0-9\-\/]+$/u', $upper)) {
+                $capture[] = $t; // giữ nguyên hiển thị gốc (giữ khoảng trắng/hoa thường nếu có)
+                $started = true;
+                continue;
+            }
+
+            if ($started) {
+                break;
+            }
+        }
+
+        if (empty($capture)) {
+            return '';
+        }
+
+        $capture = array_reverse($capture);
+        $model = trim(implode(' ', $capture));
+
+        // Đảm bảo có ít nhất 1 chữ số trong model
+        if (!preg_match('/\d/', $model)) {
+            return '';
+        }
+
+        return $model;
     }
 }
 

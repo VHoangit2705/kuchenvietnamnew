@@ -87,9 +87,6 @@
                    class="btn btn-light btn-sm">
                     <i class="fas fa-download me-1"></i>Tải xuống Excel
                 </a>
-                <button type="button" class="btn btn-light btn-sm" onclick="window.close()">
-                    <i class="fas fa-times me-1"></i>Đóng
-                </button>
             </div>
         </div>
         <div class="card-body">
@@ -103,16 +100,11 @@
 
             <!-- Sheet 1: CTV CHI TIẾT -->
             <div id="sheet1" class="sheet-content active">
-                <!-- Company Information -->
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
-                    Công ty TNHH Kuchen Việt Nam
-                </div>
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
-                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
-                </div>
-                
-                <div class="preview-header">BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH</div>
-                <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
+                @include('collaboratorinstall.partials.report_header', [
+                    'title' => 'BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH',
+                    'fromDate' => $fromDateFormatted,
+                    'toDate' => $toDateFormatted,
+                ])
                 <div class="preview-container">
                     <table class="preview-table">
                         <thead>
@@ -134,7 +126,7 @@
                                 <td>{{ $row['stt'] }}</td>
                                 <td>{{ $row['name'] }}</td>
                                 <td class="account-number">{{ $row['phone'] }}</td>
-                                <td>{{ $row['product'] }}</td>
+                                <td>{{ $row['model'] ?? $row['product'] }}</td>
                                 <td class="text-right">{{ number_format($row['cost'], 0, ',', '.') }}</td>
                                 <td>{{ $row['done_date'] }}</td>
                                 <td class="account-number">{{ $row['account'] }}</td>
@@ -168,41 +160,16 @@
                     </table>
                 </div>
                 
-                <!-- Signature Section -->
-                @if(count($sheet1Data) > 0)
-                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                </div>
-                @endif
+                @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet1Data) > 0])
             </div>
 
             <!-- Sheet 2: CTV TỔNG HỢP -->
             <div id="sheet2" class="sheet-content">
-                <!-- Company Information -->
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
-                    Công ty TNHH Kuchen Việt Nam
-                </div>
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
-                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
-                </div>
-                
-                <div class="preview-header">BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH</div>
-                <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
+                @include('collaboratorinstall.partials.report_header', [
+                    'title' => 'BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH',
+                    'fromDate' => $fromDateFormatted,
+                    'toDate' => $toDateFormatted,
+                ])
                 <div class="preview-container">
                     <table class="preview-table">
                         <thead>
@@ -255,41 +222,16 @@
                     </table>
                 </div>
                 
-                <!-- Signature Section -->
-                @if(count($sheet2Data) > 0)
-                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                </div>
-                @endif
+                @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet2Data) > 0])
             </div>
 
             <!-- Sheet 3: ĐẠI LÝ CHI TIẾT -->
             <div id="sheet3" class="sheet-content">
-                <!-- Company Information -->
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
-                    Công ty TNHH Kuchen Việt Nam
-                </div>
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
-                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
-                </div>
-                
-                <div class="preview-header">BẢNG CHI TIẾT TIỀN LẮP ĐẶT ĐẠI LÝ</div>
-                <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
+                @include('collaboratorinstall.partials.report_header', [
+                    'title' => 'BẢNG CHI TIẾT TIỀN LẮP ĐẶT ĐẠI LÝ',
+                    'fromDate' => $fromDateFormatted,
+                    'toDate' => $toDateFormatted,
+                ])
                 <div class="preview-container">
                     <table class="preview-table">
                         <thead>
@@ -312,7 +254,7 @@
                                 <td>{{ $row['name'] }}</td>
                                 <td class="account-number">{{ $row['phone'] }}</td>
                                 <td>{{ $row['done_date'] }}</td>
-                                <td>{{ $row['product'] }}</td>
+                                <td>{{ $row['model'] ?? $row['product'] }}</td>
                                 <td class="text-right">{{ number_format($row['cost'], 0, ',', '.') }}</td>
                                 <td class="account-number">{{ $row['account'] }}</td>
                                 <td>{{ $row['bank'] }}</td>
@@ -345,41 +287,16 @@
                     </table>
                 </div>
                 
-                <!-- Signature Section -->
-                @if(count($sheet3Data) > 0)
-                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                </div>
-                @endif
+                @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet3Data) > 0])
             </div>
 
             <!-- Sheet 4: ĐẠI LÝ TỔNG HỢP -->
             <div id="sheet4" class="sheet-content">
-                <!-- Company Information -->
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
-                    Công ty TNHH Kuchen Việt Nam
-                </div>
-                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
-                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
-                </div>
-                
-                <div class="preview-header">BẢNG TỔNG HỢP TRẢ TIỀN ĐẠI LÝ</div>
-                <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
+                @include('collaboratorinstall.partials.report_header', [
+                    'title' => 'BẢNG TỔNG HỢP TRẢ TIỀN ĐẠI LÝ',
+                    'fromDate' => $fromDateFormatted,
+                    'toDate' => $toDateFormatted,
+                ])
                 <div class="preview-container">
                     <table class="preview-table">
                         <thead>
@@ -430,27 +347,7 @@
                     </table>
                 </div>
                 
-                <!-- Signature Section -->
-                @if(count($sheet4Data) > 0)
-                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
-                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
-                    </div>
-                </div>
-                @endif
+                @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet4Data) > 0])
             </div>
         </div>
     </div>

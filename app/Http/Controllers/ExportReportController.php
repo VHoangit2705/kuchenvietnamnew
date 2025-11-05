@@ -11,6 +11,7 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Enum;
 use App\Helpers\ReportHelper;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 class ExportReportController extends Controller
 {
@@ -54,6 +55,10 @@ class ExportReportController extends Controller
             $columns
         );
 
+        // Format columns as text to preserve leading zeros and prevent auto-format
+        $sheet1->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
+        $sheet1->getStyle('G:G')->getNumberFormat()->setFormatCode('@'); // Account
+
         $row = 6;
         $stt = 1;
         $totalCost1 = 0;
@@ -65,21 +70,29 @@ class ExportReportController extends Controller
             $sheet1->fromArray([[
                 $stt,
                 ReportHelper::cleanString($item->collaborator->full_name ?? ''),
-                ReportHelper::cleanString($item->collaborator->phone ?? ''),
-                ReportHelper::cleanString($item->product ?? ''),
+                ReportHelper::normalizePhone($item->collaborator->phone ?? ''),
+                ReportHelper::extractModel($item->product ?? ''),
                 $cost,
                 ReportHelper::formatDate($item->successed_at),
                 ReportHelper::cleanString($item->collaborator->sotaikhoan ?? ''),
                 $bankInfo,
                 ReportHelper::cleanString($item->order_code ?? '')
             ]], NULL, "A$row");
+            // Force TEXT for account and uppercase order code
+            $sheet1->setCellValueExplicit('G' . $row, ReportHelper::cleanString($item->collaborator->sotaikhoan ?? ''), DataType::TYPE_STRING);
+            $sheet1->setCellValue('I' . $row, strtoupper(ReportHelper::cleanString($item->order_code ?? '')));
             $stt++;
             $row++;
         }
         $sheet1->getStyle("E6:E" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
         
         $row = ReportHelper::addTotalRow($sheet1, $row, $lastCol, $totalCost1, 4, 'E');
-        $row = ReportHelper::addDateLocation($sheet1, $row, $lastCol, 'H');
+        // Ensure phone (C) and account (G) are TEXT explicitly
+        ReportHelper::forceTextColumn($sheet1, 'C', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet1, 'G', 6, $row - 2);
+        // Apply borders for header (row 5) through total row ($row - 2)
+        ReportHelper::applyTableBorders($sheet1, 5, $row - 2, $lastCol);
+        $row = ReportHelper::addDateLocation($sheet1, $row, $lastCol, 'E', 'G');
         ReportHelper::addSignatureSection($sheet1, $row, $lastCol, [[1, 2], [4, 5], [7, 8], [9, 9]]);
 
         // ================= SHEET 2: TỔNG HỢP CỘNG TÁC VIÊN =================
@@ -97,6 +110,9 @@ class ExportReportController extends Controller
             $columns2
         );
 
+        $sheet2->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
+        $sheet2->getStyle('E:E')->getNumberFormat()->setFormatCode('@'); // Account
+
         $dataCollaboratorgrouped = collect($dataCollaborator)->groupBy(fn($i) => $i->collaborator->phone ?? 'N/A');
 
         $row = 6;
@@ -111,7 +127,7 @@ class ExportReportController extends Controller
             $sheet2->fromArray([[
                 $stt,
                 ReportHelper::cleanString($collaborator->full_name ?? ''),
-                ReportHelper::cleanString($phone),
+                ReportHelper::normalizePhone($phone),
                 ReportHelper::cleanString($collaborator->address ?? ''),
                 ReportHelper::cleanString($collaborator->sotaikhoan ?? ''),
                 $bankInfo,
@@ -124,7 +140,10 @@ class ExportReportController extends Controller
         $sheet2->getStyle("H6:H" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
         
         $row = ReportHelper::addTotalRow($sheet2, $row, $lastCol2, $totalCost2, 7, 'H');
-        $row = ReportHelper::addDateLocation($sheet2, $row, $lastCol2, 'G');
+        ReportHelper::forceTextColumn($sheet2, 'C', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet2, 'E', 6, $row - 2);
+        ReportHelper::applyTableBorders($sheet2, 5, $row - 2, $lastCol2);
+        $row = ReportHelper::addDateLocation($sheet2, $row, $lastCol2, 'E', 'G');
         ReportHelper::addSignatureSection($sheet2, $row, $lastCol2, [[1, 2], [3, 4], [5, 6], [7, 8]]);
 
         // ================= SHEET 3: CHI TIẾT ĐẠI LÝ =================
@@ -142,6 +161,9 @@ class ExportReportController extends Controller
             $columns
         );
 
+        $sheet3->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
+        $sheet3->getStyle('G:G')->getNumberFormat()->setFormatCode('@'); // Account
+
         $row = 6;
         $stt = 1;
         $totalCost = 0;
@@ -151,21 +173,27 @@ class ExportReportController extends Controller
             $sheet3->fromArray([[
                 $stt,
                 ReportHelper::cleanString($item->agency->name ?? ''),
-                ReportHelper::cleanString($item->agency_phone ?? ''),
+                ReportHelper::normalizePhone($item->agency_phone ?? ''),
                 ReportHelper::formatDate($item->successed_at),
-                ReportHelper::cleanString($item->product ?? ''),
+                ReportHelper::extractModel($item->product ?? ''),
                 $cost,
                 ReportHelper::cleanString($item->agency->sotaikhoan ?? ''),
                 ReportHelper::cleanString($item->agency->chinhanh ?? ''),
                 ReportHelper::cleanString($item->order_code ?? '')
             ]], NULL, "A$row");
+            // Force TEXT for account and uppercase order code
+            $sheet3->setCellValueExplicit('G' . $row, ReportHelper::cleanString($item->agency->sotaikhoan ?? ''), DataType::TYPE_STRING);
+            $sheet3->setCellValue('I' . $row, strtoupper(ReportHelper::cleanString($item->order_code ?? '')));
             $stt++;
             $row++;
         }
         $sheet3->getStyle("F6:F" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
         
         $row = ReportHelper::addTotalRow($sheet3, $row, $lastCol, $totalCost, 5, 'F');
-        $row = ReportHelper::addDateLocation($sheet3, $row, $lastCol, 'H');
+        ReportHelper::forceTextColumn($sheet3, 'C', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet3, 'G', 6, $row - 2);
+        ReportHelper::applyTableBorders($sheet3, 5, $row - 2, $lastCol);
+        $row = ReportHelper::addDateLocation($sheet3, $row, $lastCol, 'E', 'G');
         ReportHelper::addSignatureSection($sheet3, $row, $lastCol, [[1, 2], [4, 5], [7, 8], [9, 9]]);
 
         // ================= SHEET 4: TỔNG HỢP ĐẠI LÝ =================
@@ -183,6 +211,9 @@ class ExportReportController extends Controller
             $columns4
         );
 
+        $sheet4->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
+        $sheet4->getStyle('D:D')->getNumberFormat()->setFormatCode('@'); // Account
+
         $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
 
         $row = 6;
@@ -195,19 +226,26 @@ class ExportReportController extends Controller
             $sheet4->fromArray([[
                 $stt,
                 ReportHelper::cleanString($agency->name ?? ''),
-                ReportHelper::cleanString($phone),
+                ReportHelper::normalizePhone($phone),
                 ReportHelper::cleanString($agency->sotaikhoan ?? ''),
                 ReportHelper::cleanString($agency->chinhanh ?? ''),
                 $items->count(),
                 $total
             ]], NULL, "A$row");
+            // Force TEXT for account
+            $sheet4->setCellValueExplicit('D' . $row, ReportHelper::cleanString($agency->sotaikhoan ?? ''), DataType::TYPE_STRING);
             $stt++;
             $row++;
         }
         $sheet4->getStyle("G6:G" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
         
         $row = ReportHelper::addTotalRow($sheet4, $row, $lastCol4, $totalCost4, 6, 'G');
-        $row = ReportHelper::addDateLocation($sheet4, $row, $lastCol4, 'F');
+        ReportHelper::forceTextColumn($sheet4, 'C', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet4, 'D', 6, $row - 2);
+        ReportHelper::applyTableBorders($sheet4, 5, $row - 2, $lastCol4);
+        $row = ReportHelper::addDateLocation($sheet4, $row, $lastCol4, 'E', 'G');
+        // Center header titles for sheet 4
+        $sheet4->getStyle("A5:{$lastCol4}5")->getAlignment()->setHorizontal('center');
         ReportHelper::addSignatureSection($sheet4, $row, $lastCol4, [[1, 2], [3, 4], [5, 6], [7, 7]]);
 
         // ================= EXPORT FILE =================
@@ -259,6 +297,7 @@ class ExportReportController extends Controller
                 'name' => ReportHelper::cleanString($item->collaborator->full_name ?? ''),
                 'phone' => ReportHelper::cleanString($item->collaborator->phone ?? ''),
                 'product' => ReportHelper::cleanString($item->product ?? ''),
+                'model' => ReportHelper::extractModel($item->product ?? ''),
                 'cost' => $cost,
                 'done_date' => ReportHelper::formatDate($item->successed_at),
                 'account' => ReportHelper::cleanString($item->collaborator->sotaikhoan ?? ''),
@@ -303,6 +342,7 @@ class ExportReportController extends Controller
                 'phone' => ReportHelper::cleanString($item->agency_phone ?? ''),
                 'done_date' => ReportHelper::formatDate($item->successed_at),
                 'product' => ReportHelper::cleanString($item->product ?? ''),
+                'model' => ReportHelper::extractModel($item->product ?? ''),
                 'cost' => $cost,
                 'account' => ReportHelper::cleanString($item->agency->sotaikhoan ?? ''),
                 'bank' => ReportHelper::cleanString($item->agency->chinhanh ?? ''),

@@ -163,7 +163,7 @@
             </div>
 <!-- Modal xem trước báo cáo -->
 <div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen modal-dialog-scrollable" style="max-width: 108vw;">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">
@@ -177,7 +177,7 @@
                         <span class="visually-hidden">Loading...</span>
                     </div>
                 </div>
-                <iframe src="" style="width: 100%; height: 75vh; border: 0;" class="d-none"></iframe>
+                <iframe src="" style="width: 100%; height: 95vh; border: 0;" class="d-none"></iframe>
             </div>
         </div>
     </div>
