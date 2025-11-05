@@ -25,6 +25,9 @@
     .table-container.is-grabbing {
     cursor: grabbing;
     }
+    .table-dark tr{
+        border: 0;
+    }
 </style>
 
 <div class="table-container">
