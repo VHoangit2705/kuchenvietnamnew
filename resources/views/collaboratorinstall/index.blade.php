@@ -882,7 +882,6 @@
             $(this).removeClass('can-grab');
         });
     });
-        
     
     // Hàm xóa bộ lọc
     function clearForm() {
