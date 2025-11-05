@@ -17,6 +17,16 @@ class ExportReportController extends Controller
 {
     public function ReportCollaboratorInstall(Request $request)
     {
+        // Server-side throttle: block exports if last export < 120 seconds ago
+        $lastExportAt = session('export_time');
+        if ($lastExportAt) {
+            $diffSeconds = Carbon::parse($lastExportAt)->diffInSeconds(now('Asia/Ho_Chi_Minh'));
+            if ($diffSeconds < 120) {
+                return response()->json([
+                    'message' => 'Bạn vừa tải báo cáo. Vui lòng thử lại sau 2 phút.',
+                ], 429);
+            }
+        }
         $tungay  = $request->query('start_date') ?? Carbon::now()->startOfMonth()->toDateString();
         $denngay = $request->query('end_date')   ?? Carbon::now()->endOfMonth()->toDateString();
 
@@ -44,7 +54,7 @@ class ExportReportController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('CTV CHI TIẾT');
         
-        $columns = ['STT', 'CỘNG TÁC VIÊN', 'SỐ ĐIỆN THOẠI', 'SẢN PHẨM', 'CHI PHÍ', 'NGAY DONE', 'STK CTV', 'NGÂN HÀNG', 'MĐH'];
+        $columns = ['STT', 'CỘNG TÁC VIÊN', 'SỐ ĐIỆN THOẠI', 'SẢN PHẨM', 'CHI PHÍ', 'NGÀY HOÀN THÀNH', 'STK CTV', 'NGÂN HÀNG', 'MĐH'];
         $lastCol = Coordinate::stringFromColumnIndex(count($columns));
         
         ReportHelper::setupSheetHeader(
@@ -256,7 +266,7 @@ class ExportReportController extends Controller
             $writer->save('php://output');
         }, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="report_ctv.xlsx"',
+            'Content-Disposition' => 'attachment; filename="THỐNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT.xlsx"',
             'Cache-Control' => 'max-age=0',
         ]);
     }

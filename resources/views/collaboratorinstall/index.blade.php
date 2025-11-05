@@ -945,69 +945,20 @@
                 start_date: $('#tungay').val(),
                 end_date: $('#denngay').val()
             });
-
-            Swal.fire({
-                title: 'Chọn hành động',
-                text: 'Bạn muốn xem trước hay tải Excel?',
-                showDenyButton: true,
-                confirmButtonText: 'Tải Excel',
-                denyButtonText: 'Xem trước',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Đang xuất file...',
-                        text: 'Vui lòng chờ trong giây lát',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    fetch(`{{ route('collaborator.export') }}?${queryParams.toString()}`)
-                        .then(response => {
-                            Swal.close();
-                            const contentType = response.headers.get("Content-Type") || '';
-                            if (contentType.includes("application/json")) {
-                                return response.json().then(json => {
-                                    Swal.fire({
-                                        icon: 'error',
-                                        text: json.message
-                                    });
-                                });
-                            } else {
-                                return response.blob().then(blob => {
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = "KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT.xlsx";
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                });
-                            }
-                        })
-                        .catch(() => {
-                            Swal.close();
-                            Swal.fire({
-                                icon: 'error',
-                                text: 'Lỗi server.'
-                            });
-                        });
-                } else if (result.isDenied) {
-                    queryParams.set('embed', '1');
-                    const previewUrl = `{{ route('collaborator.export.preview') }}` + `?${queryParams.toString()}`;
-                    const $iframe = $('#previewModal iframe');
-                    const $spinner = $('#previewModal .preview-loading');
-                    $spinner.removeClass('d-none');
-                    $iframe.addClass('d-none');
-                    $iframe.off('load').on('load', function() {
-                        $spinner.addClass('d-none');
-                        $iframe.removeClass('d-none');
-                    });
-                    $iframe.attr('src', previewUrl);
-                    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
-                    modal.show();
-                }
+            // Always open Preview directly
+            queryParams.set('embed', '1');
+            const previewUrl = `{{ route('collaborator.export.preview') }}` + `?${queryParams.toString()}`;
+            const $iframe = $('#previewModal iframe');
+            const $spinner = $('#previewModal .preview-loading');
+            $spinner.removeClass('d-none');
+            $iframe.addClass('d-none');
+            $iframe.off('load').on('load', function() {
+                $spinner.addClass('d-none');
+                $iframe.removeClass('d-none');
             });
+            $iframe.attr('src', previewUrl);
+            const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+            modal.show();
         });
     }
 
