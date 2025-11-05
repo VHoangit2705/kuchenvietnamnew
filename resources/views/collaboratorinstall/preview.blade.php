@@ -1,13 +1,15 @@
 @extends('layout.layout')
 
 @section('content')
-<style>
 @if(request('embed'))
+<style>
     /* Ẩn layout chung khi nhúng vào modal */
     body { padding-top: 0 !important; background: #ffffff !important; }
     header, footer, nav.navbar, .navbar, .topbar, .main-header, .sidebar, .page-header { display: none !important; }
     .container, .container-fluid { max-width: 100% !important; }
+</style>
 @endif
+<style>
     .preview-container {
         max-width: 100%;
         overflow-x: auto;
@@ -101,6 +103,14 @@
 
             <!-- Sheet 1: CTV CHI TIẾT -->
             <div id="sheet1" class="sheet-content active">
+                <!-- Company Information -->
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
+                    Công ty TNHH Kuchen Việt Nam
+                </div>
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
+                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
+                </div>
+                
                 <div class="preview-header">BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH</div>
                 <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
                 <div class="preview-container">
@@ -136,13 +146,61 @@
                                 <td colspan="9" class="text-center">Không có dữ liệu</td>
                             </tr>
                             @endforelse
+                            @if(count($sheet1Data) > 0)
+                            <tr style="font-weight: bold; background-color: #e9ecef;">
+                                <td colspan="4" style="text-align: right;">TỔNG CỘNG</td>
+                                <td class="text-right">{{ number_format($sheet1Total ?? 0, 0, ',', '.') }}</td>
+                                <td colspan="4"></td>
+                            </tr>
+                            <tr>
+                                <td colspan="9" style="font-style: italic; padding: 10px;">
+                                    Bằng chữ: {{ $sheet1AmountInWords ?? 'không đồng' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7"></td>
+                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                    Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
+                                </td>
+                            </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Signature Section -->
+                @if(count($sheet1Data) > 0)
+                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <!-- Sheet 2: CTV TỔNG HỢP -->
             <div id="sheet2" class="sheet-content">
+                <!-- Company Information -->
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
+                    Công ty TNHH Kuchen Việt Nam
+                </div>
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
+                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
+                </div>
+                
                 <div class="preview-header">BẢNG KÊ TIỀN THANH TOÁN CỘNG TÁC VIÊN LẮP ĐẶT BẢO HÀNH</div>
                 <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
                 <div class="preview-container">
@@ -176,13 +234,60 @@
                                 <td colspan="8" class="text-center">Không có dữ liệu</td>
                             </tr>
                             @endforelse
+                            @if(count($sheet2Data) > 0)
+                            <tr style="font-weight: bold; background-color: #e9ecef;">
+                                <td colspan="7" style="text-align: right;">TỔNG CỘNG</td>
+                                <td class="text-right">{{ number_format($sheet2Total ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="8" style="font-style: italic; padding: 10px;">
+                                    Bằng chữ: {{ $sheet2AmountInWords ?? 'không đồng' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="6"></td>
+                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                    Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
+                                </td>
+                            </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Signature Section -->
+                @if(count($sheet2Data) > 0)
+                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <!-- Sheet 3: ĐẠI LÝ CHI TIẾT -->
             <div id="sheet3" class="sheet-content">
+                <!-- Company Information -->
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
+                    Công ty TNHH Kuchen Việt Nam
+                </div>
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
+                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
+                </div>
+                
                 <div class="preview-header">BẢNG CHI TIẾT TIỀN LẮP ĐẶT ĐẠI LÝ</div>
                 <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
                 <div class="preview-container">
@@ -191,7 +296,7 @@
                             <tr>
                                 <th>STT</th>
                                 <th>TÊN ĐẠI LÝ</th>
-                                <th>SỐ ĐIỆN THOẠI</th>
+                                <th>SĐT</th>
                                 <th>NGÀY DONE</th>
                                 <th>THIẾT BỊ</th>
                                 <th class="text-right">CP HOÀN LẠI</th>
@@ -218,13 +323,61 @@
                                 <td colspan="9" class="text-center">Không có dữ liệu</td>
                             </tr>
                             @endforelse
+                            @if(count($sheet3Data) > 0)
+                            <tr style="font-weight: bold; background-color: #e9ecef;">
+                                <td colspan="5" style="text-align: right;">TỔNG CỘNG</td>
+                                <td class="text-right">{{ number_format($sheet3Total ?? 0, 0, ',', '.') }}</td>
+                                <td colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td colspan="9" style="font-style: italic; padding: 10px;">
+                                    Bằng chữ: {{ $sheet3AmountInWords ?? 'không đồng' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7"></td>
+                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                    Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
+                                </td>
+                            </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Signature Section -->
+                @if(count($sheet3Data) > 0)
+                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <!-- Sheet 4: ĐẠI LÝ TỔNG HỢP -->
             <div id="sheet4" class="sheet-content">
+                <!-- Company Information -->
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px;">
+                    Công ty TNHH Kuchen Việt Nam
+                </div>
+                <div class="preview-header" style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 20px;">
+                    Tòa nhà Kuchen Building đường Vinh - Cửa Lò, Xóm 13, Phường Nghi Phú, Thành phố Vinh, Nghệ An
+                </div>
+                
                 <div class="preview-header">BẢNG TỔNG HỢP TRẢ TIỀN ĐẠI LÝ</div>
                 <div class="preview-date">Từ ngày: {{ $fromDateFormatted }} - đến ngày: {{ $toDateFormatted }}</div>
                 <div class="preview-container">
@@ -256,9 +409,48 @@
                                 <td colspan="7" class="text-center">Không có dữ liệu</td>
                             </tr>
                             @endforelse
+                            @if(count($sheet4Data) > 0)
+                            <tr style="font-weight: bold; background-color: #e9ecef;">
+                                <td colspan="6" style="text-align: right;">TỔNG CỘNG</td>
+                                <td class="text-right">{{ number_format($sheet4Total ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="7" style="font-style: italic; padding: 10px;">
+                                    Bằng chữ: {{ $sheet4AmountInWords ?? 'không đồng' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="5"></td>
+                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                    Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
+                                </td>
+                            </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Signature Section -->
+                @if(count($sheet4Data) > 0)
+                <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 20px 0;">
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Giám đốc</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Kế toán trưởng</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Đối soát</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                    <div style="text-align: center; flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 50px;">Người lập biểu</div>
+                        <div style="font-style: italic; font-size: 12px;">(Ký, ghi rõ họ tên)</div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>
