@@ -25,7 +25,7 @@ use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Enum;
 use Illuminate\Support\Facades\DB;
-
+ 
 class CollaboratorInstallController extends Controller
 {
     // public function __construct()
