@@ -98,67 +98,77 @@
         const $input = $('#full_nameForm');
         const name = $input.val().trim();
         const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
-        if (name.length > 50) {
+        
+        if (name.length === 0) {
+            showFormError($input, "Trường này là bắt buộc.");
+        } else if (name.length > 50) {
             showFormError($input, "Họ tên không được vượt quá 50 ký tự.");
-        } else if (name.length > 0 && !nameRegex.test(name)) {
+        } else if (!nameRegex.test(name)) {
             showFormError($input, "Họ tên chỉ được chứa chữ.");
         } else {
             hideFormError($input);
         }
     }
-    // Hàm validate cho Số Điện Thoại
+    // Hàm validate cho Số Điện Thoại (Sửa đổi)
     function validatePhoneForm() {
         const $input = $('#phoneForm');
-        const phone = $input.val().trim();
-        if (phone.length > 0) { // Chỉ validate nếu có nhập
-            if (!/^\d+$/.test(phone)) {
-                showFormError($input, "Số điện thoại chỉ được chứa số.");
-            } else if (phone.length < 9 || phone.length > 10) {
-                showFormError($input, "Số điện thoại phải có từ 9 đến 10 chữ số.");
-            } else {
-                hideFormError($input);
-            }
-        } else {
-            hideFormError($input); // Xóa lỗi nếu người dùng xóa hết
+        const phoneRaw = $input.val();
+        const phoneTrimmed = phoneRaw.trim();
+
+        if (phoneTrimmed.length === 0) {
+            showFormError($input, "Trường này là bắt buộc.");
+        } 
+        else if (/\s/.test(phoneRaw)) {
+            showFormError($input, "Số điện thoại không được chứa dấu cách.");
+        }
+        else if (!/^\d+$/.test(phoneTrimmed)) {
+            showFormError($input, "Số điện thoại chỉ được chứa số.");
+        } 
+        else if (phoneTrimmed.length < 9 || phoneTrimmed.length > 10) {
+            showFormError($input, "Số điện thoại phải có từ 9 đến 10 chữ số.");
+        } 
+        else {
+            hideFormError($input);
         }
     }
     // Hàm validate cho Địa chỉ
     function validateAddress() {
         const $input = $('#address');
         const address = $input.val().trim();
-        // Cho phép chữ, số, và một số ký tự địa chỉ phổ biến
         const addressRegex = /^[a-zA-Z0-9àáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s\.,\/-]*$/;
-        if (address.length > 80) {
+
+        if (address.length === 0) {
+            showFormError($input, "Trường này là bắt buộc.");
+        } else if (address.length > 80) {
             showFormError($input, "Địa chỉ không được vượt quá 80 ký tự.");
-        } else if (address.length > 0 && !addressRegex.test(address)) {
+        } else if (!addressRegex.test(address)) {
+            // Sửa lại: chỉ kiểm tra regex nếu có nội dung
             showFormError($input, "Địa chỉ chỉ chứa chữ, số và các ký tự .,-/");
         } else {
+            // Chỉ ẩn lỗi khi tất cả điều kiện trên đều sai (tức là hợp lệ)
             hideFormError($input);
         }
     }
-    // Hàm kiểm tra các trường bắt buộc (required)
-    function validateRequired(formSelector) {
-        let isValid = true;
-        $(formSelector).find('[required]').each(function() {
+
+    // Hàm validate cho các trường select bắt buộc
+    function validateSelectFields() {
+        $('#formCreateCollaborator select[required]').each(function() {
             const $field = $(this);
-            const value = $field.val();
-            // Kiểm tra giá trị rỗng cho cả input, textarea và select
-            if (value === null || value.trim() === '') {
-                // Chỉ hiển thị lỗi nếu chưa có lỗi nào khác từ các hàm validate khác
-                if (!$field.siblings('.error').text()) {
-                    showFormError($field, "Trường này là bắt buộc.");
-                }
-                isValid = false;
+            
+            // Nếu giá trị là rỗng (chưa chọn)
+            if (!$field.val()) {
+                showFormError($field, "Trường này là bắt buộc.");
             } else {
-                // Nếu trường đã có giá trị, xóa lỗi "bắt buộc" nếu có
-                if ($field.siblings('.error').text() === "Trường này là bắt buộc.") {
-                    hideFormError($field);
-                }
+                hideFormError($field);
             }
         });
-        return isValid;
     }
-    $('#addCollaboratorModal').on('hidden.bs.modal', function() {
+
+    $(document).ready(function() {
+    
+    // Hàm validate các trường select bắt buộc (đã bỏ vì validate riêng từng trường đã xử lý)
+
+        $('#addCollaboratorModal').on('hidden.bs.modal', function() {
         const $form = $('#formCreateCollaborator');
         $form.find('input[type="text"], input[type="date"], input[type="number"], textarea').val('');
         $form.find('select').prop('selectedIndex', 0);
@@ -185,6 +195,10 @@
                         $district.append('<option value="' + item.district_id + '">' + item.name + '</option>');
                     });
                 },
+                complete: function() {
+                    // Sau khi load xong quận/huyện, validate lại form
+                    validateSelectFields();
+                }
             });
         }
     });
@@ -204,38 +218,29 @@
                         $ward.append('<option value="' + item.wards_id + '">' + item.name + '</option>');
                     });
                 },
+                complete: function() {
+                    // Sau khi load xong xã/phường, validate lại form
+                    validateSelectFields();
+                }
             });
         }
     });
 
-    function validateRequired(form) {
-        let isValid = true;
-        $(form).find('input[required], select[required], textarea[required]').each(function() {
-            if (!$(this).val().trim()) {
-                isValid = false;
-            }
-        });
-        return isValid;
-    }
-
-    $(document).ready(function() {
-        $('#hoantat').on('click', function(e) {
+    $('#hoantat').on('click', function(e) {
             e.preventDefault();
 
-            // Chạy tất cả các hàm validation một lần cuối
+            // 1. Chạy tất cả các hàm validation một lần cuối
             validateFullNameForm();
             validatePhoneForm();
             validateAddress();
+            validateSelectFields(); // Gọi hàm mới
 
-            // Kiểm tra các trường select bắt buộc
-            validateRequired('#formCreateCollaborator');
-
-            // Nếu không có lỗi và các trường bắt buộc đã được điền
-            if (Object.keys(formValidationErrors).length === 0 && validateRequired('#formCreateCollaborator')) {
+            // 2. Chỉ cần kiểm tra đối tượng lỗi
+            if (Object.keys(formValidationErrors).length === 0) {
+                // KHÔNG CÒN LỖI -> Gửi AJAX
                 const data = {
                     id: $('#id').val(),
                     full_name: $('#full_nameForm').val().trim(),
-                    // date_of_birth: $('#date_of_birth').val().trim(),
                     phone: $('#phoneForm').val().trim(),
                     province_id: $('#provinceForm').val(),
                     province: $('#provinceForm option:selected').text(),
@@ -265,6 +270,7 @@
                     }
                 });
             } else {
+                // Vẫn còn lỗi, cuộn đến lỗi đầu tiên
                 $('html, body').animate({
                     scrollTop: $('#formCreateCollaborator .error:visible:first').offset().top - 100
                 }, 300);
@@ -278,8 +284,7 @@
 
         // Gắn sự kiện validate cho các trường select khi giá trị thay đổi
         $('#provinceForm, #districtForm, #wardForm').on('change', function() {
-            // Gọi hàm validateRequired để kiểm tra lại và xóa lỗi nếu đã chọn
-            validateRequired('#formCreateCollaborator');
+            validateSelectFields();
         });
     });
 </script>

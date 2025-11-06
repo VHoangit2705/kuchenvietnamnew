@@ -47,6 +47,7 @@
 @include('collaborator.formcreate', ['lstProvince' => $lstProvince])
 <script>
 
+    // 1. Tạo cờ chung để theo dõi lỗi validation
     searchValidationErrors = {};
 
 
@@ -92,7 +93,7 @@
     function validateFullName() {
         const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
         let $input = $('#full_name');
-        let name = $input.val();
+        let name = $input.val().trim();
         
         hideError($input);
 
@@ -114,18 +115,13 @@
     
         if (phone.length > 0) {
             if (!/^\d+$/.test(phone)) {
-                showError($input, "Số điện thoại chỉ được chứa số.");
+                showError($input, "Số điện thoại chỉ được chứa số, không khoảng cách.");
             } else if (phone.length < 9 || phone.length > 10) {
                 showError($input, "Số điện thoại phải từ 9 đến 10 số.");
             }
         }
     }
 
-    // 7. Hàm chạy tất cả validation (dùng khi tải trang và trước khi submit)
-    function runAllInitialValidations() {
-        validateFullName();
-        validatePhone();
-    }
 
     $(document).ready(function() {
         // Thêm CSRF token vào tất cả các header của request AJAX
@@ -156,9 +152,6 @@
     // Cập nhật lại hàm submit
     $('#searchCollaborator').on('submit', function(e) {
         e.preventDefault();
-
-        // Chạy validate lần cuối trước khi submit
-        runAllInitialValidations();
         
         // Kiểm tra cờ lỗi chung
         if (Object.keys(searchValidationErrors).length > 0) {
@@ -179,7 +172,6 @@
             // Dù thành công hay thất bại, bật lại nút
             // và chạy lại validate để set trạng thái disable chính xác
             $('#searchBtn').text('Tìm kiếm');
-            runAllInitialValidations(); // Kiểm tra lại trạng thái
         });
     });
 
