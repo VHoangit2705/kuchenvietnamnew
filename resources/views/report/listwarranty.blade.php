@@ -6,14 +6,14 @@
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
                 <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm">
+                    placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
                 <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
                 <div style="position: relative;">
-                    <input type="text" id="replacement" name="replacement" class="form-control" value="{{ request('replacement') }}"
-                        placeholder="Nhập linh kiện thay thế">
+                    <input type="text" id="replacement" name="replacement" class="form-control"
+                        placeholder="Nhập linh kiện thay thế" autocomplete="off">
                     <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"
                     style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                 </div>
@@ -207,7 +207,6 @@
         // limitButtonClicks('btnsearch', 6);
         validateDates();
         setupAutoComplete('#product', '#suggestions-product-name', "{{ route('baocao.sanpham') }}");
-        setupAutoComplete('#replacement', '#suggestions-product-part', "{{ route('baocao.linhkien') }}");
         setupAutoComplete('#staff_received', '#suggestions-product-staff', "{{ route('baocao.nhanvien') }}");
         runAllValidations();
     });
@@ -340,15 +339,11 @@
                 }
             });
 
-            $(document).on('click', '#replacement-suggestions button', function() {
+            $(document).on('mousedown', '#replacement-suggestions button', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 $('#replacement').val($(this).text());
-                $('#replacement-suggestions').addClass('d-none');
-            });
-
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
-                    $('#replacement-suggestions').addClass('d-none');
-                }
+                $('#replacement-suggestions').addClass('d-none').empty();
             });
         });
 
@@ -360,7 +355,7 @@
                 $(suggestionBoxSelector).hide();
                 return;
             }
-            if (query.length >= 5) {
+            if (query.length >= 1) {
                 $.ajax({
                     url: requestUrl,
                     type: 'GET',
@@ -373,7 +368,7 @@
                             $(suggestionBoxSelector).show();
                             data.forEach(function(item) {
                                 $(suggestionBoxSelector).append(
-                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer;">' + item + '</div>'
+                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">' + item + '</div>'
                                 );
                             });
                             // Gán lại sự kiện click cho từng item
@@ -390,18 +385,22 @@
         });
     }
 
-    // Ẩn gợi ý nếu click ngoài input và danh sách gợi ý
-    $(document).on('click', function(event) {
-        if (!$(event.target).closest('#product').length && !$(event.target).closest('#suggestions-product-name').length) {
-            $('#suggestions-product-name').hide();
-        }
-        if (!$(event.target).closest('#replacement').length && !$(event.target).closest('#suggestions-product-part').length) {
-            $('#suggestions-product-part').hide();
-        }
-        if (!$(event.target).closest('#staff_received').length && !$(event.target).closest('#suggestions-product-staff').length) {
-            $('#suggestions-product-staff').hide();
-        }
-    });
+    $(document).on('click', function(e) {
+    // Logic cho ô linh kiện (client-side)
+    if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
+        $('#replacement-suggestions').addClass('d-none').empty();
+    }
+
+    // Logic cho ô sản phẩm (server-side)
+    if (!$(e.target).closest('#product').length && !$(e.target).closest('#suggestions-product-name').length) {
+        $('#suggestions-product-name').hide();
+    }
+
+    // Logic cho ô kỹ thuật viên (server-side)
+    if (!$(e.target).closest('#staff_received').length && !$(e.target).closest('#suggestions-product-staff').length) {
+        $('#suggestions-product-staff').hide();
+    }
+});
 
     // Validation form
     // 1. Cờ theo dõi trạng thái lỗi của form
@@ -437,7 +436,7 @@
         const $input = $('#product');
         const value = $input.val();
         hideError($input);
-        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ]+$/.test(value)) {
+        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
             showError($input, "Chỉ được nhập chữ và số.");
         } else if (value.length > 80) {
             showError($input, "Tối đa 80 ký tự.");
