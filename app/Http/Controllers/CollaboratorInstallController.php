@@ -787,6 +787,56 @@ class CollaboratorInstallController extends Controller
         $html = view('collaboratorinstall.tablecollaborator', compact('lstCollaborator'))->render();
         return response()->json(['html' => $html]);
     }
+
+    /**
+     * Cập nhật địa chỉ khách hàng
+     */
+    public function UpdateDetailCustomerAddress(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_code' => 'required|string',
+            'address' => 'nullable|string|max:150',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $orderCode = $request->input('order_code');
+            $newAddress = $request->input('address', '');
+
+            // Tìm Order theo order_code2
+            $order = Order::where('order_code2', $orderCode)->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng'
+                ], 404);
+            }
+
+            // Cập nhật địa chỉ vào bảng orders
+            $order->customer_address = $newAddress;
+            $order->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật địa chỉ thành công!',
+                'address' => $newAddress
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi cập nhật địa chỉ khách hàng: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi cập nhật địa chỉ: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     
     public function ReportCollaboratorInstall(Request $request)
     {
