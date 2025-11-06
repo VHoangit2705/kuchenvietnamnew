@@ -1332,6 +1332,20 @@
         $input.on("blur", function() {
             validateDynamicField($(this), fieldName); // Chạy validation lần cuối
             let newValue = $(this).val().trim();
+            
+            // Lưu giá trị hiển thị đầy đủ ban đầu để khôi phục khi lỗi
+            let oldDisplayValue = $("#customer_address_full").val() || oldValue;
+            if (fieldName === 'customer_address' && !oldDisplayValue) {
+                // Fallback: ghép oldValue với fullAddress
+                let fullAddress = "{{ $fullAddress }}";
+                if (oldValue && fullAddress) {
+                    oldDisplayValue = oldValue + ", " + fullAddress;
+                } else if (fullAddress) {
+                    oldDisplayValue = fullAddress;
+                } else {
+                    oldDisplayValue = oldValue;
+                }
+            }
 
             // Trường hợp 1: Người dùng xóa rỗng -> Luôn gỡ lỗi và cập nhật
             if (newValue === '') {
@@ -1352,12 +1366,71 @@
                         }
                     }
                 }
-                $span.text(newValue).show(); // Cập nhật span với giá trị mới
+                
+                // Lưu địa chỉ khách hàng vào database nếu là customer_address
+                if (fieldName === 'customer_address') {
+                    let orderCode = "{{ $code }}";
+                    if (orderCode) {
+                        $.ajax({
+                            url: "{{ route('dieuphoi.update.address') }}",
+                            method: "POST",
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr("content"),
+                                order_code: orderCode,
+                                address: newValue
+                            },
+                            success: function(response) {
+                                if (response.success) {
+                                    // Cập nhật lại full address với phần địa chỉ mới
+                                    let fullAddress = "{{ $fullAddress }}";
+                                    let fullAddressText = newValue;
+                                    if (newValue && fullAddress) {
+                                        fullAddressText = newValue + ", " + fullAddress;
+                                    } else if (fullAddress) {
+                                        fullAddressText = fullAddress;
+                                    }
+                                    $span.text(fullAddressText).show();
+                                    // Cập nhật lại hidden inputs
+                                    $("#customer_address_full").val(fullAddressText);
+                                    $("#customer_address_detail").val(newValue);
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Lỗi',
+                                        text: response.message || 'Không thể cập nhật địa chỉ',
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    });
+                                    // Quay về giá trị cũ nếu lưu thất bại
+                                    $span.text(oldDisplayValue).show();
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Lỗi',
+                                    text: 'Có lỗi xảy ra khi cập nhật địa chỉ',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                                // Quay về giá trị cũ nếu lưu thất bại
+                                $span.text(oldDisplayValue).show();
+                            }
+                        });
+                    } else {
+                        // Nếu không có order_code, vẫn hiển thị giá trị mới
+                        $span.text(newValue).show();
+                    }
+                } else {
+                    $span.text(newValue).show(); // Cập nhật span với giá trị mới cho các trường khác
+                }
             
             // Trường hợp 3: Người dùng nhập sai và rời đi (không rỗng VÀ có cờ lỗi)
             } else {
                 hideError($(this)); // Gỡ lỗi (vì chúng ta không lưu giá trị sai)
-                $span.text(oldValue).show(); // Quay về giá trị cũ
+                // Quay về giá trị cũ (dùng oldDisplayValue cho customer_address)
+                let displayValue = (fieldName === 'customer_address') ? oldDisplayValue : oldValue;
+                $span.text(displayValue).show();
             }
 
             $td.find(".edit-icon").show();
