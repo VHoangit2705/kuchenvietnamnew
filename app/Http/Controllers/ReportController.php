@@ -70,12 +70,16 @@ class ReportController extends BaseController
         // Lấy dữ liệu
         $data = WarrantyRequest::getListWarranty($conditions, $productInput);
 
+        //Lấy linh kiện
+        $linhkien = Product::where('view', '2')->select('product_name')->get();
+
         session(['dataExport' => $data]);
         return view('report.listwarranty', [
             'data' => $data,
             'fromDate' => Carbon::parse($fromDate),
             'toDate' => Carbon::parse($toDate),
             'userBranch' => $brand,
+            'linhkien' => $linhkien,
         ]);
     }
 
