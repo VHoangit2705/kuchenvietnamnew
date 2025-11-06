@@ -29,7 +29,7 @@
                 <input type="text" id="phone" name="phone" class="form-control" placeholder="Số điện thoại" value="{{ request('phone') }}">
             </div>
             <div class="col-md-4 mb-1">
-                <button class="btn btn-primary w-100">Tìm kiếm</button>
+                <button id="searchBtn" class="btn btn-primary w-100">Tìm kiếm</button>
             </div>
         </div>
     </form>
@@ -46,7 +46,100 @@
 <!-- Include modal -->
 @include('collaborator.formcreate', ['lstProvince' => $lstProvince])
 <script>
+
+    searchValidationErrors = {};
+
+
+    //Hàm hiển hi lỗi
+    function showError($field, message) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+
+        hideError($field);
+
+        // Tạo thẻ div lỗi
+        let $error = $(`<div class="text-danger mt-1 validation-error" data-error-for="${fieldId}">${message}</div>`);
+
+        $field.closest('.col-md-4').append($error);
+        $field.css('border-color', 'red');
+
+        searchValidationErrors[fieldId] = true;
+        updateSearchButtonState();
+    }
+
+    // 3. Hàm ẩn lỗi
+    function hideError($field) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+
+        // Tìm và xóa thẻ lỗi tương ứng
+        $field.closest('.col-md-4').find(`.validation-error[data-error-for="${fieldId}"]`).remove();
+        $field.css('border-color', '');
+
+        delete searchValidationErrors[fieldId];
+        updateSearchButtonState();
+    }
+
+    // 4. Hàm cập nhật trạng thái nút Tìm kiếm
+    function updateSearchButtonState() {
+        // Kiểm tra xem có bất kỳ lỗi nào trong cờ chung không
+        let hasErrors = Object.keys(searchValidationErrors).length > 0;
+        
+        // Vô hiệu hóa nút nếu có lỗi
+        $("#searchBtn").prop('disabled', hasErrors);
+    }
+    // 5. Hàm logic validate cho Họ Tên
+    function validateFullName() {
+        const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
+        let $input = $('#full_name');
+        let name = $input.val();
+        
+        hideError($input);
+
+        if (name.length > 50) {
+            showError($input, "Họ tên tối đa 50 ký tự.");
+        } else if (name.length > 0 && !nameRegex.test(name)) {
+            // Chỉ validate regex nếu có nhập
+            showError($input, "Họ tên chỉ được chữ.");
+        }
+    }
+
+    // 6. Hàm logic validate cho Số Điện Thoại
+    function validatePhone() {
+        let $input = $('#phone');
+        let phone = $input.val();
+
+        hideError($input);
+
+    
+        if (phone.length > 0) {
+            if (!/^\d+$/.test(phone)) {
+                showError($input, "Số điện thoại chỉ được chứa số.");
+            } else if (phone.length < 9 || phone.length > 10) {
+                showError($input, "Số điện thoại phải từ 9 đến 10 số.");
+            }
+        }
+    }
+
+    // 7. Hàm chạy tất cả validation (dùng khi tải trang và trước khi submit)
+    function runAllInitialValidations() {
+        validateFullName();
+        validatePhone();
+    }
+
     $(document).ready(function() {
+        // Thêm CSRF token vào tất cả các header của request AJAX
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        // Hàm định dạng ngày tháng Y-m-d để gán cho input type="date"
+        function formatDateToInput(dateString) {
+            return dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+        }
+
         $('#openModalBtn').on('click', function(e) {
             e.preventDefault();
             $('#tieude').text("Thêm mới cộng tác viên");
@@ -55,17 +148,38 @@
         });
         setRequset();
 
+        $('#full_name').on('keyup input', validateFullName);
+        $('#phone').on('keyup input', validatePhone);
+
     });
 
+    // Cập nhật lại hàm submit
     $('#searchCollaborator').on('submit', function(e) {
         e.preventDefault();
+
+        // Chạy validate lần cuối trước khi submit
+        runAllInitialValidations();
+        
+        // Kiểm tra cờ lỗi chung
+        if (Object.keys(searchValidationErrors).length > 0) {
+            return; // Dừng lại nếu form không hợp lệ
+        }
+
         let formData = $(this).serialize();
         let url = "{{ route('ctv.getlist') }}?" + formData;
+
+        // Vô hiệu hóa nút tạm thời khi đang gửi request
+        $('#searchBtn').prop('disabled', true).text('Đang tìm...');
 
         $.get(url, function(response) {
             $('#tabContent').html(response); // chỉ render HTML
         }).fail(function() {
             alert("Không thể tải dữ liệu");
+        }).always(function() {
+            // Dù thành công hay thất bại, bật lại nút
+            // và chạy lại validate để set trạng thái disable chính xác
+            $('#searchBtn').text('Tìm kiếm');
+            runAllInitialValidations(); // Kiểm tra lại trạng thái
         });
     });
 
