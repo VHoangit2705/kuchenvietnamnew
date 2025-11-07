@@ -46,7 +46,7 @@
                 </div>
                 <div class="col-md-4 mb-1 position-relative">
                     <input type="text" id="product_name" name="product_name" class="form-control"
-                        placeholder="Nhập tên sản phẩm" value="{{ request('product_name') }}">
+                        placeholder="Nhập tên sản phẩm" value="">
                     <div id="product-suggestions" class="list-group position-absolute w-100 d-none"
                         style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                 </div>
@@ -149,15 +149,15 @@
         // Hàm validation cho tên sản phẩm
         function validateProductName() {
             const $input = $('#product_name');
-            const value = $input.val();
+            const value = $input.val().trim();
             hideError($input);
-            const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/;
+            const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹü\-\(\,+;/)]+$/;
             
             if (value && !validRegex.test(value)) {
                 showError($input, "Tên sản phẩm chỉ nhập chữ và số.");
             } 
-            else if (value.length > 50) {
-                showError($input, "Tên sản phẩm không vượt quá 50 ký tự.");
+            else if (value.length > 100) {
+                showError($input, "Tên sản phẩm không vượt quá 100 ký tự.");
             }
         }
 
@@ -172,25 +172,25 @@
 
         function validateKhachhang() {
             const $input = $('#khachhang');
-            const value = $input.val();
+            const value = $input.val().trim();
             const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
             hideError($input);
             if (value && !nameRegex.test(value)) {
                 showError($input, "Tên khách hàng chỉ nhập chữ.");
-            } else if (value.length > 50) {
-                showError($input, "Tên khách hàng không vượt quá 50 ký tự.");
+            } else if (value.length > 80) {
+                showError($input, "Tên khách hàng không vượt quá 80 ký tự.");
             }
         }
 
         function validateKythuatvien() {
             const $input = $('#kythuatvien');
-            const value = $input.val();
+            const value = $input.val().trim();
             const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
             hideError($input);
             if (value && !nameRegex.test(value)) {
                 showError($input, "Tên kỹ thuật viên chỉ nhập chữ.");
-            } else if (value.length > 50) {
-                showError($input, "Tên kỹ thuật viên không vượt quá 50 ký tự.");
+            } else if (value.length > 80) {
+                showError($input, "Tên kỹ thuật viên không vượt quá 80 ký tự.");
             }
         }
 
@@ -224,24 +224,30 @@
                 loadTabData(tab, formData);
             });
             
-            // Xử lý form search
-            $('#searchForm').on('submit', function(e) {
-                e.preventDefault(); // Dừng form lại
+        // Xử lý form search
+        $('#searchForm').on('submit', function(e) {
+            e.preventDefault(); // Dừng form lại
 
-                // Chạy tất cả các hàm validation một lần cuối
-                runAllValidations();
+            // Chạy tất cả các hàm validation một lần cuối
+            runAllValidations();
 
-                // Kiểm tra cờ lỗi tổng thể
-                if (Object.keys(validationErrors).length > 0) {
-                    $('.is-invalid').first().focus(); // Focus vào ô lỗi đầu tiên
-                    return false; // Dừng lại nếu ngày tháng bị lỗi
-                }
+            // Kiểm tra cờ lỗi tổng thể
+            if (Object.keys(validationErrors).length > 0) {
+                $('.is-invalid').first().focus(); // Focus vào ô lỗi đầu tiên
+                return false; // Dừng lại nếu ngày tháng bị lỗi
+            }
 
-                // Nếu không có lỗi, tiếp tục chạy
-                let tab = localStorage.getItem('activeTab') || 'danhsach';
-                let formData = $(this).serialize();
-                loadTabData(tab, formData);
-            });
+            // Nếu không có lỗi, tiếp tục chạy
+            let tab = localStorage.getItem('activeTab') || 'danhsach';
+            let formData = $(this).serialize();
+            loadTabData(tab, formData);
+
+            // Xóa nội dung của ô nhập tên sản phẩm sau khi tìm kiếm
+            $('#product_name').val('');
+
+            //Ẩn gợi ý
+            $('#product-suggestions').addClass('d-none');
+        });
 
             // Gắn sự kiện validation cho các trường
             $('#sophieu').on('input', validateSophieu);

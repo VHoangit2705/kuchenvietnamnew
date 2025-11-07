@@ -1323,10 +1323,10 @@
         }
 
 
-        // Lỗi gặp phải: chữ và số, max 50
+        // Lỗi gặp phải: chữ và số, max 150
         function validateErrorType() {
             const $input = $('#error_type');
-            const value = $input.val();
+            const value = $input.val().trim();
             hideRepairFormError($input);
             if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/.test(value)) {
                 showRepairFormError($input, "Chỉ được nhập chữ.");
@@ -1335,10 +1335,10 @@
             }
         }
 
-        // Mô tả cách xử lý: chỉ nhập chữ, max 80
+        // Mô tả cách xử lý: chỉ nhập chữ, max 100
         function validateDescription() {
             const $input = $('#des_error_type');
-            const value = $input.val();
+            const value = $input.val().trim();
             hideRepairFormError($input);
             if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/.test(value)) {
                 showRepairFormError($input, "Chỉ được nhập chữ.");
@@ -1347,19 +1347,19 @@
             }
         }
 
-        // Linh kiện thay thế: chữ và số, max 50
+        // Linh kiện thay thế: chữ và số, max 100
         function validateReplacement() {
             const $input = $('#replacement');
-            const value = $input.val();
+            const value = $input.val().trim();
             hideRepairFormError($input);
-            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\/,.() ]+$/.test(value)) {
+            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/.test(value)) {
                 showRepairFormError($input, "Chỉ được nhập chữ và số.");
             } else if (value.length > 100) {
                 showRepairFormError($input, "Tối đa 100 ký tự.");
             }
         }
 
-        // Số lượng: số, max 10
+        // Số lượng: số, max 5
         function validateQuantity() {
             const $input = $('#quantity');
             const value = $input.val();
@@ -1371,7 +1371,7 @@
             }
         }
 
-        // Đơn giá: số, max 25
+        // Đơn giá: số, max 8
         function validateUnitPrice() {
             const $input = $('#unit_price');
             const value = $input.val().replace(/[^0-9]/g, ''); // Lấy số thô
@@ -1421,6 +1421,15 @@
                 }
             }
 
+            // Bắt buộc nhập số lượng nếu có linh kiện thay thế
+            const $replacementField = $('#replacement');
+            const $quantityField = $('#quantity');
+            if ($replacementField.val().trim() !== '' && (parseInt($quantityField.val()) < 1 || !$quantityField.val())) {
+                if (!repairFormErrors['quantity']) {
+                    showRepairFormError($quantityField, 'Vui lòng nhập số lượng khi có linh kiện.');
+                }
+                isValid = false;
+            }
             // Kiểm tra lại cờ lỗi tổng thể
             if (Object.keys(repairFormErrors).length > 0) {
                 isValid = false;
