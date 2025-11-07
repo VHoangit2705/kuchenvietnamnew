@@ -544,25 +544,70 @@ class CollaboratorInstallController extends Controller
 
     public function Details(Request $request)
     {
+        $installationOrder = null;
+        $order = null;
+        $orderCode = null;
+        
+        // Ưu tiên tìm installation_order trước
         if ($request->type == 'donhang') {
             $data = OrderProduct::with('order')->findOrFail($request->id);
-            $provinceId = $data->order->province ?? null;
-            $districtId = $data->order->district ?? null;
-            $wardId     = $data->order->wards ?? null;
-            $agency_phone = $data->order->agency_phone;
+            $orderCode = $data->order->order_code2 ?? $data->order->order_code1 ?? null;
+            
+            // Tìm installation_order theo order_code
+            if ($orderCode) {
+                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+            }
+            
+            // Nếu không tìm thấy installation_order, lấy từ orders
+            if (!$installationOrder) {
+                $order = $data->order;
+            } else {
+                $data = $installationOrder;
+            }
+            
+            $provinceId = $installationOrder->province_id ?? $order->province ?? null;
+            $districtId = $installationOrder->district_id ?? $order->district ?? null;
+            $wardId     = $installationOrder->ward_id ?? $order->wards ?? null;
+            $agency_phone = $installationOrder->agency_phone ?? $order->agency_phone;
+            
         } else if ($request->type == 'baohanh') {
             $data = WarrantyRequest::findOrFail($request->id);
-            $provinceId = $data->province_id ?? null;
-            $districtId = $data->district_id ?? null;
-            $wardId     = $data->ward_id ?? null;
-            $agency_phone = $data->agency_phone;
+            $orderCode = $data->serial_number ?? null;
+            
+            // Tìm installation_order theo order_code
+            if ($orderCode) {
+                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+            }
+            
+            // Nếu tìm thấy installation_order, ưu tiên dùng nó
+            if ($installationOrder) {
+                $data = $installationOrder;
+            }
+            
+            $provinceId = $installationOrder->province_id ?? $data->province_id ?? null;
+            $districtId = $installationOrder->district_id ?? $data->district_id ?? null;
+            $wardId     = $installationOrder->ward_id ?? $data->ward_id ?? null;
+            $agency_phone = $installationOrder->agency_phone ?? $data->agency_phone;
+            
         } else {
+            // type = danhsach hoặc default
             $data = InstallationOrder::findOrFail($request->id);
+            $installationOrder = $data;
+            $orderCode = $data->order_code ?? null;
+            
+            // Nếu có order_code, tìm order để fallback
+            if ($orderCode) {
+                $order = Order::where('order_code2', $orderCode)
+                    ->orWhere('order_code1', $orderCode)
+                    ->first();
+            }
+            
             $provinceId = $data->province_id ?? null;
             $districtId = $data->district_id ?? null;
             $wardId     = $data->ward_id ?? null;
             $agency_phone = $data->agency_phone;
         }
+        
         $agency = Agency::where('phone', $agency_phone)->first();
         $provinces = Province::orderBy('name')->get();
         
@@ -586,7 +631,7 @@ class CollaboratorInstallController extends Controller
             ->limit(10)
             ->get();
 
-        return view('collaboratorinstall.details', compact('data', 'lstCollaborator', 'provinces', 'agency', 'fullAddress'));
+        return view('collaboratorinstall.details', compact('data', 'lstCollaborator', 'provinces', 'agency', 'fullAddress', 'installationOrder', 'order', 'orderCode'));
     }
 
     public function Update(Request $request)
@@ -606,11 +651,18 @@ class CollaboratorInstallController extends Controller
         }
 
         try {
-            $model = match ($request->type) {
-                'donhang'  => Order::findOrFail($request->id),
-                'baohanh'  => WarrantyRequest::findOrFail($request->id),
-                default    => InstallationOrder::findOrFail($request->id),
-            };
+            // Ưu tiên kiểm tra xem ID có thuộc InstallationOrder không
+            // Vì khi có installationOrder, ID được truyền là ID của installationOrder
+            $model = InstallationOrder::find($request->id);
+            
+            if (!$model) {
+                // Nếu không tìm thấy trong InstallationOrder, mới tìm theo type
+                $model = match ($request->type) {
+                    'donhang'  => Order::findOrFail($request->id),
+                    'baohanh'  => WarrantyRequest::findOrFail($request->id),
+                    default    => InstallationOrder::findOrFail($request->id),
+                };
+            }
 
             // Kiểm tra trạng thái đơn hàng
             $isPaidOrder = ($model->status_install === 3);
@@ -790,6 +842,7 @@ class CollaboratorInstallController extends Controller
 
     /**
      * Cập nhật địa chỉ khách hàng
+     * Lưu vào bảng installation_orders để không thay đổi dữ liệu gốc trong orders
      */
     public function UpdateDetailCustomerAddress(Request $request)
     {
@@ -810,19 +863,67 @@ class CollaboratorInstallController extends Controller
             $orderCode = $request->input('order_code');
             $newAddress = $request->input('address', '');
 
-            // Tìm Order theo order_code2
-            $order = Order::where('order_code2', $orderCode)->first();
+            // Tìm installation_order hiện có
+            $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
 
-            if (!$order) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Không tìm thấy đơn hàng'
-                ], 404);
+            if ($installationOrder) {
+                // Nếu đã tồn tại, chỉ cập nhật địa chỉ
+                $installationOrder->address = $newAddress;
+                $installationOrder->save();
+            } else {
+                // Nếu chưa tồn tại, tìm dữ liệu từ orders hoặc warranty_requests để tạo mới
+                // Tìm order theo order_code2 hoặc order_code1
+                $order = Order::where('order_code2', $orderCode)
+                    ->orWhere('order_code1', $orderCode)
+                    ->first();
+                $warrantyRequest = null;
+                
+                if (!$order) {
+                    $warrantyRequest = WarrantyRequest::where('serial_number', $orderCode)->first();
+                }
+
+                if (!$order && !$warrantyRequest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Không tìm thấy đơn hàng trong hệ thống'
+                    ], 404);
+                }
+
+                // Chuẩn bị dữ liệu để tạo mới installation_order
+                $data = [
+                    'order_code' => $orderCode,
+                    'address' => $newAddress,
+                ];
+
+                if ($order) {
+                    // Lấy từ orders (không sửa bảng orders, chỉ đọc dữ liệu)
+                    $data['full_name'] = $order->customer_name;
+                    $data['phone_number'] = $order->customer_phone;
+                    $data['province_id'] = $order->province;
+                    $data['district_id'] = $order->district;
+                    $data['ward_id'] = $order->wards;
+                    $data['agency_name'] = $order->agency_name ?? '';
+                    $data['agency_phone'] = $order->agency_phone ?? '';
+                    $data['zone'] = $order->zone;
+                    $data['type'] = $order->type ?? 'donhang';
+                    $data['created_at'] = $order->created_at;
+                } elseif ($warrantyRequest) {
+                    // Lấy từ warranty_requests
+                    $data['full_name'] = $warrantyRequest->full_name;
+                    $data['phone_number'] = $warrantyRequest->phone_number;
+                    $data['province_id'] = $warrantyRequest->province_id;
+                    $data['district_id'] = $warrantyRequest->district_id;
+                    $data['ward_id'] = $warrantyRequest->ward_id;
+                    $data['agency_name'] = $warrantyRequest->agency_name ?? '';
+                    $data['agency_phone'] = $warrantyRequest->agency_phone ?? '';
+                    $data['product'] = $warrantyRequest->product;
+                    $data['type'] = 'baohanh';
+                    $data['created_at'] = $warrantyRequest->Ngaytao;
+                }
+
+                // Tạo mới installation_order với địa chỉ đã cập nhật
+                $installationOrder = InstallationOrder::create($data);
             }
-
-            // Cập nhật địa chỉ vào bảng orders
-            $order->customer_address = $newAddress;
-            $order->save();
 
             return response()->json([
                 'success' => true,
