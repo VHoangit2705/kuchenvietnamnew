@@ -434,32 +434,32 @@
     // 5. Các hàm validation cho từng trường
     function validateProduct() {
         const $input = $('#product');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
-        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
+        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
             showError($input, "Chỉ được nhập chữ và số.");
-        } else if (value.length > 80) {
-            showError($input, "Tối đa 80 ký tự.");
+        } else if (value.length > 100) {
+            showError($input, "Tối đa 100 ký tự.");
         }
     }
     function validateReplacement() {
         const $input = $('#replacement');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
         // Regex cho phép chữ, số và các ký tự đặc biệt được yêu cầu
-        const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ:,.;/()_+\-=%*]*$/;
+        const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ:,.;/()_+\-=%*]*$/;
         if (value && !validRegex.test(value)) {
             showError($input, "Chứa ký tự không hợp lệ.");
-        } else if (value.length > 80) {
-            showError($input, "Tối đa 80 ký tự.");
+        } else if (value.length > 100) {
+            showError($input, "Tối đa 100 ký tự.");
         }
     }
     function validateStaff() {
         const $input = $('#staff_received');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
         // Regex cho phép chữ cái (bao gồm tiếng Việt) và khoảng trắng
-        const nameRegex = /^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/;
+        const nameRegex = /^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/;
         if (value && !nameRegex.test(value)) {
             showError($input, "Chỉ được nhập chữ.");
         } else if (value.length > 50) {
@@ -511,8 +511,11 @@
                 // Focus vào ô lỗi đầu tiên để người dùng dễ sửa
                 const firstErrorId = Object.keys(validationErrors)[0];
                 $('#' + firstErrorId).focus();
-                toastr.error('Vui lòng kiểm tra lại các thông tin đã nhập.', 'Dữ liệu không hợp lệ');
-                return false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi dữ liệu',
+                    text: 'Vui lòng kiểm tra lại các trường nhập liệu.',
+                });
             }
             // Nếu không có lỗi, form sẽ được submit bình thường
         });
