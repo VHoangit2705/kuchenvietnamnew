@@ -638,8 +638,8 @@
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
+                            window.URL.revokeObjectURL(url);
                         });
-                        window.URL.revokeObjectURL(url);
                     }
                 })
                 .catch(error => {
