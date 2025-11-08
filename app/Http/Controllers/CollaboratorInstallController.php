@@ -547,53 +547,56 @@ class CollaboratorInstallController extends Controller
         $installationOrder = null;
         $order = null;
         $orderCode = null;
+        $statusInstall = null;
         
-        // Ưu tiên tìm installation_order trước
+        // Ban đầu luôn hiển thị từ order, chỉ dùng installationOrder khi status_install != 0 và != null
         if ($request->type == 'donhang') {
             $data = OrderProduct::with('order')->findOrFail($request->id);
-            $orderCode = $data->order->order_code2 ?? $data->order->order_code1 ?? null;
+            $order = $data->order;
+            $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
             
-            // Tìm installation_order theo order_code
-            if ($orderCode) {
+            // Lấy status_install từ order
+            $statusInstall = $order->status_install ?? null;
+            
+            // Chỉ tìm và sử dụng installationOrder khi status_install != 0 và != null
+            if ($orderCode && $statusInstall !== null && $statusInstall != 0) {
                 $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                if ($installationOrder) {
+                    $data = $installationOrder;
+                }
             }
             
-            // Nếu không tìm thấy installation_order, lấy từ orders
-            if (!$installationOrder) {
-                $order = $data->order;
-            } else {
-                $data = $installationOrder;
-            }
-            
-            $provinceId = $installationOrder->province_id ?? $order->province ?? null;
-            $districtId = $installationOrder->district_id ?? $order->district ?? null;
-            $wardId     = $installationOrder->ward_id ?? $order->wards ?? null;
-            $agency_phone = $installationOrder->agency_phone ?? $order->agency_phone;
+            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $order->province ?? null) : ($order->province ?? null);
+            $districtId = $installationOrder ? ($installationOrder->district_id ?? $order->district ?? null) : ($order->district ?? null);
+            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $order->wards ?? null) : ($order->wards ?? null);
+            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $order->agency_phone) : $order->agency_phone;
             
         } else if ($request->type == 'baohanh') {
             $data = WarrantyRequest::findOrFail($request->id);
             $orderCode = $data->serial_number ?? null;
             
-            // Tìm installation_order theo order_code
-            if ($orderCode) {
+            // Lấy status_install từ warranty_request
+            $statusInstall = $data->status_install ?? null;
+            
+            // Chỉ tìm và sử dụng installationOrder khi status_install != 0 và != null
+            if ($orderCode && $statusInstall !== null && $statusInstall != 0) {
                 $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                if ($installationOrder) {
+                    $data = $installationOrder;
+                }
             }
             
-            // Nếu tìm thấy installation_order, ưu tiên dùng nó
-            if ($installationOrder) {
-                $data = $installationOrder;
-            }
-            
-            $provinceId = $installationOrder->province_id ?? $data->province_id ?? null;
-            $districtId = $installationOrder->district_id ?? $data->district_id ?? null;
-            $wardId     = $installationOrder->ward_id ?? $data->ward_id ?? null;
-            $agency_phone = $installationOrder->agency_phone ?? $data->agency_phone;
+            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $data->province_id ?? null) : ($data->province_id ?? null);
+            $districtId = $installationOrder ? ($installationOrder->district_id ?? $data->district_id ?? null) : ($data->district_id ?? null);
+            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $data->ward_id ?? null) : ($data->ward_id ?? null);
+            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $data->agency_phone) : $data->agency_phone;
             
         } else {
             // type = danhsach hoặc default
             $data = InstallationOrder::findOrFail($request->id);
             $installationOrder = $data;
             $orderCode = $data->order_code ?? null;
+            $statusInstall = $data->status_install ?? null;
             
             // Nếu có order_code, tìm order để fallback
             if ($orderCode) {
@@ -602,10 +605,16 @@ class CollaboratorInstallController extends Controller
                     ->first();
             }
             
-            $provinceId = $data->province_id ?? null;
-            $districtId = $data->district_id ?? null;
-            $wardId     = $data->ward_id ?? null;
-            $agency_phone = $data->agency_phone;
+            // Nếu status_install = 0 hoặc null, ưu tiên dùng order thay vì installationOrder
+            if (($statusInstall === null || $statusInstall == 0) && $order) {
+                $data = $order;
+                $installationOrder = null; // Không dùng installationOrder khi chưa điều phối
+            }
+            
+            $provinceId = $installationOrder ? ($installationOrder->province_id ?? null) : ($order->province ?? null);
+            $districtId = $installationOrder ? ($installationOrder->district_id ?? null) : ($order->district ?? null);
+            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? null) : ($order->wards ?? null);
+            $agency_phone = $installationOrder ? $installationOrder->agency_phone : ($order->agency_phone ?? null);
         }
         
         $agency = Agency::where('phone', $agency_phone)->first();
@@ -631,7 +640,7 @@ class CollaboratorInstallController extends Controller
             ->limit(10)
             ->get();
 
-        return view('collaboratorinstall.details', compact('data', 'lstCollaborator', 'provinces', 'agency', 'fullAddress', 'installationOrder', 'order', 'orderCode'));
+        return view('collaboratorinstall.details', compact('data', 'lstCollaborator', 'provinces', 'agency', 'fullAddress', 'installationOrder', 'order', 'orderCode', 'statusInstall'));
     }
 
     public function Update(Request $request)

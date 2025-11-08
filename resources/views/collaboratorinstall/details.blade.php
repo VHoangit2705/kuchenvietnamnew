@@ -105,8 +105,10 @@
                                         $customerAddress = $installationOrder->address ?? $data->order->customer_address ?? $data->address ?? '';
                                         @endphp
                                         <span class="text-value">{{ $customerAddress }}</span>, {{ $fullAddress }}
-                                        {{-- Icon chỉnh sửa --}}
+                                        {{-- Icon chỉnh sửa - chỉ hiển thị khi status_install != 0 và != null --}}
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
+                                        @endif
                                         {{-- Input ẩn để lưu giá trị gốc --}}
                                         <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}, {{ $fullAddress }}">
                                     </td>
@@ -266,7 +268,7 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -276,7 +278,7 @@
                                     <td data-agency="agency_bank">
                                         <span class="text-value">{{ $agency->nganhang ?? '' }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -285,7 +287,7 @@
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
                                         <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -294,7 +296,7 @@
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
                                         <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -303,7 +305,7 @@
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
                                         <span class="text-value">{{ $agency->cccd ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -312,7 +314,7 @@
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
                                         <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
