@@ -26,7 +26,6 @@ use App\Models\KyThuat\EditCtvHistory;
 use App\Enum;
 use Illuminate\Support\Facades\DB;
  
-
 class CollaboratorInstallController extends Controller
 {
     // public function __construct()
@@ -50,10 +49,9 @@ class CollaboratorInstallController extends Controller
     private function ensureAgencyCollaboratorExists()
     {
         try {
-            $agencyCtv = WarrantyCollaborator::find(Enum::AGENCY_INSTALL_FLAG_ID);
-            if (!$agencyCtv) {
-                WarrantyCollaborator::create([
-                    'id' => Enum::AGENCY_INSTALL_FLAG_ID,
+            WarrantyCollaborator::updateOrCreate(
+                ['id' => Enum::AGENCY_INSTALL_FLAG_ID], // điều kiện duy nhất
+                [
                     'full_name' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'phone' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'province' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
@@ -64,11 +62,11 @@ class CollaboratorInstallController extends Controller
                     'chinhanh' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'cccd' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
                     'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
+                    'updated_at' => now(),
+                ]
+            );
         } catch (\Exception $e) {
-            Log::error('Lỗi tạo CTV flag Đại lý lắp đặt: ' . $e->getMessage());
+            Log::error('Lỗi tạo/đồng bộ CTV flag Đại lý lắp đặt: ' . $e->getMessage());
         }
     }
     
@@ -574,6 +572,7 @@ class CollaboratorInstallController extends Controller
         $fullAddress = implode(', ', array_filter([$wardName, $districtName, $provinceName]));
         
         $lstCollaborator = WarrantyCollaborator::query()
+            ->where('id', '!=', Enum::AGENCY_INSTALL_FLAG_ID) // Loại trừ CTV flag
             ->when($provinceId, function ($q) use ($provinceId) {
                 $q->where('province_id', $provinceId);
             })
@@ -638,6 +637,29 @@ class CollaboratorInstallController extends Controller
             $oldCollaboratorId = $model->collaborator_id;
             $oldStatus = $model->status_install;
             
+            // Validate và normalize collaborator_id
+            $ctvId = $request->ctv_id;
+            
+            // Nếu ctv_id là "1" hoặc chuỗi "1", đảm bảo nó là integer 1 (CTV flag)
+            if ($ctvId == Enum::AGENCY_INSTALL_FLAG_ID || $ctvId === '1' || $ctvId === 1) {
+                $ctvId = Enum::AGENCY_INSTALL_FLAG_ID;
+            } elseif (!empty($ctvId)) {
+                // Kiểm tra xem CTV có phải là flag không (qua tên hoặc phone)
+                $collaborator = WarrantyCollaborator::find($ctvId);
+                if ($collaborator) {
+                    $flagCollaborator = WarrantyCollaborator::find(Enum::AGENCY_INSTALL_FLAG_ID);
+                    $flagName = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+                    
+                    // Nếu tên hoặc phone trùng với flag, sử dụng flag ID
+                    $isFlagName = mb_strtolower(trim($collaborator->full_name ?? '')) === mb_strtolower(trim($flagName));
+                    $isFlagPhone = $flagCollaborator && $collaborator->phone === $flagCollaborator->phone;
+                    
+                    if ($isFlagName || $isFlagPhone) {
+                        $ctvId = Enum::AGENCY_INSTALL_FLAG_ID;
+                    }
+                }
+            }
+            
             // Xử lý thay đổi trạng thái
             if (!$isPaidOrder) {
                 // Chỉ thay đổi trạng thái nếu không phải đơn hàng đã thanh toán
@@ -660,7 +682,7 @@ class CollaboratorInstallController extends Controller
                 // vẫn cho phép cập nhật các thông tin khác
             }
             
-            $model->collaborator_id = $request->ctv_id;
+            $model->collaborator_id = $ctvId;
             $model->install_cost    = $request->installcost;
             $model->successed_at    = $request->successed_at;
 
@@ -688,8 +710,8 @@ class CollaboratorInstallController extends Controller
 
             // Ghi log thay đổi CTV nếu có thay đổi
             $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code;
-            if (!empty($orderCode) && $oldCollaboratorId != $request->ctv_id) {
-                $this->logCollaboratorChange($oldCollaboratorId, $request->ctv_id, $orderCode);
+            if (!empty($orderCode) && $oldCollaboratorId != $ctvId) {
+                $this->logCollaboratorChange($oldCollaboratorId, $ctvId, $orderCode);
             }
             
             // Ghi log thay đổi trạng thái nếu có thay đổi
@@ -749,9 +771,10 @@ class CollaboratorInstallController extends Controller
     // Filter cộng tác viên
     public function Filter(Request $request)
     {
-        $lstCollaborator = WarrantyCollaborator::when($request->province, function ($q) use ($request) {
-            $q->where('province_id', $request->province);
-        })
+        $lstCollaborator = WarrantyCollaborator::where('id', '!=', Enum::AGENCY_INSTALL_FLAG_ID) // Loại trừ CTV flag
+            ->when($request->province, function ($q) use ($request) {
+                $q->where('province_id', $request->province);
+            })
             ->when($request->district, function ($q) use ($request) {
                 $q->where('district_id', $request->district);
             })
@@ -763,6 +786,56 @@ class CollaboratorInstallController extends Controller
 
         $html = view('collaboratorinstall.tablecollaborator', compact('lstCollaborator'))->render();
         return response()->json(['html' => $html]);
+    }
+
+    /**
+     * Cập nhật địa chỉ khách hàng
+     */
+    public function UpdateDetailCustomerAddress(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_code' => 'required|string',
+            'address' => 'nullable|string|max:150',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $orderCode = $request->input('order_code');
+            $newAddress = $request->input('address', '');
+
+            // Tìm Order theo order_code2
+            $order = Order::where('order_code2', $orderCode)->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng'
+                ], 404);
+            }
+
+            // Cập nhật địa chỉ vào bảng orders
+            $order->customer_address = $newAddress;
+            $order->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật địa chỉ thành công!',
+                'address' => $newAddress
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi cập nhật địa chỉ khách hàng: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi cập nhật địa chỉ: ' . $e->getMessage()
+            ], 500);
+        }
     }
     
     public function ReportCollaboratorInstall(Request $request)

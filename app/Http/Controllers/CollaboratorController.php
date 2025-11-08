@@ -118,6 +118,14 @@ class CollaboratorController extends Controller
 
     public function CreateCollaborator(Request $request)
     {
+        // Không cho phép update CTV flag "Đại lý lắp đặt" (ID = 1)
+        if ($request->id && Enum::isAgencyInstallFlag($request->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể cập nhật "Đại lý lắp đặt" - Đây là flag hệ thống'
+            ], 403);
+        }
+        
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             // 'date_of_birth' => 'required|date',
@@ -130,11 +138,34 @@ class CollaboratorController extends Controller
             'ward' => 'required|string',
             'address' => 'required|string|max:1024',
         ]);
+        
+        // Kiểm tra tên không được là "Đại lý lắp đặt"
+        $fullNameLower = mb_strtolower(trim($validated['full_name']));
+        $fullNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $fullNameLower);
+        $fullNameClean = preg_replace('/\s+/', ' ', $fullNameClean);
+        $fullNameClean = trim($fullNameClean);
+        
+        $flagName = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
+        $flagNameLower = mb_strtolower(trim($flagName));
+        $flagNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $flagNameLower);
+        $flagNameClean = preg_replace('/\s+/', ' ', $flagNameClean);
+        $flagNameClean = trim($flagNameClean);
+        
+        // Không cho phép tạo CTV với tên trùng hoặc chứa "Đại lý lắp đặt"
+        if ($fullNameClean === $flagNameClean || 
+            strpos($fullNameClean, 'đại lý lắp đặt') !== false ||
+            strpos($fullNameClean, 'đại lý tự lắp') !== false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tạo CTV với tên "Đại lý lắp đặt" - Vui lòng sử dụng checkbox "Đại lý lắp đặt" trong form điều phối'
+            ], 403);
+        }
+        
         $validated['create_by'] = session('user');
         if ($request->id) {
             WarrantyCollaborator::where('id', $request->id)->update($validated);
-                return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);
-            }
+            return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);
+        }
         WarrantyCollaborator::create($validated);
         return response()->json(['success' => true, 'message' => 'Thêm mới thành công']);
     }
@@ -160,9 +191,18 @@ class CollaboratorController extends Controller
     public function UpdateCollaborator(Request $request)
     {
         try {
+            // Không cho phép update CTV flag "Đại lý lắp đặt" (ID = 1)
+            if (Enum::isAgencyInstallFlag($request->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không thể cập nhật "Đại lý lắp đặt" - Đây là flag hệ thống'
+                ], 403);
+            }
+            
             $validator = Validator::make($request->all(), [
                 'id' => 'required|integer',
                 'sotaikhoan' => 'nullable|string|max:255',
+                'nganhang' => 'nullable|string|max:255',
                 'chinhanh' => 'nullable|string|max:255',
                 'cccd' => 'nullable|string|max:20',
                 'ngaycap' => 'nullable|date'
@@ -187,6 +227,7 @@ class CollaboratorController extends Controller
             // Chuẩn bị dữ liệu mới để so sánh
             $newData = [
                 'sotaikhoan' => $request->sotaikhoan,
+                'bank_name' => $request->nganhang,
                 'chinhanh' => $request->chinhanh,
                 'cccd' => $request->cccd,
                 'ngaycap' => $request->ngaycap
@@ -194,6 +235,7 @@ class CollaboratorController extends Controller
 
             // Cập nhật CTV trong database
             $collab->sotaikhoan = $request->sotaikhoan;
+            $collab->bank_name = $request->nganhang;
             $collab->chinhanh = $request->chinhanh;
             $collab->cccd = $request->cccd;
             $collab->ngaycap = $request->ngaycap;
