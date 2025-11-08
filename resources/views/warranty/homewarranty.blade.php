@@ -44,12 +44,6 @@
                     <input type="text" id="sdt" name="sdt" class="form-control" placeholder="Nhập số điện thoại"
                         value="{{ request('sdt') }}">
                 </div>
-                <div class="col-md-4 mb-1 position-relative">
-                    <input type="text" id="product_name" name="product_name" class="form-control"
-                        placeholder="Nhập tên sản phẩm" value="">
-                    <div id="product-suggestions" class="list-group position-absolute w-100 d-none"
-                        style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
-                </div>
                 <div class="col-md-4 mb-1">
                     <input type="text" id="khachhang" name="khachhang" class="form-control"
                         placeholder="Nhập tên khách hàng" value="{{ request('khachhang') }}">
@@ -59,16 +53,13 @@
                         placeholder="Nhập tên kỹ thuật viên" value="{{ request('kythuatvien') }}">
                 </div>
                 <div class="col-md-4 mb-1">
-                    <div class="d-flex align-items-center flex-grow-1">
-                        <input type="date" id="fromDate" name="fromDate" class="form-control"
-                            value="{{ $fromDate->toDateString() }}">
-                        <label for="toDate" class="mb-0 me-2 ms-1">đến</label>
-                        <input type="date" id="toDate" name="toDate" class="form-control"
-                            value="{{ $toDate->toDateString() }}">
-                    </div>
+                    <input type="text" id="product" name="product" class="form-control" placeholder="Nhập tên sản phẩm"
+                        value="{{ request('product') }}">
                 </div>
-                <div class="col-md-4 mb-1">
-                    <button id="btnSearch" class="btn btn-primary w-100">Tìm kiếm</button>
+            </div>
+            <div class="row">
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-primary w-100">Tìm kiếm</button>
                 </div>
             </div>
         </form>
@@ -206,94 +197,33 @@
                     if (typeof response === 'object' && response.tab && response.table) {
                         $('#warrantyTabs').html(response.tab);
                         $('#tabContent').html(response.table);
-
+    
                         // Highlight tab active
                         $('#warrantyTabs .nav-link').removeClass('active');
                         $('#warrantyTabs .nav-link[data-tab="' + tab + '"]').addClass('active');
-
+    
                         localStorage.setItem('activeTab', tab);
                     }
                 });
             }
 
             // Xử lý click tab
-            $('#warrantyTabs').on('click', '.nav-link', function(e) {
+            $('#warrantyTabs').on('click', '.nav-link', function (e) {
                 e.preventDefault();
                 let tab = $(this).data('tab');
                 let formData = $('#searchForm').serialize();
                 loadTabData(tab, formData);
             });
-            
-        // Xử lý form search
-        $('#searchForm').on('submit', function(e) {
-            e.preventDefault(); // Dừng form lại
 
-            // Chạy tất cả các hàm validation một lần cuối
-            runAllValidations();
-
-            // Kiểm tra cờ lỗi tổng thể
-            if (Object.keys(validationErrors).length > 0) {
-                $('.is-invalid').first().focus(); // Focus vào ô lỗi đầu tiên
-                return false; // Dừng lại nếu ngày tháng bị lỗi
-            }
-
-            // Nếu không có lỗi, tiếp tục chạy
-            let tab = localStorage.getItem('activeTab') || 'danhsach';
-            let formData = $(this).serialize();
-            loadTabData(tab, formData);
-
-            // Xóa nội dung của ô nhập tên sản phẩm sau khi tìm kiếm
-            $('#product_name').val('');
-
-            //Ẩn gợi ý
-            $('#product-suggestions').addClass('d-none');
+            // Xử lý form search
+            $('#searchForm').on('submit', function (e) {
+                e.preventDefault();
+                let tab = localStorage.getItem('activeTab') || 'danhsach';
+                let formData = $(this).serialize();
+                loadTabData(tab, formData);
+            });
         });
-
-            // Gắn sự kiện validation cho các trường
-            $('#sophieu').on('input', validateSophieu);
-            $('#seri').on('input', validateSeri);
-            $('#product_name').on('input', validateProductName);
-            $('#sdt').on('input', validateSdt);
-            $('#khachhang').on('input', validateKhachhang);
-            $('#kythuatvien').on('input', validateKythuatvien);
-            $('#fromDate, #toDate').on('change', validateDates);
-
-            // Hàm chạy tất cả validation
-            function runAllValidations() {
-                validateSophieu();
-                validateSeri();
-                validateProductName();
-                validateSdt();
-                validateKhachhang();
-                validateKythuatvien();
-                validateDates();
-            }
-
-            // Hàm xử lý ngày sau phải lớn hơn ngày trước
-            function validateDates() {
-                const $fromDate = $('#fromDate');
-                const $toDate = $('#toDate');
-                const fromDate = $fromDate.val();
-                const toDate = $toDate.val();
-                const today = new Date().toISOString().split('T')[0];
-
-                hideError($fromDate);
-                hideError($toDate);
-
-                if (fromDate && toDate) {
-                    if (fromDate > toDate) {
-                        showError($toDate, "'Đến ngày' phải lớn hơn hoặc bằng 'Từ ngày'.");
-                        return false;
-                    }
-                    if (toDate > today) {
-                        showError($toDate, "'Đến ngày' không được lớn hơn ngày hiện tại.");
-                        return false;
-                    }
-                }
-                return true;
-            }
-        });
-
+        
         $(document).ready(function() {
             let urlParams = new URLSearchParams(window.location.search);
             let tabFromUrl = urlParams.get('tab') || 'danhsach';
@@ -311,57 +241,6 @@
             // Load đúng tab
             loadTabData(tabFromUrl, formData);
             localStorage.setItem('activeTab', tabFromUrl);
-        });
-    </script>
-    <script>
-        $(document).ready(function() {
-
-            // 1. Lấy danh sách sản phẩm từ Controller
-            const productList = {!! json_encode($products ?? []) !!};
-
-            // 2. Lắng nghe sự kiện gõ phím
-            $('#product_name').on('input', function() {
-                const keyword = $(this).val().toLowerCase().trim();
-                const $suggestionsBox = $('#product-suggestions');
-                $suggestionsBox.empty(); // Xóa gợi ý cũ
-
-                if (!keyword) {
-                    $suggestionsBox.addClass('d-none'); // Ẩn nếu không có chữ
-                    return;
-                }
-
-                // 3. Lọc sản phẩm
-                const matchedProducts = productList.filter(p =>
-                    p.product_name.toLowerCase().includes(keyword)
-                );
-
-                // 4. Hiển thị gợi ý
-                if (matchedProducts.length > 0) {
-                    matchedProducts.slice(0, 10).forEach(p => {
-                        // Thêm class 'list-group-item list-group-item-action' để giống style bootstrap
-                        $suggestionsBox.append(
-                            `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`
-                        );
-                    });
-                    $suggestionsBox.removeClass('d-none'); // Hiển thị box
-                } else {
-                    $suggestionsBox.addClass('d-none'); // Ẩn nếu không khớp
-                }
-            });
-
-            // 5. Xử lý khi click vào một gợi ý
-            $(document).on('mousedown', '#product-suggestions button', function(e) {
-                e.preventDefault(); // Ngăn input bị mất focus
-                $('#product_name').val($(this).text()); // Điền tên SP vào ô input
-                $('#product-suggestions').addClass('d-none'); // Ẩn box
-            });
-
-            // 6. Ẩn gợi ý khi click ra ngoài
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest('#product_name, #product-suggestions').length) {
-                    $('#product-suggestions').addClass('d-none');
-                }
-            });
         });
     </script>
 @endsection
