@@ -295,6 +295,7 @@ class CollaboratorController extends Controller
                 'agency_name' => 'nullable',
                 'agency_address' => 'nullable',
                 'agency_phone' => 'nullable',
+                'agency_bank' => 'nullable',
                 'agency_paynumber' => 'nullable',
                 'agency_branch' => 'nullable',
                 'agency_cccd' => 'nullable',
@@ -323,6 +324,7 @@ class CollaboratorController extends Controller
                 [
                     'name'       => $request->agency_name,
                     'address'    => $request->agency_address,
+                    'bank_name_agency' => $request->agency_bank,
                     'sotaikhoan' => $request->agency_paynumber,
                     'chinhanh'   => $request->agency_branch,
                     'cccd'       => $request->agency_cccd,

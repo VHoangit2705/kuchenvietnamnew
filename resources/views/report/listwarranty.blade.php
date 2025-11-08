@@ -6,14 +6,17 @@
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
                 <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm">
+                    placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
                 <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="replacement" name="replacement" class="form-control"
-                    value="{{ request('replacement') }}" placeholder="Nhập linh kiện sản phẩm">
-                <div id="suggestions-product-part" class="autocomplete-suggestions"></div>
+                <div style="position: relative;">
+                    <input type="text" id="replacement" name="replacement" class="form-control"
+                        placeholder="Nhập linh kiện thay thế" autocomplete="off">
+                    <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"
+                    style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -79,7 +82,7 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
-                <button type="submit" class="btnsearch btn btn-primary fw-bold me-2">
+                <button type="submit" id="btnSearch" class="btnsearch btn btn-primary fw-bold me-2">
                     <img src="{{ asset('icons/filter.png') }}" alt="Filter Icon" style="width: 16px; height: 16px;">
                     Lọc
                 </button>
@@ -204,8 +207,8 @@
         // limitButtonClicks('btnsearch', 6);
         validateDates();
         setupAutoComplete('#product', '#suggestions-product-name', "{{ route('baocao.sanpham') }}");
-        setupAutoComplete('#replacement', '#suggestions-product-part', "{{ route('baocao.linhkien') }}");
         setupAutoComplete('#staff_received', '#suggestions-product-staff', "{{ route('baocao.nhanvien') }}");
+        runAllValidations();
     });
     // Ẩn dữ liệu khi quá dài và hover hiện tooltip
     document.addEventListener("DOMContentLoaded", function() {
@@ -243,6 +246,25 @@
     // Button Xuất Excel
     $('#exportExcel').on('click', function(e) {
         e.preventDefault();
+        //Ngăn xuất liên tục trong 2 phút
+        const COOLDOWN_PERIOD_MS = 2 * 60 * 1000; // 2 phút
+        const LAST_EXPORT_KEY = 'lastExportTimestamp_reportWarranty';
+        const lastExportTime = localStorage.getItem(LAST_EXPORT_KEY);
+        const currentTime = Date.now();
+        if (lastExportTime) {
+            const timeDiff = currentTime - parseInt(lastExportTime, 10);
+            if (timeDiff < COOLDOWN_PERIOD_MS) {
+                const timeLeftSeconds = Math.ceil((COOLDOWN_PERIOD_MS - timeDiff) / 1000);
+                const minutes = Math.floor(timeLeftSeconds / 60);
+                const seconds = timeLeftSeconds % 60;
+                swal.fire({
+                    icon: 'warning',
+                    title: 'Vui lòng chờ',
+                    text: `Bạn vừa xuất file. Vui lòng chờ ${minutes} phút ${seconds} giây trước khi xuất tiếp.`,
+                });
+                return; // Dừng thực thi
+            }
+        }
         Swal.fire({
             title: 'Đang xuất file...',
             text: 'Vui lòng chờ trong giây lát',
@@ -257,8 +279,7 @@
             .then(response => {
                 Swal.close();
                 const contentType = response.headers.get("Content-Type");
-                if (contentType.includes("application/json")) {
-                    hasError = true;
+                if (contentType && contentType.includes("application/json")) {
                     return response.json().then(json => {
                         Swal.fire({
                             icon: 'error',
@@ -267,6 +288,8 @@
                     });
                 } else {
                     return response.blob().then(blob => {
+                        // Chỉ lưu timestamp khi tải file thành công
+                        localStorage.setItem(LAST_EXPORT_KEY, currentTime.toString());
                         const url = window.URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = url;
@@ -288,35 +311,41 @@
             })
     });
 
-    // validate dữ liệu tìm kiếm
-    function validateDates() {
-        const fromDate = $('#fromDate').val();
-        const toDate = $('#toDate').val();
-        const today = new Date().toISOString().split('T')[0]; // format: yyyy-mm-dd
+    // Gợi ý linh kiện thay thế
+    $(document).ready(function() {
+            const replacementList = {!! json_encode($linhkien) !!};
+            $('#replacement').on('input', function() {
+                const keyword = $(this).val().toLowerCase().trim();
+                const $suggestionsBox = $('#replacement-suggestions');
+                $suggestionsBox.empty();
 
-        $('#fromDate, #toDate').removeClass('is-invalid');
-        // Kiểm tra nếu nhập 1 trong 2 thì phải nhập cả 2
-        if ((fromDate && !toDate) || (!fromDate && toDate)) {
-            toastr.warning("Vui lòng nhập cả 'Tiếp nhận từ ngày' và 'Đến ngày'.");
-            if (!fromDate) $('#fromDate').addClass('is-invalid');
-            if (!toDate) $('#toDate').addClass('is-invalid');
-            return false;
-        }
-        // Nếu có đủ cả 2 thì kiểm tra logic ngày
-        if (fromDate && toDate) {
-            if (fromDate > toDate) {
-                toastr.warning("'Tiếp nhận từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'.");
-                $('#fromDate').addClass('is-invalid');
-                return false;
-            }
-            if (toDate > today) {
-                toastr.warning("'Đến ngày' không được lớn hơn ngày hiện tại.");
-                $('#toDate').addClass('is-invalid');
-                return false;
-            }
-        }
-        return true;
-    }
+                if (!keyword) {
+                    $suggestionsBox.addClass('d-none');
+                    return;
+                }
+                const matchedReplacement = replacementList.filter(p =>
+                    p.product_name.toLowerCase().includes(keyword)
+                );
+
+                if (matchedReplacement.length > 0) {
+                    matchedReplacement.slice(0, 10).forEach(p => {
+                        $suggestionsBox.append(
+                            `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`
+                        );
+                    });
+                    $suggestionsBox.removeClass('d-none');
+                } else {
+                    $suggestionsBox.addClass('d-none');
+                }
+            });
+
+            $(document).on('mousedown', '#replacement-suggestions button', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $('#replacement').val($(this).text());
+                $('#replacement-suggestions').addClass('d-none').empty();
+            });
+        });
 
     //Gợi ý từ
     function setupAutoComplete(inputSelector, suggestionBoxSelector, requestUrl) {
@@ -326,7 +355,7 @@
                 $(suggestionBoxSelector).hide();
                 return;
             }
-            if (query.length >= 5) {
+            if (query.length >= 1) {
                 $.ajax({
                     url: requestUrl,
                     type: 'GET',
@@ -339,7 +368,7 @@
                             $(suggestionBoxSelector).show();
                             data.forEach(function(item) {
                                 $(suggestionBoxSelector).append(
-                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer;">' + item + '</div>'
+                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">' + item + '</div>'
                                 );
                             });
                             // Gán lại sự kiện click cho từng item
@@ -356,17 +385,137 @@
         });
     }
 
-    // Ẩn gợi ý nếu click ngoài input và danh sách gợi ý
-    $(document).on('click', function(event) {
-        if (!$(event.target).closest('#product').length && !$(event.target).closest('#suggestions-product-name').length) {
-            $('#suggestions-product-name').hide();
+    $(document).on('click', function(e) {
+    // Logic cho ô linh kiện (client-side)
+    if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
+        $('#replacement-suggestions').addClass('d-none').empty();
+    }
+
+    // Logic cho ô sản phẩm (server-side)
+    if (!$(e.target).closest('#product').length && !$(e.target).closest('#suggestions-product-name').length) {
+        $('#suggestions-product-name').hide();
+    }
+
+    // Logic cho ô kỹ thuật viên (server-side)
+    if (!$(e.target).closest('#staff_received').length && !$(e.target).closest('#suggestions-product-staff').length) {
+        $('#suggestions-product-staff').hide();
+    }
+});
+
+    // Validation form
+    // 1. Cờ theo dõi trạng thái lỗi của form
+    let validationErrors = {};
+    // 2. Hàm hiển thị lỗi
+    function showError($field, message) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+        hideError($field); // Xóa lỗi cũ trước khi hiển thị lỗi mới
+        // Thêm class is-invalid của Bootstrap và hiển thị thông báo
+        $field.addClass('is-invalid');
+        $field.closest('.col-12').append(`<div class="invalid-feedback d-block" data-error-for="${fieldId}">${message}</div>`);
+        validationErrors[fieldId] = true; // Gắn cờ lỗi
+        updateButtonState();
+    }
+    // 3. Hàm ẩn lỗi
+    function hideError($field) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+        $field.removeClass('is-invalid');
+        $field.closest('.col-12').find(`.invalid-feedback[data-error-for="${fieldId}"]`).remove();
+        delete validationErrors[fieldId]; // Bỏ cờ lỗi
+        updateButtonState();
+    }
+    // 4. Hàm cập nhật trạng thái nút "Lọc" VÀ "Xuất Excel"
+    function updateButtonState() {
+        let hasErrors = Object.keys(validationErrors).length > 0;
+        $('#btnSearch').prop('disabled', hasErrors);
+        $('#exportExcel').toggleClass('disabled', hasErrors);
+    }
+    // 5. Các hàm validation cho từng trường
+    function validateProduct() {
+        const $input = $('#product');
+        const value = $input.val();
+        hideError($input);
+        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
+            showError($input, "Chỉ được nhập chữ và số.");
+        } else if (value.length > 80) {
+            showError($input, "Tối đa 80 ký tự.");
         }
-        if (!$(event.target).closest('#replacement').length && !$(event.target).closest('#suggestions-product-part').length) {
-            $('#suggestions-product-part').hide();
+    }
+    function validateReplacement() {
+        const $input = $('#replacement');
+        const value = $input.val();
+        hideError($input);
+        // Regex cho phép chữ, số và các ký tự đặc biệt được yêu cầu
+        const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ:,.;/()_+\-=%*]*$/;
+        if (value && !validRegex.test(value)) {
+            showError($input, "Chứa ký tự không hợp lệ.");
+        } else if (value.length > 80) {
+            showError($input, "Tối đa 80 ký tự.");
         }
-        if (!$(event.target).closest('#staff_received').length && !$(event.target).closest('#suggestions-product-staff').length) {
-            $('#suggestions-product-staff').hide();
+    }
+    function validateStaff() {
+        const $input = $('#staff_received');
+        const value = $input.val();
+        hideError($input);
+        // Regex cho phép chữ cái (bao gồm tiếng Việt) và khoảng trắng
+        const nameRegex = /^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/;
+        if (value && !nameRegex.test(value)) {
+            showError($input, "Chỉ được nhập chữ.");
+        } else if (value.length > 50) {
+            showError($input, "Tối đa 50 ký tự.");
         }
+    }
+    function validateDates() {
+        const $fromDate = $('#fromDate');
+        const $toDate = $('#toDate');
+        const fromDate = $fromDate.val();
+        const toDate = $toDate.val();
+        const today = new Date().toISOString().split('T')[0];
+        // Xóa lỗi cũ của cả 2 trường date trước khi kiểm tra lại
+        hideError($fromDate);
+        hideError($toDate);
+        if (fromDate && toDate) {
+            if (fromDate > toDate) {
+                showError($toDate, "'Đến ngày' phải lớn hơn hoặc bằng 'Từ ngày'.");
+                return false; // Có lỗi
+            }
+            if (toDate > today) {
+                showError($toDate, "'Đến ngày' không được lớn hơn ngày hiện tại.");
+                return false; // Có lỗi
+            }
+        }
+        return true; // Không có lỗi
+    }
+    // 6. Hàm chạy tất cả các validation
+    function runAllValidations() {
+        validateProduct();
+        validateReplacement();
+        validateStaff();
+        validateDates();
+    }
+    // 7. Gắn sự kiện
+    $(document).ready(function() {
+        // Gắn sự kiện validation cho các trường input
+        $('#product').on('input', validateProduct);
+        $('#replacement').on('input', validateReplacement);
+        $('#staff_received').on('input', validateStaff);
+        $('#fromDate, #toDate').on('change', validateDates);
+        // Xử lý khi submit form
+        $('form').on('submit', function(e) {
+            // Chạy tất cả các hàm validation một lần cuối
+            runAllValidations();
+            // Kiểm tra lại cờ lỗi tổng thể
+            if (Object.keys(validationErrors).length > 0) {
+                e.preventDefault(); // Ngăn form submit
+                // Focus vào ô lỗi đầu tiên để người dùng dễ sửa
+                const firstErrorId = Object.keys(validationErrors)[0];
+                $('#' + firstErrorId).focus();
+                toastr.error('Vui lòng kiểm tra lại các thông tin đã nhập.', 'Dữ liệu không hợp lệ');
+                return false;
+            }
+            // Nếu không có lỗi, form sẽ được submit bình thường
+        });
     });
 </script>
 @endsection

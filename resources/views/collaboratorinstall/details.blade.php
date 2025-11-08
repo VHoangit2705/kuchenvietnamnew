@@ -230,7 +230,7 @@
                                 <tr>
                                     <th>Ngân hàng:</th>
                                     <td data-agency="agency_bank">
-                                        <span class="text-value">{{ $agency->nganhang ?? '' }}</span>
+                                        <span class="text-value">{{ $agency->bank_name_agency ?? $agency->nganhang ?? '' }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
                                         @if (!empty($data->order->agency_phone ?? $data->agency_phone))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
