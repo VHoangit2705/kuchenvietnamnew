@@ -5,9 +5,7 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
-                <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
+                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
@@ -53,9 +51,7 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="staff_received" name="staff_received" class="form-control"
-                    value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
-                <div id="suggestions-product-staff" class="autocomplete-suggestions"></div>
+                <input type="text" id="staff_received" name="staff_received" class="form-control" value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -206,8 +202,6 @@
         resizeTableContainer();
         // limitButtonClicks('btnsearch', 6);
         validateDates();
-        setupAutoComplete('#product', '#suggestions-product-name', "{{ route('baocao.sanpham') }}");
-        setupAutoComplete('#staff_received', '#suggestions-product-staff', "{{ route('baocao.nhanvien') }}");
         runAllValidations();
     });
     // Ẩn dữ liệu khi quá dài và hover hiện tooltip
@@ -347,58 +341,11 @@
             });
         });
 
-    //Gợi ý từ
-    function setupAutoComplete(inputSelector, suggestionBoxSelector, requestUrl) {
-        $(inputSelector).on('keyup', function() {
-            let query = $(this).val();
-            if (query.length === 0) {
-                $(suggestionBoxSelector).hide();
-                return;
-            }
-            if (query.length >= 1) {
-                $.ajax({
-                    url: requestUrl,
-                    type: 'GET',
-                    data: {
-                        query: query
-                    },
-                    success: function(data) {
-                        $(suggestionBoxSelector).empty();
-                        if (data.length > 0) {
-                            $(suggestionBoxSelector).show();
-                            data.forEach(function(item) {
-                                $(suggestionBoxSelector).append(
-                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">' + item + '</div>'
-                                );
-                            });
-                            // Gán lại sự kiện click cho từng item
-                            $(suggestionBoxSelector + ' .suggestion-item').on('click', function() {
-                                $(inputSelector).val($(this).text());
-                                $(suggestionBoxSelector).hide();
-                            });
-                        } else {
-                            $(suggestionBoxSelector).hide();
-                        }
-                    }
-                });
-            }
-        });
-    }
 
     $(document).on('click', function(e) {
     // Logic cho ô linh kiện (client-side)
     if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
         $('#replacement-suggestions').addClass('d-none').empty();
-    }
-
-    // Logic cho ô sản phẩm (server-side)
-    if (!$(e.target).closest('#product').length && !$(e.target).closest('#suggestions-product-name').length) {
-        $('#suggestions-product-name').hide();
-    }
-
-    // Logic cho ô kỹ thuật viên (server-side)
-    if (!$(e.target).closest('#staff_received').length && !$(e.target).closest('#suggestions-product-staff').length) {
-        $('#suggestions-product-staff').hide();
     }
 });
 
