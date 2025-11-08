@@ -36,6 +36,13 @@ class PermissionController extends Controller
             ]);
 
             if ($validator->fails()) {
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Dữ liệu không hợp lệ',
+                        'errors' => $validator->errors()
+                    ], 422);
+                }
                 return redirect()->back()
                     ->withErrors($validator)
                     ->withInput();
@@ -65,10 +72,26 @@ class PermissionController extends Controller
 
             DB::commit();
 
+            // Trả về JSON nếu là AJAX request
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Cập nhật quyền thành công!'
+                ]);
+            }
+
             return redirect()->back()->with('success', 'Cập nhật quyền thành công!');
             
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Trả về JSON nếu là AJAX request
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Có lỗi xảy ra khi cập nhật quyền: ' . $e->getMessage()
+                ], 500);
+            }
             
             return redirect()->back()
                 ->with('error', 'Có lỗi xảy ra khi cập nhật quyền: ' . $e->getMessage())

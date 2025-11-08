@@ -176,61 +176,13 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Permission Management JS -->
+    <script src="{{ asset('js/permissions/permission-common.js') }}"></script>
+    <script src="{{ asset('js/permissions/permission-index.js') }}"></script>
     <script>
-        function togglePermissions(iconSpan) {
-            const content = iconSpan.closest('.group-header').nextElementSibling;
-            const icon = iconSpan.querySelector('i');
-            content.classList.toggle('open');
-            icon.classList.toggle('fa-plus');
-            icon.classList.toggle('fa-minus');
-        }
-
-        function Validate() {
-            $full_name = $('#full_name').val().trim();
-            $password = $('#password').val().trim();
-            $repassword = $('#repassword').val().trim();
-            $zone = $('#zone').val().trim();
-            $('.error').removeClass('is-invalid');
-            let isvalid = true;
-            if (!$full_name) {
-                $('#full_name').addClass('is-invalid');
-                $('#full_name').focus();
-                isvalid = false;
-            }
-            if (!$password) {
-                $('#password').addClass('is-invalid');
-                $('#password').focus();
-                isvalid = false;
-            }
-            if (!$repassword) {
-                $('#repassword').addClass('is-invalid');
-                $('#repassword').focus();
-                isvalid = false;
-            }
-            if (!$zone) {
-                $('#zone').addClass('is-invalid');
-                $('#zone').focus();
-                isvalid = false;
-            }
-            if ($password !== $repassword) {
-                $('#password').addClass('is-invalid');
-                $('#repassword').addClass('is-invalid');
-                $('#password').focus();
-            }
-            return isvalid;
-        }
-
-
-        $(document).ready(function() {
-            // kèm css csrf token vào header của tất cả các request ajax
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-                    'Accept': 'application/json'
-                }
-            });
-
-            @if(session('success'))
+        // Show session messages
+        @if(session('success'))
+            if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
                     title: 'Thành công!',
@@ -238,18 +190,22 @@
                     timer: 2000,
                     showConfirmButton: false
                 });
-            @endif
+            }
+        @endif
 
-            @if(session('error'))
+        @if(session('error'))
+            if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'error',
                     title: 'Lỗi!',
                     text: '{{ session('error') }}',
                     confirmButtonText: 'OK'
                 });
-            @endif
+            }
+        @endif
 
-            @if($errors->any())
+        @if(isset($errors) && $errors->any())
+            if (typeof Swal !== 'undefined') {
                 let errorMessage = '';
                 @foreach($errors->all() as $error)
                     errorMessage += '{{ $error }}\n';
@@ -260,173 +216,15 @@
                     text: errorMessage,
                     confirmButtonText: 'OK'
                 });
-            @endif
+            }
+        @endif
 
-            $('#toggleFormUser').on('click', function(e) {
-                e.preventDefault();
-                $('#formCreateUser').toggleClass('d-none');
-            });
-
-            // Xử lý khi dropdown user thay đổi
-            $('select[name="user_id"]').on('change', function() {
-                const userId = $(this).val();
-                if (userId) {
-                    // Submit form để load thông tin user
-                    $(this).closest('form').submit();
-                } else {
-                    // Reset form phân quyền khi không chọn user
-                    $('.role-checkbox').prop('checked', false);
-                    $('#current-position').text('Chưa có');
-                }
-            });
-
-            $('#btnCreateUser').on('click', function(e) {
-                e.preventDefault();
-                if (!Validate()) {
-                    return;
-                }
-                const full_name = $('#full_name').val().trim();
-                const password = $('#password').val().trim();
-                const repassword = $('#repassword').val().trim();
-                const zone = $('#zone').val().trim();
-                debugger;
-                $.ajax({
-                    url: '{{ route("roles.createuser") }}',
-                    method: 'POST',
-                    data: {
-                        full_name: full_name,
-                        password: password,
-                        zone: zone,
-                        _token: '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Thành công!',
-                                text: 'Tài khoản đã được tạo thành công',
-                                timer: 1500,
-                                showConfirmButton: false
-                            }).then(() => {
-                                window.location.href = '{{ route('permissions.index') }}';
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi!',
-                                text: response.message || 'Có lỗi xảy ra khi tạo tài khoản',
-                                confirmButtonText: 'OK'
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                            console.log(xhr.responseText);
-                            if (xhr.status === 419) {
-                                Swal.fire({
-                                    icon: 'warning',
-                                    title: 'Phiên làm việc đã hết hạn',
-                                    text: 'Vui lòng đăng nhập lại để tiếp tục.',
-                                    confirmButtonText: 'Đăng nhập'
-                                }).then(() => {
-                                    var loginUrl = '{{ route("login.form") }}';
-                                    if (!loginUrl) loginUrl = '/login';
-                                    window.location.href = loginUrl;
-                                });
-                                return;
-                            }
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi!',
-                                text: 'Đã xảy ra lỗi khi tạo tài khoản',
-                                confirmButtonText: 'OK'
-                            });
-                    }
-                });
-            });
-
-            // Keep session alive every 5 minutes
-            setInterval(function() {
-                $.get('/keep-alive');
-            }, 5 * 60 * 1000);
-
-            // Handle permissions update via AJAX to catch 419
-            $('#permissionsForm').on('submit', function(e) {
-                e.preventDefault();
-                const $form = $(this);
-                $.ajax({
-                    url: $form.attr('action'),
-                    method: 'POST',
-                    data: $form.serialize(),
-                    success: function() {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Thành công!',
-                            text: 'Cập nhật quyền thành công!',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 419) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Phiên làm việc đã hết hạn',
-                                text: 'Vui lòng đăng nhập lại để tiếp tục.',
-                                confirmButtonText: 'Đăng nhập'
-                            }).then(() => {
-                                var loginUrl = '{{ route("login.form") }}';
-                                if (!loginUrl) loginUrl = '/login';
-                                window.location.href = loginUrl;
-                            });
-                            return;
-                        }
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Lỗi!',
-                            text: 'Đã xảy ra lỗi khi cập nhật quyền',
-                            confirmButtonText: 'OK'
-                        });
-                    }
-                });
-            });
-
-            $('.role-checkbox').on('change', function() {
-                const checkedRoles = $('.role-checkbox:checked');
-                let newPosition = '';
-                
-                if (checkedRoles.length > 0) {
-                    newPosition = checkedRoles.first().data('description');
-                }
-                
-                $('#current-position').text(newPosition || 'Chưa có');
-            });
-
-            // Chọn tất cả quyền
-            $('.card .btn-outline-success').on('click', function(e) {
-                e.preventDefault();
-                $('.role-checkbox').prop('checked', true);
-                const firstDesc = $('.role-checkbox:checked').first().data('description');
-                $('#current-position').text(firstDesc || 'Chưa có');
-            });
-
-            // Bỏ chọn tất cả quyền
-            $('.card .btn-outline-danger').on('click', function(e) {
-                e.preventDefault();
-                $('.role-checkbox').prop('checked', false);
-            });
-
-            // Hiển thị thông báo thành công khi cập nhật quyền
-            @if(session('success'))
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Thành công!',
-                    text: '{{ session('success') }}',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            @endif
-        });
-
+        // Initialize permission index page
+        initPermissionIndex(
+            '{{ route("roles.createuser") }}',
+            '{{ route("permissions.index") }}',
+            '{{ route("login.form") ?: "/login" }}'
+        );
     </script>
 </body>
 

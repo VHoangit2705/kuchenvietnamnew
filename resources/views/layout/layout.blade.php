@@ -277,7 +277,8 @@
             }
         }, 5 * 60 * 1000);
     </script>
-    <script src="{{ asset('public/js/validateform.js') }}"></script>
+    {{-- trỏ đến thư mục public/js/validateform.js --}}
+    <script src="{{ asset('js/validateform.js') }}"></script>
 </body>
 
 </html>
