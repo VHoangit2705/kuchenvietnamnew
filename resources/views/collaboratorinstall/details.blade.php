@@ -25,11 +25,12 @@
                                     <th>Mã đơn hàng</th>
                                     <td colspan="3">
                                         @php
-                                        $code = $data->order->order_code2 ?? $data->serial_number ?? $data->order_code;
-                                        $zone = $data->order->zone ?? $data->zone ?? '';
-                                        $created_at = $data->order->created_at ?? $data->received_date ?? $data->created_at;
-                                        $statusInstall = $data->order->status_install ?? $data->status_install;
-                                        $type = $data->VAT ? 'donhang' : ($data->warranty_end ? 'baohanh' : 'danhsach');
+                                        // Ưu tiên lấy từ installation_order, nếu không có mới lấy từ order/warranty_request
+                                        $code = $installationOrder->order_code ?? $orderCode ?? $order->order_code2 ?? $order->order_code1 ?? $data->serial_number ?? $data->order_code ?? '';
+                                        $zone = $installationOrder->zone ?? $order->zone ?? $data->zone ?? '';
+                                        $created_at = $installationOrder->created_at ?? $order->created_at ?? $data->received_date ?? $data->created_at ?? null;
+                                        $statusInstall = $installationOrder->status_install ?? $order->status_install ?? $data->status_install ?? 0;
+                                        $type = isset($data->VAT) ? 'donhang' : (isset($data->warranty_end) ? 'baohanh' : 'danhsach');
                                         @endphp
                                         <script>const CREATION_DATE = '{{ $created_at }}';</script>
                                         <div class="d-flex justify-content-between">
@@ -67,27 +68,49 @@
                                 <tr>
                                     <th>Tên sản phẩm:</th>
                                     <td colspan="3">
-                                        <input type="text" id="product_name" hidden value="{{ $data->product_name ?? $data->product }}">
-                                        {{ $data->product_name ?? $data->product }}
+                                        @php
+                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ data gốc
+                                        $productName = $installationOrder->product ?? $data->product_name ?? $data->product ?? '';
+                                        @endphp
+                                        <input type="text" id="product_name" hidden value="{{ $productName }}">
+                                        {{ $productName }}
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Khách hàng:</th>
-                                    <td colspan="3">{{ $data->order->customer_name ?? $data->full_name }}</td>
+                                    <td colspan="3">
+                                        @php
+                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ order/warranty_request
+                                        $customerName = $installationOrder->full_name ?? $order->customer_name ?? $data->order->customer_name ?? $data->full_name ?? '';
+                                        @endphp
+                                        {{ $customerName }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th>Số điện thoại:</th>
-                                    <td colspan="3">{{ $data->order->customer_phone ?? $data->phone_number}}</td>
+                                    <td colspan="3">
+                                        @php
+                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ order/warranty_request
+                                        $customerPhone = $installationOrder->phone_number ?? $order->customer_phone ?? $data->order->customer_phone ?? $data->phone_number ?? '';
+                                        @endphp
+                                        {{ $customerPhone }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th>Địa chỉ:</th>
                                     {{-- Nâng cấp: Thêm chức năng chỉnh sửa cho địa chỉ --}}
                                     <td colspan="3" data-field="customer_address">
-                                        <span class="text-value">{{ $data->order->customer_address ?? $data->address }}</span>, {{ $fullAddress }}
-                                        {{-- Icon chỉnh sửa --}}
+                                        @php
+                                        // Ưu tiên địa chỉ từ installation_orders (nếu đã cập nhật), sau đó mới lấy từ orders/warranty_requests
+                                        $customerAddress = $installationOrder->address ?? $data->order->customer_address ?? $data->address ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $customerAddress }}</span>, {{ $fullAddress }}
+                                        {{-- Icon chỉnh sửa - chỉ hiển thị khi status_install != 0 và != null --}}
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
+                                        @endif
                                         {{-- Input ẩn để lưu giá trị gốc --}}
-                                        <input type="hidden" id="customer_address_full" value="{{ $data->order->customer_address ?? $data->address}}, {{ $fullAddress }}">
+                                        <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}, {{ $fullAddress }}">
                                     </td>
                                 </tr>
                             </tbody>
@@ -111,24 +134,35 @@
                             <tbody>
                                 <tr class="ctv_row">
                                     <th>CTV lắp đặt:</th>
-                                    <td id="ctv_name">{{ $data->order->collaborator->full_name ?? $data->collaborator->full_name ?? 'N/A' }}</td>
-                                    <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $data->order->collaborator_id ?? $data->collaborator_id }}">
+                                    @php
+                                    // Ưu tiên từ installationOrder, sau đó order, cuối cùng data gốc
+                                    $ctvId = $installationOrder->collaborator_id ?? $order->collaborator_id ?? $data->order->collaborator_id ?? $data->collaborator_id ?? null;
+                                    $ctv = $installationOrder->collaborator ?? $order->collaborator ?? $data->order->collaborator ?? $data->collaborator ?? null;
+                                    @endphp
+                                    <td id="ctv_name">{{ $ctv->full_name ?? 'N/A' }}</td>
+                                    <input type="hidden" id="ctv_id" name="ctv_id" value="{{ $ctvId }}">
                                     <th>SĐT CTV:</th>
-                                    <td id="ctv_phone">{{ $data->order->collaborator->phone ?? $data->collaborator->phone ?? 'N/A' }}</td>
+                                    <td id="ctv_phone">{{ $ctv->phone ?? 'N/A' }}</td>
                                 </tr>
                                 <tr class="ctv_row">
                                     <th>Ngân hàng:</th>
                                     <td id="nganhang" data-field="nganhang">
-                                        <span class="text-value">{{ $data->order->collaborator->bank_name ?? $data->order->collaborator->nganhang ?? $data->collaborator->bank_name ?? $data->collaborator->nganhang ?? '' }}</span>
+                                        @php
+                                        $bankName = $ctv->bank_name ?? $ctv->nganhang ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $bankName }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
-                                        @if (empty(optional(optional($data->order)->collaborator)->bank_name ?? optional(optional($data->order)->collaborator)->nganhang ?? optional($data->collaborator)->bank_name ?? optional($data->collaborator)->nganhang))
+                                        @if (empty($bankName))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
                                     <th>Số tài khoản:</th>
                                     <td id="sotaikhoan" data-field="sotaikhoan" colspan="3">
-                                        <span class="text-value">{{ $data->order->collaborator->sotaikhoan ?? $data->collaborator->sotaikhoan ?? ''}}</span>
-                                        @if (empty(optional(optional($data->order)->collaborator)->sotaikhoan ?? optional($data->collaborator)->sotaikhoan))
+                                        @php
+                                        $soTaiKhoan = $ctv->sotaikhoan ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $soTaiKhoan }}</span>
+                                        @if (empty($soTaiKhoan))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -136,8 +170,11 @@
                                 <tr class="ctv_row">
                                     <th>Chi nhánh:</th>
                                     <td id="chinhanh" data-field="chinhanh" colspan="3">
-                                        <span class="text-value">{{ $data->order->collaborator->chinhanh ?? $data->collaborator->chinhanh ?? ''}}</span>
-                                        @if (empty(optional(optional($data->order)->collaborator)->chinhanh ?? optional($data->collaborator)->chinhanh))
+                                        @php
+                                        $chiNhanh = $ctv->chinhanh ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $chiNhanh }}</span>
+                                        @if (empty($chiNhanh))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -145,23 +182,23 @@
                                 <tr class="ctv_row">
                                     <th>Số CCCD:</th>
                                     <td id="cccd" data-field="cccd">
-                                        <span class="text-value">{{ $data->order->collaborator->cccd ?? $data->collaborator->cccd ?? ''}}</span>
-                                        @if (empty(optional(optional($data->order)->collaborator)->cccd ?? optional($data->collaborator)->cccd))
+                                        @php
+                                        $cccd = $ctv->cccd ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $cccd }}</span>
+                                        @if (empty($cccd))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
                                     <th>Ngày cấp:</th>
                                     <td id="ngaycap" data-field="ngaycap">
+                                        @php
+                                        $ngayCap = $ctv->ngaycap ?? null;
+                                        @endphp
                                         <span class="text-value">
-                                            {{ optional(optional($data->order)->collaborator)->ngaycap
-                                                ? \Carbon\Carbon::parse(optional($data->order->collaborator)->ngaycap)->format('d/m/Y')
-                                                : (optional($data->collaborator)->ngaycap
-                                                    ? \Carbon\Carbon::parse($data->collaborator->ngaycap)->format('d/m/Y')
-                                                    : ''
-                                                  )
-                                            }}
+                                            {{ $ngayCap ? \Carbon\Carbon::parse($ngayCap)->format('d/m/Y') : '' }}
                                         </span>
-                                        @if (empty(optional(optional($data->order)->collaborator)->ngaycap ?? optional($data->collaborator)->ngaycap))
+                                        @if (empty($ngayCap))
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -169,22 +206,31 @@
                                 <tr id="install_cost_row">
                                     <th>Chi phí lắp đặt:</th>
                                     <td>
-                                        <input type="text" id="install_cost_ctv" class="form-control install_cost" name="install_cost_ctv" value="{{ number_format($data->order->install_cost ?? $data->install_cost, 0, ',', '') ?? '' }}" placeholder="Nhập chi phí">
+                                        @php
+                                        $installCost = $installationOrder->install_cost ?? $order->install_cost ?? $data->order->install_cost ?? $data->install_cost ?? 0;
+                                        @endphp
+                                        <input type="text" id="install_cost_ctv" class="form-control install_cost" name="install_cost_ctv" value="{{ number_format($installCost, 0, ',', '') }}" placeholder="Nhập chi phí">
                                         <div class="text-danger mt-1 error" id="install_cost_ctv_error" style="display:none;"></div>
                                     </td>
                                     <th>Ngày hoàn thành:</th>
                                     <td>
-                                        <input type="date" id="successed_at_ctv" width="100%" class="form-control successed_at_ctv" name="successed_at_ctv" value="{{ $data->order->successed_at ?? $data->successed_at ?? '' }}">
+                                        @php
+                                        $successedAt = $installationOrder->successed_at ?? $order->successed_at ?? $data->order->successed_at ?? $data->successed_at ?? '';
+                                        @endphp
+                                        <input type="date" id="successed_at_ctv" width="100%" class="form-control successed_at_ctv" name="successed_at_ctv" value="{{ $successedAt }}">
                                     </td>
                                 </tr>
                                 <tr id="install_file">
                                     <th>File đánh giá:</th>
                                     <td colspan="3">
                                         <input type="file" id="install_review" class="form-control" name="install_review" accept=".pdf,.jpg,.jpeg,.png">
-                                        @if (!empty($data->order->reviews_install ?? $data->reviews_install))
+                                        @php
+                                        $reviewsInstall = $installationOrder->reviews_install ?? $order->reviews_install ?? $data->order->reviews_install ?? $data->reviews_install ?? null;
+                                        @endphp
+                                        @if (!empty($reviewsInstall))
                                         <div class="mt-2">
-                                            <a href="{{ asset('storage/install_reviews/' . (optional($data->order)->reviews_install ?? $data->reviews_install)) }}" target="_blank">
-                                                {{ $data->order->reviews_install ?? $data->reviews_install}}
+                                            <a href="{{ asset('storage/install_reviews/' . $reviewsInstall) }}" target="_blank">
+                                                {{ $reviewsInstall }}
                                             </a>
                                         </div>
                                         @endif
@@ -222,7 +268,7 @@
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
                                         <span class="text-value">{{ $agency->address ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -232,7 +278,7 @@
                                     <td data-agency="agency_bank">
                                         <span class="text-value">{{ $agency->bank_name_agency ?? $agency->nganhang ?? '' }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -241,7 +287,7 @@
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
                                         <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -250,7 +296,7 @@
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
                                         <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -259,7 +305,7 @@
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
                                         <span class="text-value">{{ $agency->cccd ?? '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -268,7 +314,7 @@
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
                                         <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
-                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone))
+                                        @if (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @endif
                                     </td>
@@ -1125,7 +1171,11 @@
                     let isInstallAgency = $("#isInstallAgency").is(":checked") ? 1 : 0;
                     let formData = new FormData();
                     formData.append("_token", "{{ csrf_token() }}");
-                    formData.append("id", "{{ $data->order->id ?? $data->id }}");
+                    @php
+                    // Ưu tiên ID từ installationOrder, sau đó order, cuối cùng data gốc
+                    $modelId = $installationOrder->id ?? $order->id ?? $data->order->id ?? $data->id ?? null;
+                    @endphp
+                    formData.append("id", "{{ $modelId }}");
                     formData.append("action", action);
                     formData.append("type", type);
                     formData.append("product", $('#product_name').val());
