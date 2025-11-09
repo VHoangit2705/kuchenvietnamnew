@@ -1,0 +1,8 @@
+.table td:last-child,
+.table th:last-child {
+    width: 1%;
+    white-space: nowrap;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+

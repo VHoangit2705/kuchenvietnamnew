@@ -1,0 +1,8 @@
+#product-suggestions {
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+}
+

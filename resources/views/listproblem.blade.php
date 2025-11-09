@@ -82,9 +82,9 @@
         </div>
     </div>
     <script>
-        function redirectToDetail(id) {
-            window.location.href = "{{ route('detailproblem') }}?id=" + id;
-        }
+        // Pass data to JavaScript
+        window.detailProblemRoute = @json(route('detailproblem'));
     </script>
+    <script src="{{ asset('js/listproblem.js') }}"></script>
 </body>
 </html>
