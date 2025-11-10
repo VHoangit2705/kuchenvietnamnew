@@ -10,6 +10,9 @@
                 <th style="min-width: 150px;">Quận/Huyện</th>
                 <th style="min-width: 150px;">Tỉnh/TP</th>
                 <th style="min-width: 200px;">Địa chỉ</th>
+                <th style="min-width: 150px;">Ngân hàng</th>
+                <th style="min-width: 120px;">Chi nhánh</th>
+                <th style="min-width: 120px;">Số tài khoản</th>
                 <th style="min-width: 95px;"></th>
             </tr>
         </thead>
@@ -24,6 +27,12 @@
                 <td>{{ $item->district }}</td>
                 <td>{{ $item->province }}</td>
                 <td>{{ $item->address }}</td>
+                <td data-bank-name="{{ $item->bank_name ?? '' }}">
+                    <span class="bank-name-text">{{ $item->bank_name ?? '' }}</span>
+                    <img class="bank-logo ms-2" alt="logo ngân hàng" style="height: 30px; vertical-align: middle; display: none;">
+                </td>
+                <td>{{ $item->chinhanh ?? '' }}</td>
+                <td>{{ $item->sotaikhoan ?? '' }}</td>
                 <td>
                     @if ($item->id != 1)
                     <button class="btn btn-warning btn-sm edit-row" data-bs-toggle="modal" data-id="{{ $item->id }}" data-bs-target="#addCollaboratorModal">Sửa</button>
@@ -33,7 +42,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="10" class="text-center">Không có dữ liệu</td>
+                <td colspan="13" class="text-center">Không có dữ liệu</td>
             </tr>
             @endforelse
         </tbody>
@@ -83,79 +92,4 @@
     @endif
 </div>
 
-<script>
-    function Delete(id) {
-        Swal.fire({
-            title: 'Xác nhận xoá',
-            text: "Bạn có chắc chắn muốn xoá bản ghi này không?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Xoá',
-            cancelButtonText: 'Huỷ'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: "{{ route('ctv.delete', ':id') }}".replace(':id', id),
-                    type: 'GET',
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                    },
-                    success: function(response) {
-                        Notification('success', response.message, 1000, false);
-                        $.get("{{ route('ctv.getlist') }}", function(html) {
-                            $('#tabContent').html(html);
-                        });
-                    },
-                    error: function(xhr) {
-                        Swal.fire('Lỗi', 'Có lỗi xảy ra khi xoá.', 'error');
-                        console.error(xhr.responseText);
-                    }
-                });
-            }
-        });
-    }
-
-    $(document).on('click', '.edit-row', function() {
-        const button = $(this);
-        const id = button.data('id');
-        $.ajax({
-            url: '{{ route("ctv.getbyid") }}',
-            type: 'POST',
-            data: {
-                id: id
-            },
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                const item = response.data.collaborator;
-                const province = response.data.provinces;
-                const district = response.data.districts;
-                const ward = response.data.wards;
-                district.forEach(function(item) {
-                    $('#districtForm').append('<option value="' + item.district_id + '">' + item.name + '</option>');
-                });
-                ward.forEach(function(item) {
-                    $('#wardForm').append('<option value="' + item.wards_id + '">' + item.name + '</option>');
-                });
-                $('#tieude').text("Cập nhật cộng tác viên");
-                $('#hoantat').text('Cập nhật');
-                $('#full_nameForm').val(item.full_name);
-                $('#date_of_birth').val(item.date_of_birth ? formatDateToInput(item.date_of_birth) : '');
-                $('#phoneForm').val(item.phone);
-                $('#provinceForm').val(item.province_id);
-                $('#districtForm').val(item.district_id);
-                $('#wardForm').val(item.ward_id);
-                $('#address').val(item.address);
-                $('#id').val(item.id);
-                
-            },
-            error: function(xhr) {
-                alert('Có lỗi xảy ra khi lấy dữ liệu cộng tác viên.');
-                console.log(xhr.responseText);
-            }
-        });
-    });
-</script>
+<script src="{{ asset('js/collaborator/tablecontent.js') }}"></script>
