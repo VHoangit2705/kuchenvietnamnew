@@ -127,154 +127,16 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Permission Management JS -->
+    <script src="{{ asset('js/permissions/permission-common.js') }}"></script>
+    <script src="{{ asset('js/permissions/permission-edit.js') }}"></script>
     <script>
-        $(document).ready(function() {
-            // kèm csrf token vào header của tất cả các request ajax
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-                    'Accept': 'application/json'
-                }
-            });
-
-            // Chọn tất cả
-            $('.btn-outline-success').on('click', function(e) {
-                e.preventDefault();
-                $('input.child-checkbox').prop('checked', true);
-                $('.child-permissions').slideDown();
-                $('.permission-group .toggle-btn i').removeClass('fa-plus').addClass('fa-minus');
-            });
-
-            // Bỏ chọn tất cả
-            $('.btn-outline-danger').on('click', function(e) {
-                e.preventDefault();
-                $('input.child-checkbox').prop('checked', false);
-            });
-
-            // Mở nhóm có ít nhất 1 checkbox được check
-            $('.permission-group').each(function() {
-                const group = $(this);
-                const checkedBoxes = group.find('input.child-checkbox:checked');
-                if (checkedBoxes.length > 0) {
-                    // Mở phần child permissions
-                    const childPermissions = group.find('.child-permissions');
-                    childPermissions.show(); // hoặc slideDown()
-
-                    // Đổi icon + thành -
-                    const icon = group.find('.toggle-btn i');
-                    icon.removeClass('fa-plus').addClass('fa-minus');
-                }
-            });
-
-            SaveRole();
-        });
-
-        function togglePermissions(header) {
-            const group = header.closest('.permission-group');
-            const children = group.querySelector('.child-permissions');
-            const icon = header.querySelector('.toggle-btn i');
-
-            if (children.style.display === 'none') {
-                children.style.display = 'block';
-                icon.classList.remove('fa-plus');
-                icon.classList.add('fa-minus');
-            } else {
-                children.style.display = 'none';
-                icon.classList.remove('fa-minus');
-                icon.classList.add('fa-plus');
-            }
-        }
-
-        function toggleGroupCheckbox(groupCheckbox) {
-            const group = groupCheckbox.closest('.permission-group');
-            const childCheckboxes = group.querySelectorAll('.child-checkbox');
-            childCheckboxes.forEach(cb => cb.checked = groupCheckbox.checked);
-        }
-
-        function Validate() {
-            $roleName = $('#role_name').val().trim();
-            $roleDescription = $('#role_description').val().trim();
-            $('#role_name').removeClass('is-invalid');
-            $('#role_description').removeClass('is-invalid');
-            let isvalid = true;
-            if (!$roleName) {
-                $('#role_name').addClass('is-invalid');
-                $('#role_name').focus();
-                isvalid = false;
-            }
-            if (!$roleDescription) {
-                $('#role_description').addClass('is-invalid');
-                $('#role_description').focus();
-                isvalid = false;
-            }
-            return isvalid;
-        }
-
-        function SaveRole() {
-            $('#btnSave').on('click', function(e) {
-                e.preventDefault();
-                if (!Validate()) {
-                    return;
-                }
-                const roleId = $('#role_id').val().trim();
-                const roleName = $('#role_name').val().trim();
-                const roleDescription = $('#role_description').val().trim();
-                const permissions = [];
-                // Lấy các checkbox được tick
-                $('input.child-checkbox:checked').each(function() {
-                    permissions.push($(this).val());
-                });
-                $.ajax({
-                    url: '{{ route("roles.store") }}',
-                    method: 'POST',
-                    data: {
-                        role_id: roleId,
-                        role_name: roleName,
-                        role_description: roleDescription,
-                        permissions: permissions,
-                        _token: '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Thành công!',
-                                text: 'Cập nhật thành công!',
-                                timer: 1500,
-                                showConfirmButton: false
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi!',
-                                text: response.message || 'Có lỗi xảy ra',
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr.responseText);
-                        if (xhr.status === 419) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Phiên làm việc đã hết hạn',
-                                text: 'Vui lòng đăng nhập lại để tiếp tục.',
-                                confirmButtonText: 'Đăng nhập'
-                            }).then(() => {
-                                var loginUrl = '{{ route("login.form") }}';
-                                if (!loginUrl) loginUrl = '/login';
-                                window.location.href = loginUrl;
-                            });
-                            return;
-                        }
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Lỗi!',
-                            text: 'Đã xảy ra lỗi khi lưu nhóm quyền.',
-                        });
-                    }
-                });
-            });
-        }
+        // Initialize permission edit page
+        initPermissionEdit(
+            '{{ route("roles.store") }}',
+            '{{ route("login.form") ?: "/login" }}'
+        );
     </script>
 </body>
 
