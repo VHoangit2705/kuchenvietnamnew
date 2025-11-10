@@ -33,7 +33,7 @@ function updateSubmitButtonState() {
     $("#hoantat").prop('disabled', hasErrors);
 }
 
-// Hàm validate cho Họ Tên (sử dụng hàm chung từ common.js)
+// Hàm validate cho Họ Tên (sử dụng hàm từ validate_input/collaborator.js)
 function validateFullNameForm() {
     const $input = $('#full_nameForm');
     const name = $input.val();
@@ -46,7 +46,7 @@ function validateFullNameForm() {
     }
 }
 
-// Hàm validate cho Số Điện Thoại (sử dụng hàm chung từ common.js)
+// Hàm validate cho Số Điện Thoại (sử dụng hàm từ validate_input/collaborator.js)
 function validatePhoneForm() {
     const $input = $('#phoneForm');
     const phone = $input.val();
@@ -59,7 +59,7 @@ function validatePhoneForm() {
     }
 }
 
-// Hàm validate cho Địa chỉ (sử dụng hàm chung từ common.js)
+// Hàm validate cho Địa chỉ (sử dụng hàm từ validate_input/collaborator.js)
 function validateAddressForm() {
     const $input = $('#address');
     const address = $input.val();

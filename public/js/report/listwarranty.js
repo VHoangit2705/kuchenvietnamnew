@@ -182,10 +182,10 @@ $(document).ready(function() {
  * Vui lòng đảm bảo các file sau được load trước file này:
  * - /js/validate_input/helpers.js
  * - /js/validate_input/report.js
+ * 
+ * validationErrors đã được khai báo trong /js/validate_input/report.js
+ * Không cần khai báo lại ở đây
  */
-
-// Validation form
-let validationErrors = {};
 
 // Hàm cập nhật trạng thái nút "Lọc" VÀ "Xuất Excel"
 function updateButtonState() {

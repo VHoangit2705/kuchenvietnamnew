@@ -40,7 +40,7 @@ function updateSearchButtonState() {
     $("#searchBtn").prop('disabled', hasErrors);
 }
 
-// Hàm logic validate cho Họ Tên (sử dụng hàm chung từ common.js)
+// Hàm logic validate cho Họ Tên (sử dụng hàm từ validate_input/collaborator.js)
 function validateFullName() {
     let $input = $('#full_name');
     let name = $input.val();
@@ -53,11 +53,11 @@ function validateFullName() {
     }
 }
 
-// Hàm logic validate cho Số Điện Thoại (sử dụng hàm chung từ common.js)
+// Hàm logic validate cho Số Điện Thoại (sử dụng hàm từ validate_input/collaborator.js)
 function validatePhoneSearch() {
     let $input = $('#phone');
     let phone = $input.val();
-    // Gọi hàm validatePhone từ common.js
+    // Gọi hàm validatePhone từ validate_input/collaborator.js
     const result = validatePhone(phone, false); // Không bắt buộc cho search form
     
     hideError($input);

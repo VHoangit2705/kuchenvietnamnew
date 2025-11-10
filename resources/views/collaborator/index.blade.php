@@ -58,7 +58,8 @@
     // Định nghĩa URL API ngân hàng từ env
     window.VIETQR_BANKS_URL = '{{ env("VIETQR_BANKS_URL", "https://api.vietqr.io/v2/banks") }}';
 </script>
-<script src="{{ asset('js/collaborator/common.js') }}"></script>
+<script src="{{ asset('js/common.js') }}"></script>
+<script src="{{ asset('js/validate_input/collaborator.js') }}"></script>
 <script src="{{ asset('js/collaborator/index.js') }}"></script>
 <script>
     // Load danh sách ngân hàng khi trang được tải để hiển thị logo trong bảng

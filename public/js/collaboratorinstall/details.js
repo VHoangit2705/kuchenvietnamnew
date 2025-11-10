@@ -161,8 +161,10 @@ const CollaboratorInstallDetails = {
                 $("#install_file").show();
             }
             
-            // Chạy lại validation cho các trường
-            runAllInitialValidations(self.creationDate);
+            // Chạy lại validation cho tất cả các trường sau khi UI đã cập nhật
+            setTimeout(function() {
+                runAllInitialValidations(self.creationDate);
+            }, 100);
         });
         
         // Handle initial state
@@ -201,6 +203,16 @@ const CollaboratorInstallDetails = {
                     $(".ctv_row").show();
                     $("#install_cost_row").show();
                     $("#ctv_id").val(id);
+                    
+                    // Validate tất cả các field CTV sau khi cập nhật
+                    setTimeout(function() {
+                        if (typeof validateAllDynamicFields === 'function') {
+                            validateAllDynamicFields('ctv');
+                        }
+                        if (typeof runAllInitialValidations === 'function') {
+                            runAllInitialValidations(self.creationDate);
+                        }
+                    }, 100);
                 },
                 error: function() {
                     showSwalMessage('error', 'Lỗi!', 'Không thể tải thông tin CTV');

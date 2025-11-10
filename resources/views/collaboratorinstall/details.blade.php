@@ -452,7 +452,8 @@
     // Global CREATION_DATE for backward compatibility
     const CREATION_DATE = '{{ $created_at }}';
     
-    $(document).ready(function() {
+    // Đợi common utils load xong trước khi khởi tạo
+    function initCollaboratorInstallDetails() {
         // Initialize CollaboratorInstallDetails
         CollaboratorInstallDetails.init({
             creationDate: '{{ $created_at }}',
@@ -474,6 +475,27 @@
                 modelId: "{{ $installationOrder->id ?? $order->id ?? $data->order->id ?? $data->id ?? null }}"
             }
         });
-    });
+    }
+    
+    // Đợi common utils và details.js load xong
+    if (window.commonUtilsLoaded && typeof CollaboratorInstallDetails !== 'undefined') {
+        $(document).ready(initCollaboratorInstallDetails);
+    } else {
+        // Đợi event commonUtils:loaded
+        document.addEventListener('commonUtils:loaded', function() {
+            // Đợi thêm một chút để đảm bảo details.js đã load
+            setTimeout(function() {
+                if (typeof CollaboratorInstallDetails !== 'undefined') {
+                    $(document).ready(initCollaboratorInstallDetails);
+                }
+            }, 100);
+        });
+        // Fallback: thử lại sau 1 giây
+        setTimeout(function() {
+            if (window.commonUtilsLoaded && typeof CollaboratorInstallDetails !== 'undefined') {
+                $(document).ready(initCollaboratorInstallDetails);
+            }
+        }, 1000);
+    }
 </script>
 @endsection

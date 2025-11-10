@@ -259,7 +259,8 @@
 <script src="{{ asset('js/validate_input/collaboratorinstall.js') }}"></script>
 <script src="{{ asset('js/collaboratorinstall/index.js') }}"></script>
 <script>
-    $(document).ready(function() {
+    // Đợi common utils load xong trước khi khởi tạo
+    function initCollaboratorInstallIndex() {
         // Initialize CollaboratorInstallIndex
         CollaboratorInstallIndex.init(
             '{{ route("dieuphoi.tabdata") }}',
@@ -273,6 +274,27 @@
         
         // Setup report preview URL
         $('#reportCollaboratorInstall').data('preview-url', '{{ route('collaborator.export.preview') }}');
-    });
+    }
+    
+    // Đợi common utils và index.js load xong
+    if (window.commonUtilsLoaded && typeof CollaboratorInstallIndex !== 'undefined') {
+        $(document).ready(initCollaboratorInstallIndex);
+    } else {
+        // Đợi event commonUtils:loaded
+        document.addEventListener('commonUtils:loaded', function() {
+            // Đợi thêm một chút để đảm bảo index.js đã load
+            setTimeout(function() {
+                if (typeof CollaboratorInstallIndex !== 'undefined') {
+                    $(document).ready(initCollaboratorInstallIndex);
+                }
+            }, 100);
+        });
+        // Fallback: thử lại sau 1 giây
+        setTimeout(function() {
+            if (window.commonUtilsLoaded && typeof CollaboratorInstallIndex !== 'undefined') {
+                $(document).ready(initCollaboratorInstallIndex);
+            }
+        }, 1000);
+    }
 </script>
 @endsection
