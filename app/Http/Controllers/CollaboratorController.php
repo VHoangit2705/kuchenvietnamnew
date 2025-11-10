@@ -137,6 +137,9 @@ class CollaboratorController extends Controller
             'ward_id' => 'required',
             'ward' => 'required|string',
             'address' => 'required|string|max:1024',
+            'bank_name' => 'nullable|string|max:255',
+            'chinhanh' => 'nullable|string|max:255',
+            'sotaikhoan' => 'nullable|string|max:255',
         ]);
         
         // Kiểm tra tên không được là "Đại lý lắp đặt"
@@ -162,12 +165,29 @@ class CollaboratorController extends Controller
         }
         
         $validated['create_by'] = session('user');
-        if ($request->id) {
-            WarrantyCollaborator::where('id', $request->id)->update($validated);
-            return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);
+        
+        // Đảm bảo bank_name không vượt quá 255 ký tự (sau khi migration)
+        if (isset($validated['bank_name']) && strlen($validated['bank_name']) > 255) {
+            $validated['bank_name'] = mb_substr($validated['bank_name'], 0, 255);
         }
-        WarrantyCollaborator::create($validated);
-        return response()->json(['success' => true, 'message' => 'Thêm mới thành công']);
+        
+        try {
+            if ($request->id) {
+                WarrantyCollaborator::where('id', $request->id)->update($validated);
+                return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);
+            }
+            WarrantyCollaborator::create($validated);
+            return response()->json(['success' => true, 'message' => 'Thêm mới thành công']);
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi tạo/cập nhật CTV: ' . $e->getMessage(), [
+                'request_data' => $validated,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi lưu dữ liệu: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function DeleteCollaborator($id)
@@ -295,6 +315,7 @@ class CollaboratorController extends Controller
                 'agency_name' => 'nullable',
                 'agency_address' => 'nullable',
                 'agency_phone' => 'nullable',
+                'agency_bank' => 'nullable',
                 'agency_paynumber' => 'nullable',
                 'agency_branch' => 'nullable',
                 'agency_cccd' => 'nullable',
@@ -323,6 +344,7 @@ class CollaboratorController extends Controller
                 [
                     'name'       => $request->agency_name,
                     'address'    => $request->agency_address,
+                    'bank_name_agency' => $request->agency_bank,
                     'sotaikhoan' => $request->agency_paynumber,
                     'chinhanh'   => $request->agency_branch,
                     'cccd'       => $request->agency_cccd,

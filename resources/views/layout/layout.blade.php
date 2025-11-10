@@ -171,113 +171,32 @@
     <!-- <footer class="bg-dark py-2 position-relative" style="height: 60px; flex-shrink: 0;" >
     </footer> -->
     <script>
-        function goBackOrReload() {
-            if (document.referrer) {
-                window.location.href = 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/baohanh/{{ session('brand') }}';
-            }
-        }
-
-        function OpenWaitBox(){$('#loadingOverlay').removeClass('d-none');}
-        function CloseWaitBox(){$('#loadingOverlay').addClass('d-none');}
-
-        function Notification(icon, title, timeout, confirm) {
-            Swal.fire({
-                icon: icon,
-                title: title,
-                timer: timeout,
-                showConfirmButton: confirm
-            });
-        }
-        $(document).ready(function() {
-            ThongBao();
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-                    'Accept': 'application/json'
-                }
-            });
-
-            // Bắt lỗi AJAX toàn cục
-            $(document).ajaxError(function(event, xhr, settings, thrownError) {
-                if (xhr.status === 401) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Thông báo',
-                        text: xhr.responseJSON?.message || 'Phiên đăng nhập đã hết hạn.',
-                    }).then(() => {
-                        window.location.href = "{{ route('login') }}"; 
-                    });
-                }
-            });
-        })
-
-        function ThongBao() {
-            const userBrand = @json(session('brand'));
-            if (!userBrand) {
-                return;
-            }
-            const timelimit = 4 * 60 * 60 * 1000;
-            let lastTime = localStorage.getItem('lastThongBaoTime');
-            let now = Date.now();
-
-            if (lastTime && (now - lastTime) < timelimit) {
-                return;
-            }
-
-            $.ajax({
-                url: "{{ route('warranty.thongbao') }}",
-                type: 'GET',
-                success: function(response) {
-                    if (response.success) {
-                        Swal.fire({
-                            icon: "warning",
-                            title: 'Cảnh Báo!',
-                            text: response.message,
-                            showCancelButton: true,
-                            confirmButtonText: 'Xem ngay',
-                            cancelButtonText: 'Xác nhận',
-                            allowOutsideClick: false,
-                            allowEscapeKey: false
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                const tab = 'quahan';
-                                const brand = "{{ session('brand') }}";
-                                let baseUrl = "{{ route('warranty.kuchen') }}";
-                                if (brand === 'hurom') {
-                                    baseUrl = "{{ route('warranty.hurom') }}";
-                                }
-                                window.location.href = baseUrl + "?tab=" + tab + "&kythuatvien=" + encodeURIComponent( response.nhanvien);
-                            }
-                        });
-                        localStorage.setItem('lastThongBaoTime', now);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error("Đã xảy ra lỗi:", error);
-                }
-            });
-        }
-
-        function updateQueryStringParameter(uri, key, value) {
-            let re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
-            let separator = uri.indexOf('?') !== -1 ? "&" : "?";
-            if (uri.match(re)) {
-                return uri.replace(re, '$1' + key + "=" + encodeURIComponent(value) + '$2');
-            } else {
-                return uri + separator + key + "=" + encodeURIComponent(value);
-            }
-        }
-
-        // Gửi request mỗi 5 phút để giữ session sống
-        setInterval(() => {
-            if (document.visibilityState === 'visible') {
-                fetch('/keep-alive', {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-            }
-        }, 5 * 60 * 1000);
+        // Pass configuration to JavaScript
+        window.userBrand = @json(session('brand'));
+        window.loginRoute = @json(route('login'));
+        window.thongBaoRoute = @json(route('warranty.thongbao'));
+        window.warrantyKuchenRoute = @json(route('warranty.kuchen'));
+        window.warrantyHuromRoute = @json(route('warranty.hurom'));
     </script>
-    {{-- trỏ đến thư mục public/js/validateform.js --}}
+    <script src="{{ asset('js/layout.js') }}"></script>
+    <script>
+        // Initialize layout functions
+        $(document).ready(function() {
+            initLayout({
+                thongBao: {
+                    url: window.thongBaoRoute,
+                    brand: window.userBrand,
+                    kuchenRoute: window.warrantyKuchenRoute,
+                    huromRoute: window.warrantyHuromRoute
+                },
+                keepAlive: true,
+                keepAliveConfig: {
+                    url: '/keep-alive',
+                    interval: 5 * 60 * 1000
+                }
+            });
+        });
+    </script>
     <script src="{{ asset('js/validateform.js') }}"></script>
 </body>
 

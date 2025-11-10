@@ -1,0 +1,26 @@
+.table-container {
+    padding: 0;
+    overflow-y: auto;
+}
+
+.table-container .table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.is-invalid {
+    border-color: red;
+}
+
+.autocomplete-suggestions {
+    position: absolute;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #ccc;
+    width: calc(100% - 20px);
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+    box-sizing: border-box;
+}

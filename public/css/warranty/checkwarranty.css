@@ -1,0 +1,42 @@
+.timeline {
+    position: relative;
+    padding-left: 10px;
+    margin-left: 5px;
+    border-left: 2px solid #007bff;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.timeline-details {
+    overflow: hidden;
+    transition: height 0.4s ease;
+}
+
+#video {
+    width: 100vw;
+    height: 50vh;
+    object-fit: cover;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    display: none;
+    background: black;
+    margin-top: 50px;
+}
+

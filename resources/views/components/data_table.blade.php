@@ -98,12 +98,4 @@
         @endif
     </div>
 </div>
-<style>
-    .table td:last-child,
-    .table th:last-child {
-        width: 1%;
-        white-space: nowrap;
-        padding-left: 0.25rem;
-        padding-right: 0.25rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ asset('css/components/data_table.css') }}">
