@@ -5,9 +5,7 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
-                <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
+                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
@@ -53,9 +51,7 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="staff_received" name="staff_received" class="form-control"
-                    value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
-                <div id="suggestions-product-staff" class="autocomplete-suggestions"></div>
+                <input type="text" id="staff_received" name="staff_received" class="form-control" value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -174,12 +170,10 @@
 </div>
 
 <script>
-    // Pass data to JavaScript
-    window.productSearchRoute = @json(route('baocao.sanpham'));
-    window.staffSearchRoute = @json(route('baocao.nhanvien'));
-    window.exportRoute = @json(route('xuatbaocao'));
+    // Truyền dữ liệu từ Blade sang JavaScript
+    window.replacementList = {!! json_encode($linhkien) !!};
     window.exportParams = @json(request()->all());
-    window.replacementList = @json($linhkien ?? []);
+    window.exportRoute = '{{ route('xuatbaocao') }}';
 </script>
 <script src="{{ asset('js/validate_input/report.js') }}"></script>
 <script src="{{ asset('js/report/listwarranty.js') }}"></script>

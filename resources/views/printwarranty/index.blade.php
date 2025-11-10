@@ -7,9 +7,10 @@
                 <input type="number" id="sophieu" name="sophieu" class="form-control" 
                 placeholder="Nhập số phiếu" value="{{ request('sophieu') }}">
             </div>
-            <div class="col-md-4 mb-1">
-                <input type="text" id="tensp" name="tensp" class="form-control" 
-                placeholder="Nhập tên sản phẩm" value="{{ request('productSearch') }}">
+            <div class="col-md-4 mb-1 position-relative"> <input type="text" id="tensp" name="tensp" class="form-control" 
+                placeholder="Nhập tên sản phẩm" value="{{ request('productSearch') }}"
+                autocomplete="off"> <div id="tensp-suggestions" class="list-group position-absolute w-100 d-none" style="z-index: 1000;">
+            </div>
             </div>
             <div class="col-md-4 mb-1">
                 <div class="d-flex align-items-center flex-grow-1">
@@ -136,14 +137,14 @@
     </div>
 
     <script>
-        // Pass data to JavaScript
-        window.productList = @json($products);
+        // Truyền dữ liệu từ Blade sang JavaScript
+        window.productList = {!! json_encode($products) !!};
+        window.mainProductList = @json(collect($products)->pluck('product_name'));
         window.csrfToken = '{{ csrf_token() }}';
-        window.brand = '{{ session('brand') }}';
         window.warrantyCardCreateRoute = '{{ route("warrantycard.create") }}';
-        window.warrantyCardPartialRoute = '{{ route("warrantycard.partial") }}';
-        window.warrantyCardSearchRoute = '{{ route("warrantycard.search") }}';
-        window.baoCaoKichHoatBaoHanhRoute = '{{ route("baocaokichhoatbaohanh") }}';
+        window.warrantyCardPartialRoute = '{{ route('warrantycard.partial') }}';
+        window.warrantyCardSearchRoute = '{{ route('warrantycard.search') }}';
+        window.baoCaoKichHoatBaoHanhRoute = '{{ route('baocaokichhoatbaohanh') }}';
     </script>
     <script src="{{ asset('js/validate_input/printwarranty.js') }}"></script>
     <script src="{{ asset('js/printwarranty/index.js') }}"></script>

@@ -4,6 +4,7 @@ $(document).ready(function () {
     ProductInput();
     SubmitForm();
     Search();
+    setupModalValidation(); // Thêm hàm khởi tạo validation cho modal
     ShowHideComponents();
     checkFile();
     // xóa khoảng trắng
@@ -18,6 +19,67 @@ $(document).ready(function () {
         const text = (e.originalEvent || e).clipboardData.getData("text");
         const cleanText = text.replace(/\s+/g, "");
         document.execCommand("insertText", false, cleanText);
+    });
+
+    //Gợi ý sản phẩm cho ô tìm kiếm chính
+    const mainProductList = window.mainProductList || [];
+
+    $('#tensp').on('input', function() {
+        validateTensp(); 
+
+        const keyword = $(this).val().toLowerCase().trim();
+        const $suggestionsBox = $('#tensp-suggestions');
+        $suggestionsBox.empty();
+
+        if (!keyword) {
+            $suggestionsBox.addClass('d-none');
+            return; // Dừng lại nếu không có từ khóa
+        }
+
+        const matchedProducts = mainProductList.filter(productName =>
+            productName.toLowerCase().includes(keyword)
+        );
+
+        if (matchedProducts.length > 0) {
+            matchedProducts.slice(0, 10).forEach(productName => {
+                $suggestionsBox.append(
+                    `<button type="button" class="list-group-item list-group-item-action">${productName}</button>`
+                );
+            });
+            $suggestionsBox.removeClass('d-none');
+        } else {
+            $suggestionsBox.addClass('d-none');
+        }
+    });
+
+    // Khi người dùng chọn sản phẩm gợi ý
+    $(document).on('mousedown', '#tensp-suggestions button', function() {
+        $('#tensp').val($(this).text()); // Điền text vào ô input
+        $('#tensp-suggestions').addClass('d-none'); // Ẩn box gợi ý
+        
+        // Kích hoạt lại validation để xóa lỗi (nếu có)
+        validateTensp(); 
+    });
+
+    // Gắn sự kiện validation cho các trường
+    $('#sophieu').on('input', validateSophieu);
+    $('#tungay, #denngay').on('change', validateDates);
+
+    // Chạy validation một lần khi tải trang để kiểm tra các giá trị có sẵn
+    validateSophieu();
+    validateTensp();
+    validateDates();
+
+    // Xử lý khi nhấn nút tìm kiếm
+    $('#searchCard').on('click', function(e) {
+        // Kiểm tra lại một lần nữa trước khi gửi
+        validateSophieu();
+        validateTensp();
+        validateDates();
+
+        if (Object.keys(validationErrors).length > 0) {
+            e.preventDefault(); // Ngăn chặn hành động mặc định nếu có lỗi
+        }
     });
 });
 
@@ -85,9 +147,9 @@ function ShowHideComponents() {
 function SubmitForm() {
     $(".submit-btn").on("click", function (e) {
         e.preventDefault();
-        $(".error").text("");
-
-        if (!validateFormPrintWarranty()) return;
+        
+        // Chạy validation lần cuối trước khi submit
+        if (!validateModalForm()) return;
         OpenWaitBox();
         let actionType = $(this).data("action"); // 'add' hoặc 'close'
         let product = $("#product").val();
@@ -117,10 +179,12 @@ function SubmitForm() {
             success: function (response) {
                 CloseWaitBox();
                 if (response.success) {
-                    showSwalMessage("success", "Thêm thành công", "", {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thêm thành công',
                         timer: 3000,
                         showConfirmButton: true,
-                        confirmButtonText: "OK"
+                        confirmButtonText: 'OK'
                     }).then(() => {
                         $.get(
                             window.warrantyCardPartialRoute || "",
@@ -138,15 +202,20 @@ function SubmitForm() {
                         }
                     });
                 } else {
-                    showSwalMessage("warning", "Lỗi trùng số seri", response.message, {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Lỗi trùng số seri',
+                        text: response.message,
                         timer: 3000,
                         showConfirmButton: true,
-                        confirmButtonText: "Đã hiểu"
+                        confirmButtonText: 'Đã hiểu'
                     });
                 }
             },
             error: function (xhr) {
-                handleAjaxError(xhr);
+                CloseWaitBox();
+                alert('Lỗi khi lưu. Vui lòng kiểm tra lại.');
+                console.log(xhr.responseText);
             },
         });
     });
@@ -208,6 +277,7 @@ $(document).on("mousedown", "#product_suggestions button", function () {
     $("#product").val($(this).text());
     $("#product_id").val($(this).data("id"));
     $("#product_suggestions").addClass("d-none");
+    validateModalProduct(); // Validate lại khi chọn từ gợi ý
 });
 // Ẩn gợi ý khi click ra ngoài
 $(document).on("click", function (e) {
@@ -239,18 +309,69 @@ function Search() {
 
 $("#exportActiveWarranty").on("click", function (e) {
     e.preventDefault();
+
+    const COOLDOWN_PERIOD_MS = 1 * 60 * 1000; // 1 phút
+    const LAST_EXPORT_KEY = 'lastExportTimestamp_warranty';
+
+    const lastExportTime = localStorage.getItem(LAST_EXPORT_KEY);
+    const currentTime = Date.now();
+
+    if (lastExportTime) {
+        const timeDiff = currentTime - parseInt(lastExportTime, 10);
+        if (timeDiff < COOLDOWN_PERIOD_MS) {
+            const timeLeftSeconds = Math.ceil((COOLDOWN_PERIOD_MS - timeDiff) / 1000);
+            const minutes = Math.floor(timeLeftSeconds / 60);
+            const seconds = timeLeftSeconds % 60;
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Thao tác quá nhanh!',
+                text: `Vui lòng đợi ${minutes} phút ${seconds} giây nữa trước khi xuất lại.`
+            });
+            return;
+        }
+    }
+
     const tungay = $("#tungay").val();
     const denngay = $("#denngay").val();
     const queryParams = new URLSearchParams({
         fromDate: tungay,
-        toDate: denngay,
+        toDate: denngay
     });
-    
-    const url = `${window.baoCaoKichHoatBaoHanhRoute || ""}?${queryParams.toString()}`;
-    
-    downloadFile(url, {
-        defaultFilename: "Báo cáo kích hoạt bảo hành.xlsx",
-        acceptHeader: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        useSwalLoading: false
-    });
+
+    OpenWaitBox();
+    fetch(`${window.baoCaoKichHoatBaoHanhRoute || ""}?${queryParams.toString()}`)
+        .then(response => {
+            CloseWaitBox();
+            const contentType = response.headers.get("Content-Type");
+            if (contentType && contentType.includes("application/json")) {
+                return response.json().then(json => {
+                    Swal.fire({
+                        icon: 'error',
+                        text: json.message
+                    });
+                });
+            } else {
+                // Chỉ lưu timestamp khi tải file thành công
+                localStorage.setItem(LAST_EXPORT_KEY, currentTime.toString());
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = "Báo cáo kích hoạt bảo hành.xlsx";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                });
+            }
+        })
+        .catch(error => {
+            CloseWaitBox();
+            Swal.fire({
+                icon: 'error',
+                text: 'Lỗi server.'
+            });
+            console.error(error);
+        });
 });

@@ -151,3 +151,228 @@ function validateSerialRanges(serialInput) {
     return null;
 }
 
+/**
+ * Validation functions for modal form
+ */
+let modalValidationErrors = {};
+
+function showModalError($field, message) {
+    const fieldId = $field.attr('id');
+    if (!fieldId) return;
+    
+    hideModalError($field);
+
+    const $errorDiv = $field.siblings('.error');
+    $errorDiv.text(message);
+    
+    modalValidationErrors[fieldId] = true;
+    updateModalSubmitButtonsState();
+}
+
+function hideModalError($field) {
+    const fieldId = $field.attr('id');
+    if (!fieldId) return;
+
+    const $errorDiv = $field.siblings('.error');
+    $errorDiv.text('');
+
+    delete modalValidationErrors[fieldId];
+    updateModalSubmitButtonsState();
+}
+
+function updateModalSubmitButtonsState() {
+    const hasErrors = Object.keys(modalValidationErrors).length > 0;
+    $('.submit-btn').prop('disabled', hasErrors);
+}
+
+function validateModalProduct() {
+    const $input = $('#product');
+    const value = $input.val().trim();
+    const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,+/)]+$/;
+
+    if (!value) {
+        showModalError($input, "Tên sản phẩm không được để trống.");
+        return false;
+    }
+    if (!validRegex.test(value)) {
+        showModalError($input, "Tên sản phẩm chứa ký tự không hợp lệ.");
+        return false;
+    }
+    if (value.length > 100) {
+        showModalError($input, "Tên sản phẩm không được vượt quá 100 ký tự.");
+        return false;
+    }
+    hideModalError($input);
+    return true;
+}
+
+function validateModalQuantity() {
+    const $input = $('#quantity');
+    const value = $input.val().trim();
+    if (!value) {
+        showModalError($input, "Số lượng không được để trống.");
+        return false;
+    }
+    if (!/^\d+$/.test(value)) {
+        showModalError($input, "Số lượng phải là số.");
+        return false;
+    }
+    if (parseInt(value) <= 0) {
+        showModalError($input, "Số lượng phải lớn hơn 0.");
+        return false;
+    }
+    if (value.length > 10) {
+        showModalError($input, "Số lượng không được vượt quá 10 chữ số.");
+        return false;
+    }
+    hideModalError($input);
+    return true;
+}
+
+function validateModalSerialRange() {
+    const $input = $('#serial_range');
+    const value = $input.val().trim();
+    const validRegex = /^[A-Za-z0-9,\-]+$/;
+    if (!value) {
+        showModalError($input, "Dải serial không được để trống.");
+        return false;
+    }
+    if (value.length > 50) {
+        showModalError($input, "Dải serial không được vượt quá 50 ký tự.");
+        return false;
+    }
+    if (!validRegex.test(value.replace(/\s/g, ''))) {
+        showModalError($input, "Chỉ cho phép nhập chữ, số, dấu phẩy (,) và gạch ngang (-).");
+        return false;
+    }
+    const rangeError = validateSerialRanges(value);
+    if (rangeError) {
+        showModalError($input, rangeError);
+        return false;
+    }
+    hideModalError($input);
+    return true;
+}
+
+function validateModalForm() {
+    // Luôn chạy validate sản phẩm
+    validateModalProduct();
+
+    if ($('#auto_serial').is(':checked')) {
+        // Chỉ validate số lượng
+        validateModalQuantity();
+        // Xóa lỗi của các trường khác nếu có
+        hideModalError($('#serial_range'));
+        hideModalError($('#serial_file'));
+    }
+    if ($('#import_serial').is(':checked')) {
+        // Chỉ validate dải serial
+        validateModalSerialRange();
+        // Xóa lỗi của các trường khác nếu có
+        hideModalError($('#quantity'));
+        hideModalError($('#serial_file'));
+    }
+    if ($('#import_excel').is(':checked')) {
+        // Chỉ validate file
+        if (!$('#serial_file')[0].files[0]) {
+            showModalError($('#serial_file'), 'Vui lòng chọn file Excel.');
+        } else {
+            hideModalError($('#serial_file'));
+        }
+        // Xóa lỗi của các trường khác nếu có
+        hideModalError($('#quantity'));
+        hideModalError($('#serial_range'));
+    }
+    // Trả về kết quả dựa trên cờ lỗi
+    return Object.keys(modalValidationErrors).length === 0;
+}
+
+function setupModalValidation() {
+    // Khi thay đổi lựa chọn radio, xóa lỗi của các trường không liên quan
+    $('input[name="serial_option"]').on('change', function() {
+        hideModalError($('#quantity'));
+        hideModalError($('#serial_range'));
+        hideModalError($('#serial_file'));
+    });
+
+    $('#product').on('input change', validateModalProduct);
+    $('#quantity').on('input', validateModalQuantity);
+    $('#serial_range').on('input', validateModalSerialRange);
+}
+
+/**
+ * Validation functions for search form
+ */
+let validationErrors = {};
+
+function showError($field, message) {
+    let fieldId = $field.attr('id');
+    if (!fieldId) return;
+
+    hideError($field); // Xóa lỗi cũ trước khi hiển thị lỗi mới
+
+    // Thêm class is-invalid của Bootstrap và hiển thị thông báo
+    $field.addClass('is-invalid');
+    $field.closest('.col-md-4').append(`<div class="invalid-feedback d-block" data-error-for="${fieldId}">${message}</div>`);
+
+    validationErrors[fieldId] = true; // Gắn cờ lỗi
+    updateButtonState();
+}
+
+function hideError($field) {
+    let fieldId = $field.attr('id');
+    if (!fieldId) return;
+
+    $field.removeClass('is-invalid');
+    $field.closest('.col-md-4').find(`.invalid-feedback[data-error-for="${fieldId}"]`).remove();
+
+    delete validationErrors[fieldId]; // Bỏ cờ lỗi
+    updateButtonState();
+}
+
+function updateButtonState() {
+    let hasErrors = Object.keys(validationErrors).length > 0;
+    $('#searchCard').prop('disabled', hasErrors);
+}
+
+// Validate số phiếu: chỉ số, max 10 ký tự
+function validateSophieu() {
+    const $input = $('#sophieu');
+    const value = $input.val().trim();
+    hideError($input); // Luôn xóa lỗi cũ khi validate lại
+    if (value && !/^\d+$/.test(value)) {
+        showError($input, "Số phiếu chỉ được nhập số.");
+    } else if (value && value.length > 10) {
+        showError($input, "Số phiếu không vượt quá 10 ký tự.");
+    }
+}
+
+// Validate tên sản phẩm: chữ, số, và các ký tự ()-
+function validateTensp() {
+    const $input = $('#tensp');
+    const value = $input.val().trim();
+    const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(,+/)]+$/;
+    hideError($input);
+    if (value && !validRegex.test(value)) {
+        showError($input, "Tên sản phẩm chỉ nhập chữ và số và các ký tự (,+/)");
+    }else if (value.length > 100) {
+        showError($input, "Tên sản phẩm không vượt quá 100 ký tự.");
+    }
+}
+
+// Validate ngày: ngày sau không được nhỏ hơn ngày trước
+function validateDates() {
+    const $fromDate = $('#tungay');
+    const $toDate = $('#denngay');
+    const fromDate = $fromDate.val();
+    const toDate = $toDate.val();
+
+    // Xóa lỗi cũ của cả 2 trường date
+    hideError($fromDate);
+    hideError($toDate);
+
+    if (fromDate && toDate && fromDate > toDate) {
+        showError($toDate, "'Đến ngày' phải lớn hơn hoặc bằng 'Từ ngày'.");
+    }
+}
+
