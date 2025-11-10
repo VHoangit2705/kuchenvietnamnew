@@ -5,9 +5,7 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
-                <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
+                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
@@ -53,9 +51,7 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="staff_received" name="staff_received" class="form-control"
-                    value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
-                <div id="suggestions-product-staff" class="autocomplete-suggestions"></div>
+                <input type="text" id="staff_received" name="staff_received" class="form-control" value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -206,8 +202,6 @@
         resizeTableContainer();
         // limitButtonClicks('btnsearch', 6);
         validateDates();
-        setupAutoComplete('#product', '#suggestions-product-name', "{{ route('baocao.sanpham') }}");
-        setupAutoComplete('#staff_received', '#suggestions-product-staff', "{{ route('baocao.nhanvien') }}");
         runAllValidations();
     });
     // Ẩn dữ liệu khi quá dài và hover hiện tooltip
@@ -347,58 +341,11 @@
             });
         });
 
-    //Gợi ý từ
-    function setupAutoComplete(inputSelector, suggestionBoxSelector, requestUrl) {
-        $(inputSelector).on('keyup', function() {
-            let query = $(this).val();
-            if (query.length === 0) {
-                $(suggestionBoxSelector).hide();
-                return;
-            }
-            if (query.length >= 1) {
-                $.ajax({
-                    url: requestUrl,
-                    type: 'GET',
-                    data: {
-                        query: query
-                    },
-                    success: function(data) {
-                        $(suggestionBoxSelector).empty();
-                        if (data.length > 0) {
-                            $(suggestionBoxSelector).show();
-                            data.forEach(function(item) {
-                                $(suggestionBoxSelector).append(
-                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">' + item + '</div>'
-                                );
-                            });
-                            // Gán lại sự kiện click cho từng item
-                            $(suggestionBoxSelector + ' .suggestion-item').on('click', function() {
-                                $(inputSelector).val($(this).text());
-                                $(suggestionBoxSelector).hide();
-                            });
-                        } else {
-                            $(suggestionBoxSelector).hide();
-                        }
-                    }
-                });
-            }
-        });
-    }
 
     $(document).on('click', function(e) {
     // Logic cho ô linh kiện (client-side)
     if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
         $('#replacement-suggestions').addClass('d-none').empty();
-    }
-
-    // Logic cho ô sản phẩm (server-side)
-    if (!$(e.target).closest('#product').length && !$(e.target).closest('#suggestions-product-name').length) {
-        $('#suggestions-product-name').hide();
-    }
-
-    // Logic cho ô kỹ thuật viên (server-side)
-    if (!$(e.target).closest('#staff_received').length && !$(e.target).closest('#suggestions-product-staff').length) {
-        $('#suggestions-product-staff').hide();
     }
 });
 
@@ -434,32 +381,32 @@
     // 5. Các hàm validation cho từng trường
     function validateProduct() {
         const $input = $('#product');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
-        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
+        if (value && !/^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,/)]+$/.test(value)) {
             showError($input, "Chỉ được nhập chữ và số.");
-        } else if (value.length > 80) {
-            showError($input, "Tối đa 80 ký tự.");
+        } else if (value.length > 100) {
+            showError($input, "Tối đa 100 ký tự.");
         }
     }
     function validateReplacement() {
         const $input = $('#replacement');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
         // Regex cho phép chữ, số và các ký tự đặc biệt được yêu cầu
-        const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ:,.;/()_+\-=%*]*$/;
+        const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ:,.;/()_+\-=%*]*$/;
         if (value && !validRegex.test(value)) {
             showError($input, "Chứa ký tự không hợp lệ.");
-        } else if (value.length > 80) {
-            showError($input, "Tối đa 80 ký tự.");
+        } else if (value.length > 100) {
+            showError($input, "Tối đa 100 ký tự.");
         }
     }
     function validateStaff() {
         const $input = $('#staff_received');
-        const value = $input.val();
+        const value = $input.val().trim();
         hideError($input);
         // Regex cho phép chữ cái (bao gồm tiếng Việt) và khoảng trắng
-        const nameRegex = /^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/;
+        const nameRegex = /^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/;
         if (value && !nameRegex.test(value)) {
             showError($input, "Chỉ được nhập chữ.");
         } else if (value.length > 50) {
@@ -511,8 +458,11 @@
                 // Focus vào ô lỗi đầu tiên để người dùng dễ sửa
                 const firstErrorId = Object.keys(validationErrors)[0];
                 $('#' + firstErrorId).focus();
-                toastr.error('Vui lòng kiểm tra lại các thông tin đã nhập.', 'Dữ liệu không hợp lệ');
-                return false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi dữ liệu',
+                    text: 'Vui lòng kiểm tra lại các trường nhập liệu.',
+                });
             }
             // Nếu không có lỗi, form sẽ được submit bình thường
         });
