@@ -446,13 +446,51 @@
 <datalist id="bankList"></datalist>
 
 <script src="{{ asset('js/common.js') }}"></script>
+<!-- Validation được load đầu tiên sau common.js -->
 <script src="{{ asset('js/validate_input/details.js') }}"></script>
-<script src="{{ asset('js/collaboratorinstall/details.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/validation/setup.js') }}"></script>
 <script>
     // Global CREATION_DATE for backward compatibility
     const CREATION_DATE = '{{ $created_at }}';
     
-    // Đợi common utils load xong trước khi khởi tạo
+    // Khởi tạo validation ngay khi page load (không đợi các module khác)
+    function initValidationEarly() {
+        // Đợi jQuery và validation functions sẵn sàng
+        if (typeof jQuery !== 'undefined' && typeof $ !== 'undefined' && typeof CollaboratorInstallValidation !== 'undefined') {
+            // Đảm bảo DOM đã sẵn sàng
+            if (document.readyState === 'loading') {
+                // Nếu DOM chưa sẵn sàng, đợi DOMContentLoaded
+                $(document).ready(function() {
+                    CollaboratorInstallValidation.init('{{ $created_at }}');
+                });
+            } else {
+                // DOM đã sẵn sàng, khởi tạo ngay
+                CollaboratorInstallValidation.init('{{ $created_at }}');
+            }
+        } else {
+            // Đợi một chút nếu chưa sẵn sàng (jQuery hoặc validation module chưa load)
+            setTimeout(initValidationEarly, 50);
+        }
+    }
+    
+    // Bắt đầu khởi tạo validation ngay lập tức
+    initValidationEarly();
+</script>
+<!-- Collaborator Install Modules -->
+<script src="{{ asset('js/collaboratorinstall/modules/data/ctv_data.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/data/agency_data.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/data/management.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/bank/setup.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/location_filters/filters.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/edit_field/handler.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/update/form.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/update/collaborator.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/update/agency.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/history/loader.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/modules/history/display.js') }}"></script>
+<script src="{{ asset('js/collaboratorinstall/details.js') }}"></script>
+<script>
+    // Đợi common utils load xong trước khi khởi tạo các module khác
     function initCollaboratorInstallDetails() {
         // Initialize CollaboratorInstallDetails
         CollaboratorInstallDetails.init({

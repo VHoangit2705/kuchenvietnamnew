@@ -1,6 +1,6 @@
 /**
  * Collaborator Install Index Page JavaScript
- * Xử lý logic chính cho trang quản lý đơn hàng lắp đặt
+ * Main file - sử dụng các module riêng biệt
  */
 
 // Global variables
@@ -25,7 +25,12 @@ const CollaboratorInstallIndex = {
         this.setupEventHandlers();
         this.setupValidation(productList);
         this.setupTableFeatures();
-        this.setupExcelUpload();
+        
+        // Setup Excel upload (sử dụng module)
+        if (typeof CollaboratorInstallExcelUpload !== 'undefined') {
+            CollaboratorInstallExcelUpload.setup(this);
+        }
+        
         this.setupReport();
     },
     
@@ -171,10 +176,14 @@ const CollaboratorInstallIndex = {
             e.preventDefault();
             
             // Validate ngày tháng trước khi submit
-            if (!validateDates('#tungay', '#denngay', () => {
-                checkFormValidity();
-            })) {
-                return; // Dừng lại nếu validation fail
+            if (typeof validateDates === 'function') {
+                if (!validateDates('#tungay', '#denngay', () => {
+                    if (typeof checkFormValidity === 'function') {
+                        checkFormValidity();
+                    }
+                })) {
+                    return; // Dừng lại nếu validation fail
+                }
             }
             
             let tab = localStorage.getItem('activeTab') || 'donhang';
@@ -230,36 +239,82 @@ const CollaboratorInstallIndex = {
      */
     setupValidation: function(productList) {
         // Setup validation cho các input
-        validateAlphaNumeric('madon', 25, () => {
-            checkFormValidity();
-        });
-        validateProductsName('sanpham', 50, () => {
-            checkFormValidity();
-        });
-        validateAlphaSpace('customer_name', 80, () => {
-            checkFormValidity();
-        });
-        validateNumeric('customer_phone', 11, () => {
-            checkFormValidity();
-        });
-        validateAlphaSpace('agency_name', 100, () => {
-            checkFormValidity();
-        });
-        validateNumeric('agency_phone', 11, () => {
-            checkFormValidity();
-        });
+        if (typeof validateAlphaNumeric === 'function') {
+            validateAlphaNumeric('madon', 25, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+        }
+        if (typeof validateProductsName === 'function') {
+            validateProductsName('sanpham', 50, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+        }
+        if (typeof validateAlphaSpace === 'function') {
+            validateAlphaSpace('customer_name', 80, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+            validateAlphaSpace('agency_name', 100, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+        }
+        if (typeof validateNumeric === 'function') {
+            validateNumeric('customer_phone', 11, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+            validateNumeric('agency_phone', 11, () => {
+                if (typeof checkFormValidity === 'function') {
+                    checkFormValidity();
+                }
+            });
+        }
         
         // Gắn event listener cho input date để validate khi thay đổi
         $('#tungay, #denngay').on('change', () => {
-            validateDates('#tungay', '#denngay', () => {
-                checkFormValidity();
-            });
+            if (typeof validateDates === 'function') {
+                validateDates('#tungay', '#denngay', () => {
+                    if (typeof checkFormValidity === 'function') {
+                        checkFormValidity();
+                    }
+                });
+            }
         });
         
         // Setup autocomplete cho sản phẩm
-        if (productList && productList.length > 0) {
-            setupClientAutoComplete('#sanpham', '#sanpham-suggestions', productList, null, 10);
-            setupClickOutsideToHide([{ input: '#sanpham', suggestion: '#sanpham-suggestions' }]);
+        const setupProductAutocomplete = function() {
+            if (productList && productList.length > 0) {
+                if (typeof setupClientAutoComplete === 'function') {
+                    setupClientAutoComplete('#sanpham', '#sanpham-suggestions', productList, null, 10);
+                }
+                if (typeof setupClickOutsideToHide === 'function') {
+                    setupClickOutsideToHide([{ input: '#sanpham', suggestion: '#sanpham-suggestions' }]);
+                }
+            }
+        };
+        
+        // Đợi common utils load xong trước khi setup autocomplete
+        if (window.commonUtilsLoaded && typeof setupClientAutoComplete === 'function') {
+            setupProductAutocomplete();
+        } else {
+            // Đợi event commonUtils:loaded
+            document.addEventListener('commonUtils:loaded', function() {
+                setupProductAutocomplete();
+            });
+            // Fallback: thử lại sau 500ms nếu event không trigger
+            setTimeout(function() {
+                if (typeof setupClientAutoComplete === 'function') {
+                    setupProductAutocomplete();
+                }
+            }, 500);
         }
     },
     
@@ -267,129 +322,26 @@ const CollaboratorInstallIndex = {
      * Setup table features
      */
     setupTableFeatures: function() {
-        // Setup row highlight
-        setupRowHighlight('#tabContent', 'tbody tr', 'highlight-row');
-        
-        // Setup drag scroll
-        setupTableDragScroll('#tabContent', '.table-container');
-    },
-    
-    /**
-     * Setup Excel upload
-     */
-    setupExcelUpload: function() {
-        const self = this;
-        $('#excelUploadFormNew').on('submit', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url') || '';
-            self.uploadExcel(url, this, 'excelModalNew');
-        });
-    },
-    
-    /**
-     * Upload Excel file
-     */
-    uploadExcel: function(url, form, modalId) {
-        const self = this;
-        let formData = new FormData(form);
-        
-        // Hiển thị loading với thông tin chi tiết
-        Swal.fire({
-            title: 'Đang xử lý file ...',
-            html: `
-                <div class="text-center">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p>Đang xử lý file Excel với nhiều sheet...</p>
-                    <small class="text-muted">Vui lòng chờ, quá trình này có thể mất tới vài phút.</small>
-                    <div class="progress mt-3" style="height: 6px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                             role="progressbar" style="width: 100%"></div>
-                    </div>
-                </div>
-            `,
-            allowOutsideClick: false,
-            showConfirmButton: false
-        });
-        
-        $.ajax({
-            url: url,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            timeout: 3600000, // 60 phút timeout
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(data) {
-                Swal.close();
-                if (data && data.success) {
-                    if (data.stats) {
-                        // Hiển thị kết quả chi tiết
-                        let message = `Đồng bộ thành công!<br><br>`;
-                        message += `📊 Thống kê:<br>`;
-                        message += `• Đã xử lý: ${data.stats.imported} dòng<br>`;
-                        message += `• Sheet đã xử lý: ${data.stats.sheets_processed}<br>`;
-                        message += `• Tạo mới CTV: ${data.stats.collaborators_created}<br>`;
-                        message += `• Tạo mới đại lý: ${data.stats.agencies_created}<br>`;
-                        message += `• Tạo mới đơn hàng: ${data.stats.orders_created}<br>`;
-                        message += `• Tạo mới lắp đặt: ${data.stats.installation_orders_created}<br>`;
-                        message += `• Tạo mới bảo hành: ${data.stats.warranty_requests_created}<br>`;
-                        
-                        if (data.stats.errors && data.stats.errors.length > 0) {
-                            message += `<br>⚠️ Lỗi: ${data.stats.errors.length} dòng<br>`;
-                            message += `<br>📝 Chi tiết lỗi:<br>`;
-                            data.stats.errors.slice(0, 5).forEach(error => {
-                                message += `• ${error}<br>`;
-                            });
-                            if (data.stats.errors.length > 5) {
-                                message += `• ... và ${data.stats.errors.length - 5} lỗi khác<br>`;
-                            }
-                        }
-                        
-                        showSwalMessage('success', 'Thành công!', message, {
-                            width: '600px'
-                        });
-                    }
-                    
-                    // Đóng modal và reload data
-                    const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
-                    if (modal) modal.hide();
-                    
-                    const tab = localStorage.getItem('activeTab') || 'donhang';
-                    const formData = $('#searchForm').serialize();
-                    self.loadCounts(formData);
-                    self.loadTabData(tab, formData, 1);
-                } else {
-                    showSwalMessage('error', 'Lỗi!', data && data.message ? data.message : 'Không rõ kết quả từ server.');
-                }
-            },
-            error: function(xhr, status, error) {
-                Swal.close();
-                
-                // Xử lý timeout
-                if (status === 'timeout') {
-                    showSwalMessage('warning', 'Timeout!', 'File quá lớn, quá trình xử lý mất quá nhiều thời gian (hơn 60 phút).', {
-                        width: '600px'
-                    });
-                    return;
-                }
-                
-                try {
-                    const json = JSON.parse(xhr.responseText);
-                    if (xhr.status === 422) {
-                        const msg = json.errors && json.errors.excelFile ? json.errors.excelFile.join(', ') : 'Dữ liệu không hợp lệ.';
-                        showSwalMessage('error', 'Lỗi validation!', msg);
-                    } else {
-                        showSwalMessage('error', 'Lỗi server!', json.message || 'Có lỗi xảy ra!');
-                    }
-                } catch (e) {
-                    showSwalMessage('error', 'Lỗi!', 'Có lỗi xảy ra khi xử lý file!');
-                }
+        // Đợi common utils load xong trước khi sử dụng các hàm từ utils
+        if (window.commonUtilsLoaded && typeof setupRowHighlight === 'function') {
+            // Setup row highlight
+            setupRowHighlight('#tabContent', 'tbody tr', 'highlight-row');
+            
+            // Setup drag scroll
+            if (typeof setupTableDragScroll === 'function') {
+                setupTableDragScroll('#tabContent', '.table-container');
             }
-        });
+        } else {
+            // Đợi event commonUtils:loaded
+            document.addEventListener('commonUtils:loaded', function() {
+                if (typeof setupRowHighlight === 'function') {
+                    setupRowHighlight('#tabContent', 'tbody tr', 'highlight-row');
+                }
+                if (typeof setupTableDragScroll === 'function') {
+                    setupTableDragScroll('#tabContent', '.table-container');
+                }
+            });
+        }
     },
     
     /**

@@ -257,6 +257,8 @@
 
 <script src="{{ asset('js/common.js') }}"></script>
 <script src="{{ asset('js/validate_input/collaboratorinstall.js') }}"></script>
+<!-- Collaborator Install Modules -->
+<script src="{{ asset('js/collaboratorinstall/modules/import_excel/upload.js') }}"></script>
 <script src="{{ asset('js/collaboratorinstall/index.js') }}"></script>
 <script>
     // Đợi common utils load xong trước khi khởi tạo

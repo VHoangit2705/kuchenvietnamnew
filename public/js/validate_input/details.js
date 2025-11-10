@@ -23,22 +23,54 @@ function showError($field, message) {
     // Xác định ID định danh duy nhất cho trường
     let fieldId = getFieldId($field);
     
+    // Nếu không có fieldId từ input, thử lấy từ td
     if (!fieldId) {
+        const $td = $field.closest('td');
+        if ($td.length > 0) {
+            fieldId = $td.data('field') || $td.data('agency') || $td.attr('id') || '';
+        }
+    }
+    
+    // Nếu vẫn không có, thử lấy từ data attributes của input
+    if (!fieldId) {
+        fieldId = $field.data('field') || $field.data('agency') || $field.attr('id') || $field.attr('name') || '';
+    }
+    
+    if (!fieldId) {
+        console.warn('Cannot show error: fieldId is empty', $field, $field.attr('id'), $field.attr('name'), $field.data('field'), $field.data('agency'));
         return; // Không thể hiển thị lỗi nếu không có fieldId
     }
 
     hideError($field); // Xóa lỗi cũ trước
     let $error = $(`<div class="text-danger mt-1 validation-error" data-error-for="${fieldId}">${message}</div>`);
     
-    // Thêm lỗi vào đúng vị trí
-    if ($field.hasClass('form-control')) {
-        $field.closest('td').append($error);
-    } else {
-        $field.parent().append($error);
+    // Thêm lỗi vào đúng vị trí - ưu tiên tìm trong td
+    let $container = $field.closest('td');
+    if ($container.length === 0) {
+        // Nếu không tìm thấy td, thử tìm trong parent
+        $container = $field.parent();
+    }
+    if ($container.length === 0) {
+        // Nếu vẫn không tìm thấy, sử dụng field parent
+        $container = $field.parent();
+    }
+    
+    // Append error vào container
+    $container.append($error);
+    
+    // Đảm bảo validationErrors được khởi tạo
+    if (typeof validationErrors === 'undefined') {
+        window.validationErrors = {};
     }
     
     validationErrors[fieldId] = true; // Gắn cờ lỗi
-    updateSubmitButtons(); // Cập nhật trạng thái nút
+    
+    // Cập nhật trạng thái nút
+    if (typeof updateSubmitButtons === 'function') {
+        updateSubmitButtons();
+    }
+    
+    console.log('Error shown for field:', fieldId, message); // Debug
 }
 
 /**
@@ -49,15 +81,15 @@ function hideError($field) {
     // Xác định fieldId
     let fieldId = getFieldId($field);
     
-    // Xóa lỗi hiển thị (tìm trong td chứa input)
-    if ($field.hasClass('form-control')) {
-        // Tìm trong td chứa input
-        $field.closest('td').find('.validation-error').remove();
-        // Cũng tìm trong parent nếu không tìm thấy
-        $field.parent().find('.validation-error').remove();
-    } else {
-        $field.parent().find('.validation-error').remove();
+    // Xóa lỗi hiển thị (tìm trong td chứa input hoặc parent)
+    let $container = $field.closest('td');
+    if ($container.length === 0) {
+        $container = $field.parent();
     }
+    // Xóa tất cả validation-error trong container
+    $container.find('.validation-error').remove();
+    // Cũng tìm trong parent để đảm bảo
+    $field.parent().find('.validation-error').remove();
     
     // Xóa cờ lỗi nếu có fieldId - xóa tất cả các biến thể có thể có
     if (fieldId) {
@@ -231,23 +263,35 @@ function updateSubmitButtons() {
  * @param {string} fieldName - Name of the field
  */
 function validateDynamicField($input, fieldName) {
-    if (!$input || $input.length === 0) return; // Trường không tồn tại
+    if (!$input || $input.length === 0) {
+        console.warn('validateDynamicField: input is empty');
+        return; // Trường không tồn tại
+    }
     
     let value = $input.val().trim();
     let $td = $input.closest('td');
+    
+    // Debug
+    console.log('Validating field:', fieldName, 'value:', value, 'input:', $input.attr('id'), $input.attr('name'));
+    
     hideError($input); // Xóa lỗi cũ
 
     switch (fieldName) {
         case 'sotaikhoan':
         case 'agency_paynumber':
-            if (value && !/^[0-9]+$/.test(value)) {
-                showError($input, "Chỉ được nhập số.");
-            } else if (value.length > 20) {
-                showError($input, "Tối đa 20 ký tự.");
+            // Kiểm tra nếu có ký tự không phải số (có thể do paste hoặc cách khác)
+            if (value) {
+                if (!/^[0-9]+$/.test(value)) {
+                    showError($input, "Chỉ được nhập số.");
+                } else if (value.length > 20) {
+                    showError($input, "Tối đa 20 ký tự.");
+                } else {
+                    // Nếu hợp lệ, xóa lỗi và validate chi nhánh nếu có
+                    hideError($input);
+                    let $chinhanhInput = $td.closest('tbody').find('input[data-field="chinhanh"], input[data-agency="agency_branch"]');
+                    if($chinhanhInput.length) validateDynamicField($chinhanhInput, $chinhanhInput.data('field') || $chinhanhInput.data('agency'));
+                }
             }
-            // Validate chi nhánh nếu có
-            let $chinhanhInput = $td.closest('tbody').find('input[data-field="chinhanh"], input[data-agency="agency_branch"]');
-            if($chinhanhInput.length) validateDynamicField($chinhanhInput, $chinhanhInput.data('field') || $chinhanhInput.data('agency'));
             break;
 
         case 'chinhanh':
@@ -256,22 +300,32 @@ function validateDynamicField($input, fieldName) {
             let $sotaikhoanCell = $td.closest('tbody').find('td[data-field="sotaikhoan"], td[data-agency="agency_paynumber"]');
             let sotaikhoanValue = $sotaikhoanCell.find('input').length ? $sotaikhoanCell.find('input').val().trim() : $sotaikhoanCell.find('.text-value').text().trim();
 
-            if (!sotaikhoanValue) {
-                showError($input, "Vui lòng nhập Số tài khoản trước.");
-            } else if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY]+$/.test(value)) { 
-                showError($input, "Chỉ nhập chữ tiếng Việt và dấu cách, không nhập số hoặc ký tự đặc biệt.");
-            } else if (value.length > 80) {
-                showError($input, "Tối đa 80 ký tự.");
+            if (value) {
+                if (!sotaikhoanValue) {
+                    showError($input, "Vui lòng nhập Số tài khoản trước.");
+                } else if (!/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY]+$/.test(value)) { 
+                    showError($input, "Chỉ nhập chữ tiếng Việt và dấu cách, không nhập số hoặc ký tự đặc biệt.");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                } else {
+                    // Nếu hợp lệ, xóa lỗi
+                    hideError($input);
+                }
             }
             break;
             
         case 'nganhang':
         case 'agency_bank':
             // Cho phép chữ, số, dấu cách và các ký tự (.,-/&)
-            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/&]+$/.test(value)) {
-                showError($input, "Tên ngân hàng chỉ được chứa chữ, số, dấu cách và (.,-/&).");
-            } else if (value.length > 80) {
-                showError($input, "Tối đa 80 ký tự.");
+            if (value) {
+                if (!/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY.,\-\/&]+$/.test(value)) {
+                    showError($input, "Tên ngân hàng chỉ được chứa chữ, số, dấu cách và (.,-/&).");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                } else {
+                    // Nếu hợp lệ, xóa lỗi
+                    hideError($input);
+                }
             }
             break;
             
@@ -297,14 +351,17 @@ function validateDynamicField($input, fieldName) {
 
         case 'cccd':
         case 'agency_cccd':
+            // Kiểm tra nếu có ký tự không phải số
             if (value && !/^[0-9]+$/.test(value)) {
                 showError($input, "Chỉ được nhập số.");
             } else if (value && value.length !== 12) {
                 showError($input, "Bắt buộc đủ 12 số.");
+            } else if (value && value.length === 12) {
+                // Nếu hợp lệ, xóa lỗi và xác thực lại trường 'ngày cấp' phụ thuộc
+                hideError($input);
+                let $ngaycapInput = $td.closest('tbody').find('input[data-field="ngaycap"], input[data-agency="agency_release_date"]');
+                if($ngaycapInput.length) validateDynamicField($ngaycapInput, $ngaycapInput.data('field') || $ngaycapInput.data('agency'));
             }
-            // Xác thực lại trường 'ngày cấp' phụ thuộc
-            let $ngaycapInput = $td.closest('tbody').find('input[data-field="ngaycap"], input[data-agency="agency_release_date"]');
-            if($ngaycapInput.length) validateDynamicField($ngaycapInput, $ngaycapInput.data('field') || $ngaycapInput.data('agency'));
             break;
 
         case 'ngaycap':
@@ -352,7 +409,13 @@ function validateInstallCost($input) {
     
     // Lấy số thô từ giá trị đã format (loại bỏ tất cả ký tự không phải số)
     // Hàm getCurrencyValue sẽ loại bỏ cả dấu chấm (.) và dấu phẩy (,)
-    let rawValue = getCurrencyValue($input);
+    let rawValue;
+    if (typeof getCurrencyValue === 'function') {
+        rawValue = getCurrencyValue($input);
+    } else {
+        // Fallback nếu hàm chưa load
+        rawValue = $input.val().replace(/[^0-9]/g, '') || '0';
+    }
     let numValue = parseInt(rawValue, 10);
 
     // Kiểm tra nếu không phải số hoặc <= 0
@@ -452,12 +515,54 @@ function validateCompletionDate($input, creationDate) {
 /**
  * Run all initial validations
  * @param {string} creationDate - Creation date string
+ * @param {boolean} skipEmpty - Nếu true, bỏ qua validation cho các trường rỗng (dùng khi page load)
  */
-function runAllInitialValidations(creationDate) {
-    if ($("#install_cost_ctv").is(":visible")) validateInstallCost($('#install_cost_ctv'));
-    if ($("#successed_at_ctv").is(":visible")) validateCompletionDate($('#successed_at_ctv'), creationDate);
-    if ($("#install_cost_agency").is(":visible")) validateInstallCost($('#install_cost_agency'));
-    if ($("#successed_at").is(":visible")) validateCompletionDate($('#successed_at'), creationDate);
+function runAllInitialValidations(creationDate, skipEmpty) {
+    // Chỉ validate các trường có giá trị khi skipEmpty = true (page load lần đầu)
+    if (skipEmpty) {
+        // Chỉ validate install_cost nếu có giá trị
+        if ($("#install_cost_ctv").is(":visible")) {
+            const ctvValue = $('#install_cost_ctv').val().trim();
+            if (ctvValue) {
+                validateInstallCost($('#install_cost_ctv'));
+            } else {
+                // Xóa lỗi nếu có và cập nhật nút
+                hideError($('#install_cost_ctv'));
+            }
+        }
+        if ($("#install_cost_agency").is(":visible")) {
+            const agencyValue = $('#install_cost_agency').val().trim();
+            if (agencyValue) {
+                validateInstallCost($('#install_cost_agency'));
+            } else {
+                // Xóa lỗi nếu có và cập nhật nút
+                hideError($('#install_cost_agency'));
+            }
+        }
+        // Chỉ validate completion date nếu có giá trị
+        if ($("#successed_at_ctv").is(":visible")) {
+            const ctvDateValue = $('#successed_at_ctv').val().trim();
+            if (ctvDateValue) {
+                validateCompletionDate($('#successed_at_ctv'), creationDate);
+            } else {
+                hideError($('#successed_at_ctv'));
+            }
+        }
+        if ($("#successed_at").is(":visible")) {
+            const agencyDateValue = $('#successed_at').val().trim();
+            if (agencyDateValue) {
+                validateCompletionDate($('#successed_at'), creationDate);
+            } else {
+                hideError($('#successed_at'));
+            }
+        }
+    } else {
+        // Validate tất cả (khi submit hoặc khi người dùng tương tác)
+        if ($("#install_cost_ctv").is(":visible")) validateInstallCost($('#install_cost_ctv'));
+        if ($("#successed_at_ctv").is(":visible")) validateCompletionDate($('#successed_at_ctv'), creationDate);
+        if ($("#install_cost_agency").is(":visible")) validateInstallCost($('#install_cost_agency'));
+        if ($("#successed_at").is(":visible")) validateCompletionDate($('#successed_at'), creationDate);
+    }
     
     updateSubmitButtons(); // Cập nhật nút bấm dựa trên cờ lỗi
 }
