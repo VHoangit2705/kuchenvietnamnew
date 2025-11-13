@@ -13,7 +13,7 @@
                 <div class="card-body">
                     <label for="serial_number " class="form-label">Nhập mã đơn hàng trên phiếu bảo hành hoặc seri trên thân sản phẩm (dành cho tem bảo hành mới) (<span style="color: red;">*</span>)</label>
                     <input id="serial_number" name="serial_number" type="text" class="form-control mb-3" placeholder="Nhập mã tem bảo hành">
-                    <div id="error-message" class="text-danger mb-3" style="display: none;"></div>
+                    <div class="error text-danger small mt-1"></div>
                     <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút dưới.</p>
                     <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
                     <div class="d-flex gap-2">
@@ -75,50 +75,96 @@
     }
 </style>
 <script>
+    // validation form kiểm tra bảo hành
+    let formErrors = {};
+
+    // Hàm hiển thị lỗi
+    function showError($field, message) {
+        const fieldId = $field.attr('id');
+        if (!fieldId) return;
+        hideError($field); // Xóa lỗi cũ
+        $field.closest('.card-body').find('.error').text(message);
+        formErrors[fieldId] = true;
+        updateButtonState();
+    }
+
+    // Hàm ẩn lỗi
+    function hideError($field) {
+        const fieldId = $field.attr('id');
+        if (!fieldId) return;
+        $field.closest('.card-body').find('.error').text('');
+        delete formErrors[fieldId];
+        updateButtonState();
+    }
+
+    // Cập nhật trạng thái nút Tra cứu
+    function updateButtonState() {
+        const hasErrors = Object.keys(formErrors).length > 0;
+        $('#btn-check').prop('disabled', hasErrors);
+    }
+
+    // Hàm validation cho mã seri
+    function validateSerial() {
+        const $input = $('#serial_number');
+        const value = $input.val().trim();
+
+        if (!value) {
+            showError($input, "Vui lòng nhập mã tem bảo hành.");
+            return false;
+        }
+        if (!/^[a-zA-Z0-9]+$/.test(value)) {
+            showError($input, "Chỉ được nhập chữ và số.");
+            return false;
+        }
+        if (value.length > 25) {
+            showError($input, "Tối đa 25 ký tự.");
+            return false;
+        }
+
+        hideError($input);
+        return true;
+    }
+
     $(document).ready(function() {
+        // Gắn sự kiện validation khi người dùng nhập
+        $('#serial_number').on('input', validateSerial);
+
+        // Xử lý sự kiện click nút "Tra cứu"
         $('#btn-check').click(function(e) {
             e.preventDefault();
-            const serialNumber = $('#serial_number').val().trim();
-            const errorMessage = $('#error-message');
-            const inputField = $('#serial_number');
-            // Xóa trạng thái lỗi trước đó
-            inputField.removeClass('border-danger');
-            errorMessage.hide().text('');
-            if (serialNumber === '') {
-                errorMessage.text("Vui lòng nhập mã tem bảo hành.").show();
-                inputField.addClass('border-danger');
-                return;
-            }
-            OpenWaitBox();
-            $.ajax({
-                url: '{{ route("warranty.find") }}', // Route kiểm tra
-                method: 'POST',
-                data: {
-                    serial_number: serialNumber,
-                    _token: '{{ csrf_token() }}'
-                },
-                success: function(response) {
-                    CloseWaitBox();
-                    if (!response.success) {
+            
+            // Chạy validation lần cuối trước khi submit
+            if (validateSerial()) {
+                OpenWaitBox();
+                $.ajax({
+                    url: '{{ route("warranty.find") }}',
+                    method: 'POST',
+                    data: {
+                        serial_number: $('#serial_number').val().trim(),
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        CloseWaitBox();
+                        if (!response.success) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: response.message,
+                                timer: 2000,
+                            });
+                            $('#customer-info').html('').fadeOut(150);
+                        }
+                        $('#customer-info').html(response.view).fadeIn(200);
+                    },
+                    error: function(xhr) {
+                        CloseWaitBox();
                         Swal.fire({
                             icon: 'error',
-                            title: response.message,
+                            title: "Lỗi Server",
                             timer: 2000,
                         });
-                        $('#customer-info').html('').fadeOut(150);
                     }
-                    $('#customer-info').html(response.view).fadeIn(200);
-                },
-                error: function(xhr) {
-                    CloseWaitBox();
-                    debugger;
-                    Swal.fire({
-                        icon: 'error',
-                        title: "Lỗi Server",
-                        timer: 2000,
-                    });
-                }
-            });
+                });
+            }
         });
     });
 </script>

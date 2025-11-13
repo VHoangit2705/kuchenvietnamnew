@@ -1024,11 +1024,41 @@
     }
 
 
-    function UdatePhotos() {
-        const formData = new FormData();
-        const id = $('#savePhotoBtn').data('id');
+        // Lỗi gặp phải: chữ và số, max 150
+        function validateErrorType() {
+            const $input = $('#error_type');
+            const value = $input.val().trim();
+            hideRepairFormError($input);
+            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/.test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ.");
+            } else if (value.length > 150) {
+                showRepairFormError($input, "Tối đa 150 ký tự.");
+            }
+        }
 
-        formData.append('id', id);
+        // Mô tả cách xử lý: chỉ nhập chữ, max 100
+        function validateDescription() {
+            const $input = $('#des_error_type');
+            const value = $input.val().trim();
+            hideRepairFormError($input);
+            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/.test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ.");
+            } else if (value.length > 100) {
+                showRepairFormError($input, "Tối đa 100 ký tự.");
+            }
+        }
+
+        // Linh kiện thay thế: chữ và số, max 100
+        function validateReplacement() {
+            const $input = $('#replacement');
+            const value = $input.val().trim();
+            hideRepairFormError($input);
+            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/.test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ và số, và các ký tự cho phép.");
+            } else if (value.length > 100) {
+                showRepairFormError($input, "Tối đa 100 ký tự.");
+            }
+        }
 
         selectedPhotos.forEach((file, index) => {
             formData.append('photos[]', file);
