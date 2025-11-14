@@ -313,6 +313,7 @@
                     <div id="des_error_container" class="mb-2 d-none">
                         <label for="des_error_type" class="form-label">Mô tả cách xử lý</label>
                         <input type="text" class="form-control" id="des_error_type" name="des_error_type" placeholder="Nhập mô tả các xử lý">
+                        <div class="error error_des text-danger small mt-1 d-none"></div>
                     </div>
                     <div class="mb-2">
                         <label for="replacement" class="form-label" id="replacement-label">Linh kiện thay thế</label>
@@ -324,12 +325,12 @@
                     </div>
                     <div class="mb-2">
                         <label for="quantity" class="form-label">Số lượng</label>
-                        <input type="number" class="form-control" id="quantity" name="quantity" min="0">
+                        <input type="text" class="form-control" id="quantity" name="quantity" placeholder="Nhập số lượng">
                         <div class="error error_quan text-danger small mt-1 d-none"></div>
                     </div>
                     <div class="mb-2">
                         <label for="unit_price" class="form-label">Đơn giá (vnđ)</label>
-                        <input type="number" class="form-control" id="unit_price" name="unit_price" min="0">
+                        <input type="text" class="form-control" id="unit_price" name="unit_price" placeholder="Nhập đơn giá">
                         <div class="error error_price text-danger small mt-1 d-none"></div>
                     </div>
                     <div class="mb-2">
@@ -437,14 +438,202 @@
     
 </style>
 <script>
+    // Hàm hiển thị lỗi cho form repair
+    function showRepairFormError($field, message) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+
+        hideRepairFormError($field); // Xóa lỗi cũ trước khi hiển thị lỗi mới
+
+        // Thêm class is-invalid của Bootstrap
+        $field.addClass('is-invalid');
+        
+        // Tìm div error tương ứng và hiển thị thông báo
+        const errorClass = getErrorClassForField(fieldId);
+        if (errorClass) {
+            $(`.error.${errorClass}`).text(message).removeClass('d-none');
+        } else {
+            // Nếu không tìm thấy error class, tạo mới
+            $field.closest('.mb-2').find('.error').text(message).removeClass('d-none');
+        }
+    }
+
+    // Hàm ẩn lỗi cho form repair
+    function hideRepairFormError($field) {
+        let fieldId = $field.attr('id');
+        if (!fieldId) return;
+
+        $field.removeClass('is-invalid');
+        
+        const errorClass = getErrorClassForField(fieldId);
+        if (errorClass) {
+            $(`.error.${errorClass}`).text('').addClass('d-none');
+        } else {
+            $field.closest('.mb-2').find('.error').text('').addClass('d-none');
+        }
+    }
+
+    // Hàm lấy error class tương ứng với field
+    function getErrorClassForField(fieldId) {
+        const mapping = {
+            'error_type': 'error_type',
+            'des_error_type': 'error_des',
+            'replacement': 'error_replace',
+            'quantity': 'error_quan',
+            'unit_price': 'error_price'
+        };
+        return mapping[fieldId] || null;
+    }
+
+    // Lỗi gặp phải: chữ và số, max 150
+    function validateErrorType() {
+        const $input = $('#error_type');
+        const value = $input.val().trim();
+        hideRepairFormError($input);
+        if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/.test(value)) {
+            showRepairFormError($input, "Chỉ được nhập chữ và số.");
+        } else if (value.length > 150) {
+            showRepairFormError($input, "Tối đa 150 ký tự.");
+        }
+    }
+
+    // Mô tả cách xử lý: chữ và số, max 150
+    function validateDescription() {
+        const $input = $('#des_error_type');
+        const value = $input.val().trim();
+        hideRepairFormError($input);
+        if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/.test(value)) {
+            showRepairFormError($input, "Chỉ được nhập chữ và số.");
+        } else if (value.length > 150) {
+            showRepairFormError($input, "Tối đa 150 ký tự.");
+        }
+    }
+
+    // Linh kiện thay thế: chữ và số, max 100
+    function validateReplacement() {
+        const $input = $('#replacement');
+        const value = $input.val().trim();
+        hideRepairFormError($input);
+        if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/.test(value)) {
+            showRepairFormError($input, "Chỉ được nhập chữ và số.");
+        } else if (value.length > 100) {
+            showRepairFormError($input, "Tối đa 100 ký tự.");
+        }
+    }
+
+    // Số lượng: chỉ số nguyên dương
+    function validateQuantity() {
+        const $input = $('#quantity');
+        let value = $input.val().trim();
+        hideRepairFormError($input);
+        
+        // Loại bỏ dấu chấm nếu có
+        value = value.replace(/\./g, '');
+        
+        if (value && !/^\d+$/.test(value)) {
+            showRepairFormError($input, "Chỉ được nhập số nguyên dương.");
+        } else if (value && parseInt(value) <= 0) {
+            showRepairFormError($input, "Số lượng phải lớn hơn 0.");
+        }
+    }
+
+    // Đơn giá: tối đa 8 chữ số, format với dấu chấm
+    function formatNumber(value, allowOverLimit = false) {
+        let numValue = value.replace(/[^\d]/g, '');
+        
+        if (!allowOverLimit && numValue.length > 8) {
+            numValue = numValue.substring(0, 8);
+        }
+        
+        return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function validateUnitPrice() {
+        const $input = $('#unit_price');
+        let value = $input.val().trim();
+        hideRepairFormError($input);
+        
+        const numValue = value.replace(/\./g, '');
+        
+        if (numValue && !/^\d+$/.test(numValue)) {
+            showRepairFormError($input, "Chỉ được nhập số.");
+        } else if (numValue && numValue.length > 8) {
+            showRepairFormError($input, "Số quá lớn (tối đa 8 chữ số).");
+        } else if (numValue && parseInt(numValue) < 0) {
+            showRepairFormError($input, "Đơn giá không được âm.");
+        }
+    }
+
+    // Format đơn giá khi nhập
+    function formatUnitPriceInput() {
+        const $input = $('#unit_price');
+        let value = $input.val();
+        
+        // Lưu vị trí con trỏ và số ký tự phía trước con trỏ
+        const cursorPosition = $input[0].selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPosition);
+        const numCharsBeforeCursor = textBeforeCursor.replace(/[^\d]/g, '').length;
+        
+        // Loại bỏ tất cả ký tự không phải số để kiểm tra
+        const numValue = value.replace(/[^\d]/g, '');
+        
+        // Kiểm tra số chữ số trước khi format
+        let formatted;
+        if (numValue.length > 8) {
+            formatted = formatNumber(value, false);
+        } else {
+            formatted = formatNumber(value, false);
+        }
+        
+        $input.val(formatted);
+        
+        let newPosition = 0;
+        let numCount = 0;
+        for (let i = 0; i < formatted.length; i++) {
+            if (/\d/.test(formatted[i])) {
+                numCount++;
+                if (numCount === numCharsBeforeCursor) {
+                    newPosition = i + 1;
+                    break;
+                }
+            }
+        }
+        if (newPosition === 0) {
+            newPosition = formatted.length;
+        }
+        
+        setTimeout(function() {
+            $input[0].setSelectionRange(newPosition, newPosition);
+        }, 0);
+        
+        // Validate sau khi format (kiểm tra giá trị gốc trước khi format)
+        const originalNumValue = value.replace(/[^\d]/g, '');
+        if (originalNumValue.length > 8) {
+            showRepairFormError($input, "Số quá lớn (tối đa 8 chữ số).");
+        } else {
+            validateUnitPrice();
+        }
+        updateTotalPrice();
+    }
+
     $(document).ready(function() {
         $('.timeline-header, .timeline-details').click(function() {
             toggleTimelineDetails($(this).closest('.timeline-item'));
         });
-        $('#quantity, #unit_price').on('input', updateTotalPrice);
         ChangeSelect();
         LuuQuaTrinhSua();
         PrintRequest();
+        
+        // Gắn event listener cho các input fields để validation real-time
+        $('#error_type').on('input blur', validateErrorType);
+        $('#des_error_type').on('input blur', validateDescription);
+        $('#replacement').on('input blur', validateReplacement);
+        $('#quantity').on('input blur', function() {
+            validateQuantity();
+            updateTotalPrice();
+        });
+        $('#unit_price').on('input', formatUnitPriceInput);
+        $('#unit_price').on('blur', validateUnitPrice);
     });
     
     function PrintRequest(){
@@ -483,6 +672,8 @@
                 $('#des_error_container').closest('.mb-2').removeClass('d-none'); // Hiện
             } else {
                 $('#des_error_container').closest('.mb-2').addClass('d-none'); // Ẩn
+                // Xóa validation error khi ẩn trường
+                hideRepairFormError($('#des_error_type'));
             }
             
             // Xử lý thay đổi label và placeholder cho replacement
@@ -495,23 +686,28 @@
                 $replacementInput.attr('placeholder', 'Nhập sản phẩm thay thế');
                 // Chuyển sang sử dụng danh sách sản phẩm
                 window.currentReplacementList = window.sanphamList || [];
+                // Hiện trường replacement
+                $replacementContainer.removeClass('d-none');
             } else if (solution === 'Thay thế linh kiện/hardware') {
                 $replacementLabel.text('Linh kiện thay thế');
                 $replacementInput.attr('placeholder', 'Nhập linh kiện thay thế');
                 // Chuyển về sử dụng danh sách linh kiện
                 window.currentReplacementList = window.linhkienList || [];
+                // Hiện trường replacement
+                $replacementContainer.removeClass('d-none');
             } else {
                 // Ẩn trường replacement cho các trường hợp khác
                 $replacementContainer.addClass('d-none');
+                // Xóa validation error khi ẩn trường
+                hideRepairFormError($replacementInput);
                 return;
             }
-            
-            // Hiện trường replacement
-            $replacementContainer.removeClass('d-none');
             
             // Reset input và suggestions
             $replacementInput.val('');
             $('#replacement-suggestions').addClass('d-none').empty();
+            // Xóa validation error khi reset
+            hideRepairFormError($replacementInput);
         })
     }
 
@@ -537,12 +733,34 @@
         $('#saveRepairBtn').on('click', function(e) {
             e.preventDefault();
             if (validateRepairForm()) {
-                let formData = $('#repairForm').serialize();
+                // Lấy giá trị từ form và loại bỏ dấu chấm trước khi gửi
+                let quantityValue = $('#quantity').val().replace(/\./g, '');
+                let unitPriceValue = $('#unit_price').val().replace(/\./g, '');
+                
+                // Tạo formData với giá trị đã xử lý
+                let formData = $('#repairForm').serializeArray();
+                
+                // Cập nhật giá trị quantity và unit_price
+                formData = formData.map(function(item) {
+                    if (item.name === 'quantity') {
+                        item.value = quantityValue;
+                    } else if (item.name === 'unit_price') {
+                        item.value = unitPriceValue;
+                    }
+                    return item;
+                });
+                
+                // Chuyển thành object để gửi
+                let dataObj = {};
+                formData.forEach(function(item) {
+                    dataObj[item.name] = item.value;
+                });
+                
                 OpenWaitBox();
                 $.ajax({
                     url: '{{ route("warranty.updatedetail") }}',
                     method: 'POST',
-                    data: formData,
+                    data: dataObj,
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                     },
@@ -560,8 +778,12 @@
                         });
                     },
                     error: function(xhr) {
-                        debugger;
                         CloseWaitBox();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi',
+                            text: xhr.responseJSON?.message || 'Đã xảy ra lỗi khi lưu dữ liệu.'
+                        });
                     }
                 });
 
@@ -574,56 +796,88 @@
     function validateRepairForm() {
         let isValid = true;
 
+        // Validate error_type
         let errorType = $('#error_type').val().trim();
         if (errorType === '') {
-            $('.error_type').text('Vui lòng nhập lỗi gặp phải').removeClass('d-none');
+            showRepairFormError($('#error_type'), 'Vui lòng nhập lỗi gặp phải');
             isValid = false;
         } else {
-            $('.error_type').text('').addClass('d-none');
+            validateErrorType(); // Chạy validation format
+            if ($('#error_type').hasClass('is-invalid')) {
+                isValid = false;
+            }
         }
 
+        // Validate solution
         let solution = $('#solution').val();
         if (!solution) {
+            $('#solution').addClass('is-invalid');
             $('.error_sl').text('Vui lòng chọn cách xử lý').removeClass('d-none');
             isValid = false;
         } else {
+            $('#solution').removeClass('is-invalid');
             $('.error_sl').text('').addClass('d-none');
         }
 
+        // Validate des_error_type nếu solution là "Sửa chữa tại chỗ"
+        if (solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            let desError = $('#des_error_type').val().trim();
+            if (desError) {
+                validateDescription(); // Chạy validation format
+                if ($('#des_error_type').hasClass('is-invalid')) {
+                    isValid = false;
+                }
+            }
+        }
+
+        // Validate replacement
         let replacement = $('#replacement').val().trim();
-        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && replacement === '') {
-            const fieldName = solution === 'Đổi mới sản phẩm' ? 'sản phẩm thay thế' : 'linh kiện thay thế';
-            $('.error_replace').text(`Vui lòng nhập ${fieldName}`).removeClass('d-none');
-            isValid = false;
-        } else {
-            $('.error_replace').text('').addClass('d-none');
+        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm')) {
+            if (replacement === '') {
+                showRepairFormError($('#replacement'), solution === 'Đổi mới sản phẩm' ? 'Vui lòng nhập sản phẩm thay thế' : 'Vui lòng nhập linh kiện thay thế');
+                isValid = false;
+            } else {
+                validateReplacement(); // Chạy validation format
+                if ($('#replacement').hasClass('is-invalid')) {
+                    isValid = false;
+                }
+            }
         }
 
-        let quantity = parseInt($('#quantity').val()) || 0;
-        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && quantity < 1) {
-            $('.error_quan').text('Số lượng phải >= 1').removeClass('d-none');
-            isValid = false;
-        } else {
-            $('.error_quan').text('').addClass('d-none');
+        // Validate quantity
+        if (solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') {
+            validateQuantity();
+            let quantityStr = $('#quantity').val().replace(/\./g, '') || '0';
+            let quantity = parseInt(quantityStr) || 0;
+            if (quantity < 1) {
+                showRepairFormError($('#quantity'), 'Số lượng phải >= 1');
+                isValid = false;
+            } else if ($('#quantity').hasClass('is-invalid')) {
+                isValid = false;
+            }
         }
 
-        let price = parseInt($('#unit_price').val()) || 0;
-        if ((solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') && price < 0) {
-            $('.error_price').text('Đơn giá không hợp lệ').removeClass('d-none');
-            isValid = false;
-        } else {
-            $('.error_price').text('').addClass('d-none');
+        // Validate price
+        if (solution === 'Thay thế linh kiện/hardware' || solution === 'Đổi mới sản phẩm') {
+            validateUnitPrice();
+            if ($('#unit_price').hasClass('is-invalid')) {
+                isValid = false;
+            }
         }
+        
         return isValid;
     }
 
     function updateTotalPrice() {
-        let quantity = parseInt($('#quantity').val()) || 0;
-        let unitPrice = parseInt($('#unit_price').val()) || 0;
+        // Lấy giá trị số từ input (loại bỏ dấu chấm)
+        let quantityStr = $('#quantity').val().replace(/\./g, '') || '0';
+        let unitPriceStr = $('#unit_price').val().replace(/\./g, '') || '0';
+        
+        let quantity = parseInt(quantityStr) || 0;
+        let unitPrice = parseInt(unitPriceStr) || 0;
         let total = quantity * unitPrice;
-        let formatted = total.toLocaleString('en-US', {
-            minimumFractionDigits: 0
-        });
+        
+        let formatted = total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         $('#total_price').val(formatted);
     }
 
@@ -698,27 +952,45 @@
     function Edit(id) {
         const quatrinhsua = {!! json_encode($quatrinhsua) !!};
         const data = quatrinhsua.find(item => item.id === id);
+        
+        // Clear validation errors trước khi load data
+        $('#repairForm .form-control').removeClass('is-invalid');
+        $('#repairForm .error').text('').addClass('d-none');
+        
         $('#id').val(data.id);
         $('#warranty_request_id').val(data.warranty_request_id);
         $('#error_type').val(data.error_type);
         $('#solution').val(data.solution);
         $('#replacement').val(data.replacement);
-        $('#quantity').val(data.quantity);
-        $('#unit_price').val(parseInt(data.unit_price));
+        $('#quantity').val(formatNumber(data.quantity.toString()));
+        $('#unit_price').val(formatNumber(data.unit_price.toString()));
+        
+        // Xử lý mô tả cách xử lý
+        if (data.solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            $('#des_error_container').closest('.mb-2').removeClass('d-none');
+            $('#des_error_type').val(data.des_error_type || '');
+        } else {
+            $('#des_error_container').closest('.mb-2').addClass('d-none');
+        }
 
         // Xử lý thay đổi label và danh sách suggestions dựa trên solution
         const solution = data.solution;
         const $replacementLabel = $('#replacement-label');
         const $replacementInput = $('#replacement');
+        const $replacementContainer = $replacementInput.closest('.mb-2');
         
         if (solution === 'Đổi mới sản phẩm') {
             $replacementLabel.text('Sản phẩm thay thế');
             $replacementInput.attr('placeholder', 'Nhập sản phẩm thay thế');
             window.currentReplacementList = window.sanphamList;
+            $replacementContainer.removeClass('d-none');
         } else if (solution === 'Thay thế linh kiện/hardware') {
             $replacementLabel.text('Linh kiện thay thế');
             $replacementInput.attr('placeholder', 'Nhập linh kiện thay thế');
             window.currentReplacementList = window.linhkienList;
+            $replacementContainer.removeClass('d-none');
+        } else {
+            $replacementContainer.addClass('d-none');
         }
 
         updateTotalPrice();
@@ -1023,43 +1295,10 @@
         }
     }
 
-
-        // Lỗi gặp phải: chữ và số, max 150
-        function validateErrorType() {
-            const $input = $('#error_type');
-            const value = $input.val().trim();
-            hideRepairFormError($input);
-            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]+$/.test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ.");
-            } else if (value.length > 150) {
-                showRepairFormError($input, "Tối đa 150 ký tự.");
-            }
-        }
-
-        // Mô tả cách xử lý: chỉ nhập chữ, max 100
-        function validateDescription() {
-            const $input = $('#des_error_type');
-            const value = $input.val().trim();
-            hideRepairFormError($input);
-            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/.test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ.");
-            } else if (value.length > 100) {
-                showRepairFormError($input, "Tối đa 100 ký tự.");
-            }
-        }
-
-        // Linh kiện thay thế: chữ và số, max 100
-        function validateReplacement() {
-            const $input = $('#replacement');
-            const value = $input.val().trim();
-            hideRepairFormError($input);
-            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụüÜưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/.test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ và số, và các ký tự cho phép.");
-            } else if (value.length > 100) {
-                showRepairFormError($input, "Tối đa 100 ký tự.");
-            }
-        }
-
+    function UdatePhotos() {
+        const formData = new FormData();
+        formData.append('id', PhotoUploadId);
+        
         selectedPhotos.forEach((file, index) => {
             formData.append('photos[]', file);
         });
