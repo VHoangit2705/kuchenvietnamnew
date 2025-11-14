@@ -56,10 +56,19 @@
                     <input type="text" id="product" name="product" class="form-control" placeholder="Nhập tên sản phẩm"
                         value="{{ request('product') }}">
                 </div>
+                <div class="col-12 col-md-6 col-lg-4 mb-1">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <input type="date" id="fromDate" name="fromDate" class="form-control"
+                            value="{{ $fromDate->toDateString() }}">
+                        <label for="toDate" class="mb-0 me-2 ms-1">đến</label>
+                        <input type="date" id="toDate" name="toDate" class="form-control"
+                            value="{{ $toDate->toDateString() }}">
+                    </div>
+                </div>
             </div>
             <div class="row">
                 <div class="col-md-4 d-flex align-items-end">
-                    <button class="btn btn-primary w-100">Tìm kiếm</button>
+                    <button type="submit" id="btnSearch" class="btn btn-primary w-100">Tìm kiếm</button>
                 </div>
             </div>
         </form>
@@ -89,7 +98,15 @@
 
             // Thêm class is-invalid của Bootstrap và hiển thị thông báo
             $field.addClass('is-invalid');
-            $field.closest('.col-md-4').append(`<div class="invalid-feedback d-block" data-error-for="${fieldId}">${message}</div>`);
+
+            // Tìm container phù hợp (mb-1 hoặc col-md-4 hoặc col-12)
+            let $container = $field.closest('.mb-1');
+            if (!$container.length) {
+                $container = $field.closest('.col-md-4, .col-12');
+            }
+            if ($container.length) {
+                $container.append(`<div class="invalid-feedback d-block" data-error-for="${fieldId}">${message}</div>`);
+            }
 
             validationErrors[fieldId] = true; // Gắn cờ lỗi
             updateButtonState();
@@ -101,7 +118,15 @@
             if (!fieldId) return;
 
             $field.removeClass('is-invalid');
-            $field.closest('.col-md-4').find(`.invalid-feedback[data-error-for="${fieldId}"]`).remove();
+            
+            // Tìm và xóa error message từ container phù hợp
+            let $container = $field.closest('.mb-1');
+            if (!$container.length) {
+                $container = $field.closest('.col-md-4, .col-12');
+            }
+            if ($container.length) {
+                $container.find(`.invalid-feedback[data-error-for="${fieldId}"]`).remove();
+            }
 
             delete validationErrors[fieldId]; // Bỏ cờ lỗi
             updateButtonState();
@@ -120,7 +145,7 @@
             hideError($input);
             if (value && !/^\d+$/.test(value)) {
                 showError($input, "Số phiếu chỉ được nhập số.");
-            } else if (value.length > 10) {
+            } else if (value && value.length > 10) {
                 showError($input, "Số phiếu không vượt quá 10 ký tự.");
             }
         }
@@ -132,22 +157,21 @@
             hideError($input);
             if (value && !/^[a-zA-Z0-9]+$/.test(value)) {
                 showError($input, "Seri chỉ nhập chữ và số.");
-            } else if (value.length > 25) {
+            } else if (value && value.length > 25) {
                 showError($input, "Số seri không vượt quá 25 ký tự.");
             }
         }
 
         // Hàm validation cho tên sản phẩm
-        function validateProductName() {
-            const $input = $('#product_name');
+        function validateProduct() {
+            const $input = $('#product');
             const value = $input.val().trim();
             hideError($input);
             const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹü\-\(\,+;/)]+$/;
             
             if (value && !validRegex.test(value)) {
                 showError($input, "Tên sản phẩm chỉ nhập chữ và số, các ký tự cho phép.");
-            } 
-            else if (value.length > 100) {
+            } else if (value.length > 100) {
                 showError($input, "Tên sản phẩm không vượt quá 100 ký tự.");
             }
         }
@@ -185,8 +209,46 @@
             }
         }
 
+        function validateDates() {
+            const $fromDate = $('#fromDate');
+            const $toDate = $('#toDate');
+            const fromDate = $fromDate.val();
+            const toDate = $toDate.val();
+            const today = new Date().toISOString().split('T')[0];
+            let isValid = true;
+
+            hideError($fromDate);
+            hideError($toDate);
+
+            if (fromDate && fromDate > today) {
+                showError($fromDate, "'Từ ngày' không được lớn hơn ngày hiện tại.");
+                isValid = false;
+            }
+
+            if (toDate && toDate > today) {
+                showError($toDate, "'Đến ngày' không được lớn hơn ngày hiện tại.");
+                isValid = false;
+            }
+
+            if (fromDate && toDate && fromDate > toDate) {
+                showError($toDate, "'Đến ngày' phải lớn hơn hoặc bằng 'Từ ngày'.");
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
 
         $(document).ready(function() {
+            // Gắn event listeners cho các input fields để validation real-time
+            $('#sophieu').on('input blur', validateSophieu);
+            $('#seri').on('input blur', validateSeri);
+            $('#sdt').on('input blur', validateSdt);
+            $('#khachhang').on('input blur', validateKhachhang);
+            $('#kythuatvien').on('input blur', validateKythuatvien);
+            $('#product').on('input blur', validateProduct);
+            $('#fromDate, #toDate').on('change blur', validateDates);
+            
             window.loadTabData = function(tab, formData) {
                 let url = "{{ route('warranty.kuchen') }}?tab=" + tab + "&" + formData;
                 let brand = "{{ session('brand') }}";
@@ -218,6 +280,21 @@
             // Xử lý form search
             $('#searchForm').on('submit', function (e) {
                 e.preventDefault();
+                
+                // Validate tất cả các trường trước khi submit
+                validateSophieu();
+                validateSeri();
+                validateSdt();
+                validateKhachhang();
+                validateKythuatvien();
+                validateProduct();
+                const isDateValid = validateDates();
+                
+                // Nếu có lỗi, không submit
+                if (!isDateValid || Object.keys(validationErrors).length > 0) {
+                    return false;
+                }
+                
                 let tab = localStorage.getItem('activeTab') || 'danhsach';
                 let formData = $(this).serialize();
                 loadTabData(tab, formData);

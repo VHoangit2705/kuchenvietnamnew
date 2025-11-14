@@ -69,6 +69,10 @@ class WarrantyController extends Controller
             }
         }
 
+        // Xử lý ngày tháng
+        $fromDate = request('fromDate') ? Carbon::parse(request('fromDate')) : Carbon::now()->subDays(30);
+        $toDate = request('toDate') ? Carbon::parse(request('toDate')) : Carbon::now();
+
         $query = WarrantyRequest::query()
             ->where('branch', 'like', 'kuchen%')
             ->when($branchFilter !== 'hurom', function ($q) use ($branchFilter) {
@@ -80,7 +84,9 @@ class WarrantyController extends Controller
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
             ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
-            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
+            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"))
+            ->when(request('fromDate'), fn($q) => $q->whereDate('received_date', '>=', $fromDate))
+            ->when(request('toDate'), fn($q) => $q->whereDate('received_date', '<=', $toDate));
 
         $counts = (clone $query)
             ->selectRaw("
@@ -117,7 +123,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'fromDate', 'toDate'));
     }
 
 
@@ -151,6 +157,10 @@ class WarrantyController extends Controller
             }
         }
 
+        // Xử lý ngày tháng
+        $fromDate = request('fromDate') ? Carbon::parse(request('fromDate')) : Carbon::now()->subDays(30);
+        $toDate = request('toDate') ? Carbon::parse(request('toDate')) : Carbon::now();
+
         $query = WarrantyRequest::query()
             ->where('branch', 'like', 'hurom%')
             ->when($branchFilter !== 'hurom', function ($q) use ($branchFilter) {
@@ -162,7 +172,9 @@ class WarrantyController extends Controller
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
             ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
-            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
+            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"))
+            ->when(request('fromDate'), fn($q) => $q->whereDate('received_date', '>=', $fromDate))
+            ->when(request('toDate'), fn($q) => $q->whereDate('received_date', '<=', $toDate));
 
 
         $counts = (clone $query)
@@ -204,7 +216,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'fromDate', 'toDate'));
     }
     //phân trang
     public function paginateCollection(Collection $items, $perPage, $currentPage)
