@@ -24,6 +24,7 @@ use App\Models\KyThuat\KhachHang;
 use App\Models\Kho\ProductWarranty;
 use App\Models\Kho\WarrantyActive;
 use App\Models\Kho\OrderProduct;
+use App\Models\Kho\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 Paginator::useBootstrap();
@@ -342,14 +343,6 @@ class WarrantyController extends Controller
                     $newRecord->unit_price = 0;
                     $newRecord->total = 0;
                     $newRecord->save();
-                    // $newQty =  $record->quantity - $component['return_quantity'];
-                    // if ($newQty <= 0) {
-                    //     // Xóa bản ghi nếu số lượng mới bằng hoặc nhỏ hơn 0
-                    //     WarrantyRequestDetail::where('id', $component['id'])->delete();
-                    // } else {
-                    //     // Cập nhật lại số lượng nếu còn
-                    //     WarrantyRequestDetail::where('id', $component['id'])->update(['quantity' => $newQty]);
-                    // }
                 }
             }
         }
@@ -368,12 +361,7 @@ class WarrantyController extends Controller
         $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
         $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
-        
-        // Lấy danh sách sản phẩm dựa trên brand
-        $view = session('brand') === 'hurom' ? 3 : 1;
-        $sanpham = Product::where('view', $view)->select('product_name')->get();
-        
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
@@ -390,10 +378,9 @@ class WarrantyController extends Controller
             'des_error_type' => 'nullable',
         ]);
 
-        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
-            $validator->after(function ($validator) use ($request) {
-                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
-                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
+        if ($request->solution === 'Thay thế linh kiện/hardware' && empty($request->replacement)) {
+            $validator->after(function ($validator) {
+                $validator->errors()->add('replacement', 'Linh kiện thay thế là bắt buộc khi chọn giải pháp này.');
             });
         }
 
@@ -408,15 +395,7 @@ class WarrantyController extends Controller
             $data['replacement'] = $request->des_error_type;
         }
         if($request->replacement){
-            // Tìm sản phẩm trong cả linh kiện và sản phẩm chính
             $product = Product::getProductByName($request->replacement);
-            if (!$product) {
-                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
-                $view = session('brand') === 'hurom' ? 3 : 1;
-                $product = Product::where('product_name', $request->replacement)
-                    ->where('view', $view)
-                    ->first();
-            }
             $data['replacement_price'] = $product->price ?? $request->unit_price;
         }
         // Thêm thông tin bổ sung
@@ -700,63 +679,6 @@ class WarrantyController extends Controller
         return view('warranty.formwarranty', compact('warranty', 'lstproduct', 'products', 'chinhanh', 'provinces'));
     }
     
-    // public function FindWarranty(Request $request)
-    // {
-    //     try {
-    //         $serialNumber = strtolower($request->input('serial_number'));
-
-    //         // Lấy thông tin bảo hành + orderProduct + order bằng Eloquent
-    //         $warrantyData = ProductWarranty::with(['order_product.order'])
-    //             ->whereRaw('LOWER(warranty_code) = ?', [$serialNumber])
-    //             ->first();
-
-    //         if (!$warrantyData) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Không tìm thấy thông tin bảo hành cho mã đã nhập.'
-    //             ]);
-    //         }
-
-    //         // Danh sách sản phẩm trong đơn hàng
-    //         $orderId = $warrantyData->order_product->order->id ?? null;
-    //         $lstproduct = [];
-
-    //         if ($orderId) {
-    //             $lstproduct = OrderProduct::where('order_products.order_id', $orderId)
-    //                 ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
-    //                 ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
-    //                 ->select('order_products.product_name', 'p.month', 'pw.warranty_code')
-    //                 ->get();
-    //         }
-
-    //         // Lịch sử bảo hành từ database mặc định
-    //         $warranty = WarrantyRequest::whereRaw('LOWER(serial_number) = ?', [$serialNumber])->first();
-    //         $history = $warranty ? $warranty->details()->with('warrantyRequest:id,received_date')->get() : [];
-
-    //         // Render view
-    //         $view = view('components.warranty_info', [
-    //             'warranty' => $warrantyData,
-    //             'lstproduct' => $lstproduct,
-    //             'product_warranty' => $warranty?->product,
-    //             'received_warranty' => $warranty?->staff_received,
-    //             'received_date' => $warranty?->received_date,
-    //             'history' => $history
-    //         ])->render();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'view' => $view,
-    //             'message' => 'Thông tin bảo hành'
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Lỗi FindWarranty: ' . $e->getMessage());
-    //         return response()->json([
-    //             'Lỗi FindWarranty' => $e->getMessage(),
-    //             'message' => 'Đã xảy ra lỗi trong quá trình xử lý.'
-    //         ], 500);
-    //     }
-    // }
-    
     public function FindWarranty(Request $request)
     {
         $view = session('brand') === 'hurom' ? 3 : 1;
@@ -804,15 +726,33 @@ class WarrantyController extends Controller
             }
 
             if (!$warrantyData) {
-                $suffix = substr($serialNumber, -3);
+                // Chỉ áp dụng logic suffix cho mã cũ bị lỗi (có prefix 2025050500)
                 $baseCodes = Enum::getCodes();
-                $finalCodes = array_map(function ($code) use ($suffix) {
-                    return $code . $suffix;
-                }, $baseCodes);
-                $warrantyData = ProductWarranty::with(['order_product.order'])
-                    ->whereIn('warranty_code', $finalCodes)
-                    ->first();
-                $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                $isOldErrorCode = false;
+                
+                // Kiểm tra xem mã nhập vào có phải là mã cũ bị lỗi không
+                foreach ($baseCodes as $baseCode) {
+                    $normalizedBaseCode = strtolower($baseCode);
+                    if (
+                        strpos($serialNumber, $normalizedBaseCode) === 0
+                        && strlen($serialNumber) === strlen($normalizedBaseCode) + 3
+                    ) {
+                        $isOldErrorCode = true;
+                        break;
+                    }
+                }
+                
+                // Chỉ áp dụng logic suffix nếu là mã cũ bị lỗi
+                if ($isOldErrorCode) {
+                    $suffix = substr($serialNumber, -3);
+                    $finalCodes = array_map(function ($code) use ($suffix) {
+                        return $code . $suffix;
+                    }, $baseCodes);
+                    $warrantyData = ProductWarranty::with(['order_product.order'])
+                        ->whereIn('warranty_code', $finalCodes)
+                        ->first();
+                    $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                }
             }
 
             if (!$warrantyData) {
@@ -870,6 +810,122 @@ class WarrantyController extends Controller
         }
     }
 
+    public function FindWarrantyByOrderCode(Request $request)
+    {
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        try {
+            $orderCode = $request->input('order_code');
+            
+            if (empty($orderCode)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng nhập mã đơn hàng.'
+                ]);
+            }
+
+            // Tìm đơn hàng theo order_code1 hoặc order_code2
+            $order = Order::where('order_code1', $orderCode)
+                ->orWhere('order_code2', $orderCode)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng với mã: ' . $orderCode
+                ]);
+            }
+
+            // Lấy danh sách sản phẩm trong đơn hàng có bảo hành
+            $lstproduct = OrderProduct::where('order_products.order_id', $order->id)
+                ->where('p.view', $view)
+                ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
+                ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
+                ->select('order_products.product_name', 'p.month', 'pw.warranty_code')
+                ->get();
+
+            if ($lstproduct->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy sản phẩm bảo hành trong đơn hàng này.'
+                ]);
+            }
+
+            // Tạo object warranty giả lập từ thông tin đơn hàng để hiển thị
+            $warrantyData = (object) [
+                'order_product' => (object) [
+                    'order' => $order
+                ],
+                'full_name' => $order->customer_name,
+                'phone_number' => $order->customer_phone,
+                'address' => $order->customer_address,
+                'shipment_date' => $order->created_at ? Carbon::parse($order->created_at) : null,
+                'warranty_end' => null
+            ];
+
+            // Lấy lịch sử bảo hành của tất cả sản phẩm trong đơn hàng
+            $warrantyCodes = $lstproduct->pluck('warranty_code')->filter()->toArray();
+            $warranties = WarrantyRequest::whereIn('serial_number', $warrantyCodes)
+                ->orderBy('received_date', 'desc')
+                ->get();
+
+            // Tạo history từ tất cả các warranty requests
+            $history = collect();
+            foreach ($warranties as $warranty) {
+                $details = $warranty->details()->with('warrantyRequest:id,received_date')->get();
+                if ($details->isEmpty()) {
+                    // Nếu không có details, vẫn thêm warranty vào history
+                    $history->push((object) [
+                        'error_type' => null,
+                        'solution' => null,
+                        'replacement' => null,
+                        'warrantyRequest' => (object) [
+                            'received_date' => $warranty->received_date
+                        ],
+                        'product_name' => $warranty->product,
+                        'serial_number' => $warranty->serial_number,
+                        'staff_received' => $warranty->staff_received
+                    ]);
+                } else {
+                    foreach ($details as $detail) {
+                        $history->push((object) [
+                            'error_type' => $detail->error_type,
+                            'solution' => $detail->solution,
+                            'replacement' => $detail->replacement,
+                            'warrantyRequest' => (object) [
+                                'received_date' => $warranty->received_date
+                            ],
+                            'product_name' => $warranty->product,
+                            'serial_number' => $warranty->serial_number,
+                            'staff_received' => $warranty->staff_received
+                        ]);
+                    }
+                }
+            }
+
+            // Render view với thông tin đơn hàng
+            $viewHtml = view('components.warranty_info', [
+                'warranty' => $warrantyData,
+                'lstproduct' => $lstproduct,
+                'product_warranty' => null,
+                'received_warranty' => null,
+                'received_date' => null,
+                'history' => $history
+            ])->render();
+
+            return response()->json([
+                'success' => true,
+                'view' => $viewHtml,
+                'message' => 'Thông tin bảo hành đơn hàng: ' . $orderCode
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi FindWarrantyByOrderCode: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Đã xảy ra lỗi trong quá trình xử lý: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function findWarantyOld(Request $request)
     {
         $serial = $request->serial;
@@ -903,10 +959,24 @@ class WarrantyController extends Controller
                 ->whereRaw('LOWER(warranty_code) = ?', [$serialNumber])
                 ->first();
             if (!$warrantyData){
-                $warrantyData = ProductWarranty::with(['order_product.order'])
-                    ->whereIn('warranty_code', $finalCodes)
-                    ->first();
-                $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                $possibleOldCode = false;
+                foreach ($baseCodes as $code) {
+                    $normalizedBaseCode = strtolower($code);
+                    if (
+                        strpos($serialNumber, $normalizedBaseCode) === 0
+                        && strlen($serialNumber) === strlen($normalizedBaseCode) + 3
+                    ) {
+                        $possibleOldCode = true;
+                        break;
+                    }
+                }
+
+                if ($possibleOldCode) {
+                    $warrantyData = ProductWarranty::with(['order_product.order'])
+                        ->whereIn('warranty_code', $finalCodes)
+                        ->first();
+                    $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                }
             }
 
             if (!$warrantyData) {
