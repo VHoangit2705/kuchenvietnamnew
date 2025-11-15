@@ -9,6 +9,7 @@ use App\Models\Kho\WarrantyActive;
 use App\Models\Kho\SerialNumber;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Pagination\Paginator;
@@ -30,13 +31,48 @@ class PrintWarrantyController extends Controller
     {
         $startOfMonth = Carbon::now()->startOfMonth()->toDateString();
         $toDay = Carbon::today()->toDateString();
-        $products = [];
         $view = Session('brand') === 'hurom' ? 3 : 1;
+        
+        // Cache Product query - dữ liệu ít thay đổi, cache 1 giờ
+        $products = Cache::remember("products_view_{$view}", 3600, function() use ($view) {
+            return Product::where('view', $view)
+                ->select('id', 'view', 'product_name')
+                ->get()
+                ->toArray();
+        });
+        
+        // Tối ưu query bằng LEFT JOIN - đếm số tem đã kích hoạt từ product_warranties
+        // Logic: Đếm số bản ghi trong product_warranties có warranty_code thuộc danh sách sn trong serial_numbers
+        // Mối quan hệ: warranty_card.id → serial_numbers.manhaphang → serial_numbers.sn → product_warranties.warranty_code
+        // Tính toán tốc độ sử dụng và số ngày còn lại dự đoán
         $lstWarrantyCard = WarrantyCard::query()
-            ->where('view', $view)
-            ->orderByDesc('create_at')
+            ->where('warranty_card.view', $view)
+            ->leftJoin('serial_numbers', 'serial_numbers.manhaphang', '=', 'warranty_card.id')
+            ->leftJoin('product_warranties', 'product_warranties.warranty_code', '=', 'serial_numbers.sn')
+            ->selectRaw('warranty_card.id, warranty_card.product, warranty_card.product_id, 
+                warranty_card.view, warranty_card.type, warranty_card.quantity, 
+                warranty_card.create_by, warranty_card.create_at,
+                COALESCE(COUNT(DISTINCT product_warranties.id), 0) as used_count,
+                (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) as remaining_count,
+                GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) as days_passed,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                    THEN COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1)
+                    ELSE 0 
+                END as usage_rate,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                        AND COALESCE(COUNT(DISTINCT product_warranties.id), 0) > 0
+                    THEN (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) / 
+                         (COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1))
+                    ELSE NULL
+                END as days_remaining')
+            ->groupBy('warranty_card.id', 'warranty_card.product', 'warranty_card.product_id', 
+                     'warranty_card.view', 'warranty_card.type', 'warranty_card.quantity', 
+                     'warranty_card.create_by', 'warranty_card.create_at')
+            ->orderByDesc('warranty_card.create_at')
             ->paginate(self::$pageSize);
-        $products = Product::where('view', $view)->select('id', 'view', 'product_name')->get()->toArray();
+        
         return view("printwarranty.index", compact('lstWarrantyCard', 'products', 'startOfMonth', 'toDay'));
     }
 
@@ -47,21 +83,52 @@ class PrintWarrantyController extends Controller
         $tensp = $request->input('tensp');
         $tungay = $request->input('tungay');
         $denngay = $request->input('denngay');
-        $query = WarrantyCard::query()->where('view', $view);
+        
+        // Tối ưu query bằng LEFT JOIN - đếm số tem đã kích hoạt từ product_warranties
+        // Logic: Đếm số bản ghi trong product_warranties có warranty_code thuộc danh sách sn trong serial_numbers
+        // Tính toán tốc độ sử dụng và số ngày còn lại dự đoán
+        $query = WarrantyCard::query()
+            ->where('warranty_card.view', $view)
+            ->leftJoin('serial_numbers', 'serial_numbers.manhaphang', '=', 'warranty_card.id')
+            ->leftJoin('product_warranties', 'product_warranties.warranty_code', '=', 'serial_numbers.sn')
+            ->selectRaw('warranty_card.id, warranty_card.product, warranty_card.product_id, 
+                warranty_card.view, warranty_card.type, warranty_card.quantity, 
+                warranty_card.create_by, warranty_card.create_at,
+                COALESCE(COUNT(DISTINCT product_warranties.id), 0) as used_count,
+                (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) as remaining_count,
+                GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) as days_passed,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                    THEN COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1)
+                    ELSE 0 
+                END as usage_rate,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                        AND COALESCE(COUNT(DISTINCT product_warranties.id), 0) > 0
+                    THEN (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) / 
+                         (COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1))
+                    ELSE NULL
+                END as days_remaining')
+            ->groupBy('warranty_card.id', 'warranty_card.product', 'warranty_card.product_id', 
+                     'warranty_card.view', 'warranty_card.type', 'warranty_card.quantity', 
+                     'warranty_card.create_by', 'warranty_card.create_at');
+            
         if (!empty($sophieu)) {
-            $query->where('id', $sophieu);
+            $query->where('warranty_card.id', $sophieu);
         }
         if (!empty($tensp)) {
-            $query->where('product', 'LIKE', '%' . $tensp . '%');
+            $query->where('warranty_card.product', 'LIKE', '%' . $tensp . '%');
         }
         if (!empty($tungay)) {
-            $query->whereDate('create_at', '>=', $tungay);
+            $query->whereDate('warranty_card.create_at', '>=', $tungay);
         }
 
         if (!empty($denngay)) {
-            $query->whereDate('create_at', '<=', $denngay);
+            $query->whereDate('warranty_card.create_at', '<=', $denngay);
         }
-        $lstWarrantyCard = $query->orderByDesc('create_at')->paginate(self::$pageSize);
+        
+        $lstWarrantyCard = $query->orderByDesc('warranty_card.create_at')->paginate(self::$pageSize);
+        
         return view('printwarranty.tablebody', compact('lstWarrantyCard'));
     }
 
@@ -289,7 +356,38 @@ class PrintWarrantyController extends Controller
     public function partialTable()
     {
         $view = Session('brand') === 'hurom' ? 3 : 1;
-        $lstWarrantyCard = WarrantyCard::query()->where('view', $view)->orderByDesc('create_at')->paginate(self::$pageSize);
+        
+        // Tối ưu query bằng LEFT JOIN - đếm số tem đã kích hoạt từ product_warranties
+        // Logic: Đếm số bản ghi trong product_warranties có warranty_code thuộc danh sách sn trong serial_numbers
+        // Tính toán tốc độ sử dụng và số ngày còn lại dự đoán
+        $lstWarrantyCard = WarrantyCard::query()
+            ->where('warranty_card.view', $view)
+            ->leftJoin('serial_numbers', 'serial_numbers.manhaphang', '=', 'warranty_card.id')
+            ->leftJoin('product_warranties', 'product_warranties.warranty_code', '=', 'serial_numbers.sn')
+            ->selectRaw('warranty_card.id, warranty_card.product, warranty_card.product_id, 
+                warranty_card.view, warranty_card.type, warranty_card.quantity, 
+                warranty_card.create_by, warranty_card.create_at,
+                COALESCE(COUNT(DISTINCT product_warranties.id), 0) as used_count,
+                (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) as remaining_count,
+                GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) as days_passed,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                    THEN COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1)
+                    ELSE 0 
+                END as usage_rate,
+                CASE 
+                    WHEN GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1) > 0 
+                        AND COALESCE(COUNT(DISTINCT product_warranties.id), 0) > 0
+                    THEN (warranty_card.quantity - COALESCE(COUNT(DISTINCT product_warranties.id), 0)) / 
+                         (COALESCE(COUNT(DISTINCT product_warranties.id), 0) / GREATEST(DATEDIFF(NOW(), warranty_card.create_at), 1))
+                    ELSE NULL
+                END as days_remaining')
+            ->groupBy('warranty_card.id', 'warranty_card.product', 'warranty_card.product_id', 
+                     'warranty_card.view', 'warranty_card.type', 'warranty_card.quantity', 
+                     'warranty_card.create_by', 'warranty_card.create_at')
+            ->orderByDesc('warranty_card.create_at')
+            ->paginate(self::$pageSize);
+        
         return view('printwarranty.tablebody', compact('lstWarrantyCard'));
     }
 
