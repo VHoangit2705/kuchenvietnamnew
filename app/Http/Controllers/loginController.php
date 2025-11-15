@@ -104,12 +104,13 @@ class LoginController extends Controller
         // Nếu có nhập mật khẩu mới thì bắt buộc phải có mật khẩu hiện tại
         if ($request->filled('new_password')) {
             $rules['current_password'] = 'required|string';
-            $rules['new_password'] = 'required|string|min:6';
+            $rules['new_password'] = ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/'];
             $rules['confirm_password'] = 'required|string|same:new_password';
             
             $messages['current_password.required'] = 'Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu.';
             $messages['new_password.required'] = 'Vui lòng nhập mật khẩu mới.';
-            $messages['new_password.min'] = 'Mật khẩu mới phải có ít nhất 6 ký tự.';
+            $messages['new_password.min'] = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
+            $messages['new_password.regex'] = 'Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm cả chữ cái và số.';
             $messages['confirm_password.required'] = 'Vui lòng xác nhận mật khẩu mới.';
             $messages['confirm_password.same'] = 'Mật khẩu xác nhận không khớp.';
         }
@@ -164,6 +165,22 @@ class LoginController extends Controller
                 ], 422);
             }
 
+            // Kiểm tra mật khẩu có ít nhất 8 ký tự, bao gồm chữ cái và số
+            $newPassword = $request->new_password;
+            if (strlen($newPassword) < 8) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mật khẩu mới phải có ít nhất 8 ký tự.'
+                ], 422);
+            }
+
+            if (!preg_match('/[A-Za-z]/', $newPassword) || !preg_match('/\d/', $newPassword)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm cả chữ cái và số.'
+                ], 422);
+            }
+
             // Cập nhật mật khẩu
             $user->password = md5($request->new_password);
             $user->password_changed_at = now();
@@ -172,13 +189,31 @@ class LoginController extends Controller
         $user->save();
 
         $message = 'Cập nhật thông tin thành công!';
+        $shouldLogout = false;
+        
         if ($request->filled('new_password')) {
-            $message = 'Cập nhật thông tin và đổi mật khẩu thành công!';
+            $message = 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại với mật khẩu mới.';
+            $shouldLogout = true;
+            
+            // Logout user sau khi đổi mật khẩu
+            $token = $request->cookie('remember_token');
+            if ($token) {
+                $hashedToken = hash('sha256', $token);
+                $userToUpdate = User::where('cookie_value', $hashedToken)->first();
+                if ($userToUpdate) {
+                    $userToUpdate->cookie_value = null;
+                    $userToUpdate->save();
+                }
+            }
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
         return response()->json([
             'success' => true,
-            'message' => $message
+            'message' => $message,
+            'logout_required' => $shouldLogout
         ]);
     }
 
