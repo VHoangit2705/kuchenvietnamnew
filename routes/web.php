@@ -56,6 +56,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/themanhsanpham', [WarrantyController::class, 'TakePhotoWarranty'])->name("warranty.takephoto");
     Route::post('/baohanh/savemedia', [WarrantyController::class, 'StoreMedia'])->name('warranty.storemedia');
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
+    //Cảnh báo khóa nhập hộ ca bảo hành
+    Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
+    Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');
+    Route::post('/baohanh/anomaly-alerts/{id}/resolve', [WarrantyController::class, 'resolveAnomalyAlert'])->name('warranty.anomaly.resolve');
+    Route::post('/baohanh/anomaly-alerts/{id}/unblock', [WarrantyController::class, 'unblockStaff'])->name('warranty.anomaly.unblock');
+    Route::delete('/baohanh/anomaly-alerts/{id}', [WarrantyController::class, 'deleteAnomalyAlert'])->name('warranty.anomaly.delete');
 });
 
 // Collaborator
