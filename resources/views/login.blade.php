@@ -15,11 +15,18 @@
                 <input type="hidden" name="device_fingerprint" id="device_fingerprint">
                 <input type="hidden" name="browser_info" id="browser_info">
                 <div class="mb-3">
-                    <label for="password" class="form-label">Nhập mật khẩu để đăng nhập</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
-                    @if ($errors->has('password'))
-                        <small class="text-danger">{{ $errors->first('password') }}</small>
-                    @endif
+                    <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required autofocus>
+                    @error('username')
+                        <small class="text-danger">{{ $message }}</small>
+                    @enderror
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Mật khẩu <span class="text-danger">*</span></label>
+                    <input type="password" class="form-control @error('password') is-invalid @enderror" id="password" name="password" required>
+                    @error('password')
+                        <small class="text-danger">{{ $message }}</small>
+                    @enderror
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
