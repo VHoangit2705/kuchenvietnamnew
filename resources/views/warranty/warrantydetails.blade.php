@@ -1802,20 +1802,21 @@
 
 
         // Lỗi gặp phải: chữ và số, max 150
-        function validateErrorType() {
-            const $input = $('#error_type');
-            const value = $input.val().trim();
-            hideRepairFormError($input);
+         function validateErrorType() {
+  const $input = $('#error_type');
+  const value = $input.val().trim();
+  hideRepairFormError($input);
 
-            // Regex: cho phép chữ cái (có dấu), số và khoảng trắng
-            const regex = /^[0-9a-zA-ZÀ-ỹ\s]+$/;
+  // Regex: cho phép chữ cái (có dấu), số và khoảng trắng
+  const regex = /^[0-9a-zA-ZÀ-ỹ\s]+$/;
 
-            if (value && !regex.test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ và số.");
-            } else if (value.length > 150) {
-                showRepairFormError($input, "Tối đa 150 ký tự.");
-            }
-        }
+  if (value && !regex.test(value)) {
+    showRepairFormError($input, "Chỉ được nhập chữ và số.");
+  } else if (value.length > 150) {
+    showRepairFormError($input, "Tối đa 150 ký tự.");
+  }
+}
+
         // Mô tả cách xử lý: chữ và số, max 100
         function validateDescription($input) {
             const value = $input.val().trim();
