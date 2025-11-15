@@ -97,7 +97,7 @@ class WarrantyAnomalyDetector
         $averagePerStaff = $stats['staff_count_in_branch'] > 0 
             ? $stats['total_count'] / $stats['staff_count_in_branch'] 
             : 0;
-        $thresholdByAverage = ceil($averagePerStaff * 1.5);
+        $thresholdByAverage = ceil($averagePerStaff * 2.5);
         $thresholdByPercentage = ceil($stats['total_count'] * 0.5);
         
         // Lấy giá trị nhỏ hơn để đảm bảo công bằng hơn
@@ -268,11 +268,9 @@ class WarrantyAnomalyDetector
         $staffCountFormatted = number_format($staffCount, 0);
         
         if ($isExistingBlock) {
-            // Thông báo khi đang bị chặn và kiểm tra lại
-            return "⚠️ CẢNH BÁO: Hệ thống phát hiện bạn đã tiếp nhận {$staffCountFormatted} ca, vượt quá ngưỡng cho phép ({$thresholdFormatted} ca/ngày). Điều này cho thấy bạn có thể đang nhập hộ ca bảo hành cho người khác. Hệ thống đã tạm thời chặn bạn tạo phiếu bảo hành. Thời gian chặn còn lại: {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được xử lý.";
+            return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đang tạm thời bị hạn chế tiếp nhận ca bảo hành Thời gian còn lại: {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
         } else {
-            // Thông báo khi vừa mới bị chặn
-            return "⚠️ CẢNH BÁO: Hệ thống phát hiện bạn đã tiếp nhận {$staffCountFormatted} ca, vượt quá ngưỡng cho phép ({$thresholdFormatted} ca/ngày). Điều này cho thấy bạn có thể đang nhập hộ ca bảo hành cho người khác. Hệ thống đã tạm thời chặn bạn tạo phiếu bảo hành trong {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được xử lý.";
+            return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đã bị hạn chế tiếp nhận ca bảo hành trong {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
         }
     }
 

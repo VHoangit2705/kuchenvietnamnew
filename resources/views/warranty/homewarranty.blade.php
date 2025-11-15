@@ -568,7 +568,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/baohanh/anomaly-alerts/${id}/resolve`,
+                        url: '{{ route("warranty.anomaly.resolve", ":id") }}'.replace(':id', id),
                         method: 'POST',
                         data: {
                             _token: '{{ csrf_token() }}'
@@ -613,7 +613,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/baohanh/anomaly-alerts/${alertId}/unblock`,
+                        url: '{{ route("warranty.anomaly.unblock", ":id") }}'.replace(':id', alertId),
                         method: 'POST',
                         data: {
                             _token: '{{ csrf_token() }}'
@@ -659,7 +659,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/baohanh/anomaly-alerts/${alertId}`,
+                        url: '{{ route("warranty.anomaly.delete", ":id") }}'.replace(':id', alertId),
                         method: 'DELETE',
                         data: {
                             _token: '{{ csrf_token() }}'
