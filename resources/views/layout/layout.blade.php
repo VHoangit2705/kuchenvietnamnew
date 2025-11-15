@@ -120,10 +120,25 @@
             </nav>
             <!-- Account Section -->
             <div class="d-flex align-items-center text-white">
-                <span class="me-3 d-none d-lg-inline">{{ Auth::user()->full_name ?? 'Khách' }}</span>
-                <button class="btn btn-outline-danger"
-                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Đăng
-                    Xuất</button>
+                <div class="dropdown">
+                    <button class="btn btn-link text-white text-decoration-none dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle me-2" style="font-size: 1.5rem;"></i>
+                        <span class="d-none d-lg-inline">{{ Auth::user()->full_name ?? 'Khách' }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+                        <li>
+                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#changePasswordModal" onclick="$('#username').val('{{ Auth::user()->username ?? "" }}'); $('#email').val('{{ Auth::user()->email ?? "" }}');">
+                                <i class="bi bi-person-gear me-2"></i>Cập nhật thông tin
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                                <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
                 <!-- Form đăng xuất ẩn -->
                 <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
@@ -168,6 +183,55 @@
             <span class="visually-hidden">Loading...</span>
         </div>
     </div>
+
+    <!-- Modal Cập Nhật Thông Tin -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changePasswordModalLabel">Cập nhật thông tin tài khoản</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="changePasswordForm">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label">Tên đăng nhập</label>
+                                <input type="text" class="form-control" id="username" name="username" value="{{ Auth::user()->username ?? '' }}" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ Auth::user()->email ?? '' }}" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                        </div>
+                        <hr class="my-3">
+                        <h6 class="mb-3">Đổi mật khẩu</h6>
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Mật khẩu hiện tại <span class="text-muted">(để trống nếu không đổi)</span></label>
+                            <input type="password" class="form-control" id="currentPassword" name="current_password">
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">Mật khẩu mới</label>
+                            <input type="password" class="form-control" id="newPassword" name="new_password" minlength="6">
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Xác nhận mật khẩu mới</label>
+                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password" minlength="6">
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Cập nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     <!-- <footer class="bg-dark py-2 position-relative" style="height: 60px; flex-shrink: 0;" >
     </footer> -->
     <script>
@@ -190,6 +254,7 @@
         }
         $(document).ready(function() {
             ThongBao();
+            CheckPasswordExpiry();
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
@@ -209,7 +274,172 @@
                     });
                 }
             });
+
+            // Reset form khi đóng modal
+            $('#changePasswordModal').on('hidden.bs.modal', function () {
+                $('#changePasswordForm')[0].reset();
+                $('#changePasswordForm').find('.is-invalid').removeClass('is-invalid');
+                $('#changePasswordForm').find('.invalid-feedback').text('');
+                // Load lại giá trị username và email hiện tại
+                $('#username').val('{{ Auth::user()->username ?? "" }}');
+                $('#email').val('{{ Auth::user()->email ?? "" }}');
+            });
+
+            // Xử lý form cập nhật thông tin
+            $('#changePasswordForm').on('submit', function(e) {
+                e.preventDefault();
+                const form = $(this);
+                const username = $('#username').val();
+                const email = $('#email').val();
+                const currentPassword = $('#currentPassword').val();
+                const newPassword = $('#newPassword').val();
+                const confirmPassword = $('#confirmPassword').val();
+
+                // Reset validation
+                form.find('.is-invalid').removeClass('is-invalid');
+                form.find('.invalid-feedback').text('');
+
+                // Validate username và email
+                if (!username || username.trim() === '') {
+                    $('#username').addClass('is-invalid');
+                    $('#username').next('.invalid-feedback').text('Vui lòng nhập tên đăng nhập.');
+                    return;
+                }
+
+                if (!email || email.trim() === '') {
+                    $('#email').addClass('is-invalid');
+                    $('#email').next('.invalid-feedback').text('Vui lòng nhập email.');
+                    return;
+                }
+
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    $('#email').addClass('is-invalid');
+                    $('#email').next('.invalid-feedback').text('Email không hợp lệ.');
+                    return;
+                }
+
+                // Validate mật khẩu nếu có nhập
+                if (newPassword || confirmPassword || currentPassword) {
+                    if (!currentPassword) {
+                        $('#currentPassword').addClass('is-invalid');
+                        $('#currentPassword').next('.invalid-feedback').text('Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu.');
+                        return;
+                    }
+
+                    if (!newPassword) {
+                        $('#newPassword').addClass('is-invalid');
+                        $('#newPassword').next('.invalid-feedback').text('Vui lòng nhập mật khẩu mới.');
+                        return;
+                    }
+
+                    if (newPassword !== confirmPassword) {
+                        $('#confirmPassword').addClass('is-invalid');
+                        $('#confirmPassword').next('.invalid-feedback').text('Mật khẩu xác nhận không khớp.');
+                        return;
+                    }
+
+                    if (newPassword.length < 6) {
+                        $('#newPassword').addClass('is-invalid');
+                        $('#newPassword').next('.invalid-feedback').text('Mật khẩu phải có ít nhất 6 ký tự.');
+                        return;
+                    }
+                }
+
+                // Prepare data
+                const formData = {
+                    username: username,
+                    email: email
+                };
+
+                // Chỉ thêm mật khẩu nếu có nhập
+                if (newPassword && currentPassword) {
+                    formData.current_password = currentPassword;
+                    formData.new_password = newPassword;
+                    formData.confirm_password = confirmPassword;
+                }
+
+                $.ajax({
+                    url: "{{ route('password.change') }}",
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công',
+                                text: response.message || 'Cập nhật thông tin thành công!',
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                $('#changePasswordModal').modal('hide');
+                                // Reload để cập nhật thông tin
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi',
+                                text: response.message || 'Cập nhật thông tin thất bại!'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        const errors = xhr.responseJSON?.errors || {};
+                        if (xhr.responseJSON?.message) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi',
+                                text: xhr.responseJSON.message
+                            });
+                        } else {
+                            Object.keys(errors).forEach(function(key) {
+                                const input = form.find('[name="' + key + '"]');
+                                input.addClass('is-invalid');
+                                input.next('.invalid-feedback').text(errors[key][0]);
+                            });
+                        }
+                    }
+                });
+            });
         })
+
+        // Kiểm tra và cảnh báo đổi mật khẩu
+        function CheckPasswordExpiry() {
+            $.ajax({
+                url: "{{ route('password.check-expiry') }}",
+                type: 'GET',
+                success: function(response) {
+                    if (response.should_warn) {
+                        const daysRemaining = response.days_remaining || 0;
+                        const message = daysRemaining > 0 
+                            ? `Mật khẩu của bạn sẽ hết hạn sau ${daysRemaining} ngày. Vui lòng đổi mật khẩu để bảo mật tài khoản.`
+                            : 'Mật khẩu của bạn đã quá 30 ngày. Vui lòng đổi mật khẩu ngay!';
+                        
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Cảnh báo đổi mật khẩu',
+                            text: message,
+                            showCancelButton: true,
+                            confirmButtonText: 'Đổi mật khẩu ngay',
+                            cancelButtonText: 'Để sau',
+                            allowOutsideClick: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // Load dữ liệu user hiện tại vào form
+                                $('#username').val('{{ Auth::user()->username ?? "" }}');
+                                $('#email').val('{{ Auth::user()->email ?? "" }}');
+                                $('#changePasswordModal').modal('show');
+                            }
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    console.error("Lỗi kiểm tra mật khẩu:", xhr);
+                }
+            });
+        }
 
         function ThongBao() {
             const userBrand = @json(session('brand'));
