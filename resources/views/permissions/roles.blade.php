@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Phân quyền hệ thống</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
@@ -62,87 +63,15 @@
         </div>
     </div>
 
+    <!-- Permission Management JS -->
+    <script src="{{ asset('js/permissions/permission-common.js') }}"></script>
+    <script src="{{ asset('js/permissions/permission-roles.js') }}"></script>
     <script>
-        $(document).ready(function() {
-            $('#btnToggleForm').on('click', function(e) {
-                e.preventDefault();
-                $('#formCreateRole').toggleClass('d-none');
-            });
-
-            $('.btn-delete-role').click(function(e) {
-                e.preventDefault();
-                let roleId = $(this).data('id');
-                if (confirm('Bạn có chắc chắn muốn xoá nhóm quyền này?')) {
-                    $.ajax({
-                        url: '{{ route("permission.delete", ":id") }}'.replace(':id', roleId),
-                        type: 'DELETE',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            alert('Xoá thành công!');
-                            location.reload();
-                        },
-                        error: function(xhr) {
-                            alert('Đã xảy ra lỗi, không thể xoá.');
-                            console.error(xhr.responseText);
-                        }
-                    });
-                }
-            });
-
-            CreateRole();
-        });
-
-        function Validate() {
-            $roleName = $('#role_name_new').val().trim();
-            $roleDescription = $('#role_description_new').val().trim();
-            $('#role_name_new').removeClass('is-invalid');
-            $('#role_description_new').removeClass('is-invalid');
-            let isvalid = true;
-            if (!$roleName) {
-                $('#role_name_new').addClass('is-invalid');
-                $('#role_name_new').focus();
-                isvalid = false;
-            }
-            if (!$roleDescription) {
-                $('#role_description_new').addClass('is-invalid');
-                $('#role_description_new').focus();
-                isvalid = false;
-            }
-            return isvalid;
-        }
-
-        function CreateRole() {
-            $('#btnCreate').on('click', function(e) {
-                e.preventDefault();
-                if (!Validate()) {
-                    return;
-                }
-                const roleName = $('#role_name_new').val().trim();
-                const roleDescription = $('#role_description_new').val().trim();
-                $.ajax({
-                    url: '{{ route("roles.create") }}',
-                    method: 'POST',
-                    data: {
-                        role_name: roleName,
-                        role_description: roleDescription,
-                        _token: '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            location.reload();
-                        } else {
-                            alert(response.message);
-                        }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr.responseText);
-                        alert('Đã xảy ra lỗi khi lưu nhóm quyền.');
-                    }
-                });
-            });
-        }
+        // Initialize permission roles page
+        initPermissionRoles(
+            '{{ route("roles.create") }}',
+            '{{ route("permission.delete", ":id") }}'
+        );
     </script>
 </body>
 

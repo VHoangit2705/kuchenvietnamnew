@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'checkcookie.login' => \app\Http\Middleware\CheckCookieLogin::class,
             'check.token' => \app\Http\Middleware\CheckApiToken::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
+            'role' => \App\Http\Middleware\CheckPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
