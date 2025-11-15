@@ -10,8 +10,10 @@
     <div class="container d-flex justify-content-center align-items-center vh-100">
         <div class="card p-4" style="max-width:500px; width: 100%;">
             <h5 class="text-center mb-4">ĐĂNG NHẬP TRUNG TÂM BẢO HÀNH</h5>
-            <form action="{{ route('login') }}" method="POST">
+            <form action="{{ route('login') }}" method="POST" id="loginForm">
                 @csrf
+                <input type="hidden" name="device_fingerprint" id="device_fingerprint">
+                <input type="hidden" name="browser_info" id="browser_info">
                 <div class="mb-3">
                     <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
                     <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required autofocus>
@@ -42,5 +44,16 @@
     </script>
     @endif
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('js/device-fingerprint.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Lấy device fingerprint và browser info
+            const fingerprint = window.DeviceFingerprint.get();
+            const browserInfo = window.DeviceFingerprint.getBrowserInfo();
+            
+            document.getElementById('device_fingerprint').value = fingerprint;
+            document.getElementById('browser_info').value = JSON.stringify(browserInfo);
+        });
+    </script>
 </body>
 </html>
