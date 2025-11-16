@@ -127,6 +127,15 @@
         overflow-y: auto;
         z-index: 1050;
     }
+
+    .component-item-row {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 4px 0;
+    }
+
+    .component-item-row:last-child {
+        border-bottom: none;
+    }
 </style>
 
 @section('content')
@@ -323,11 +332,48 @@
                                     <td class="text-center">{{ $loop->iteration }}</td>
                                     <td>{{ $item->error_type }}</td>
                                     <td>{{ $item->solution }}</td>
-                                    <td>{{ $item->replacement }}</td>
-                                    <td class="text-center">{{ $item->quantity }}</td>
-                                    <td class="text-center">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                    <td>
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">
+                                                    <strong>{{ $component['number'] }}.</strong> {{ $component['name'] }}
+                                                </div>
+                                            @endforeach
+                                        @else
+                                            {{ $item->replacement }}
+                                        @endif
+                                    </td>
                                     <td class="text-center">
-                                        {{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">{{ $component['quantity'] }}</div>
+                                            @endforeach
+                                            <div class="component-total-row"><strong>Tổng: {{ $item->quantity }}</strong></div>
+                                        @else
+                                            {{ $item->quantity }}
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">{{ number_format($component['unit_price'], 0, ',', '.') }}</div>
+                                            @endforeach
+                                        @elseif($item->quantity > 0 && $item->unit_price !== null)
+                                            {{ number_format($item->unit_price, 0, ',', '.') }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                    <td class="text-center">{{ number_format($item->total, 0, ',', '.') }}</td>
                                     <td class="text-center">
                                         <button class="btn btn-warning btn-sm edit-row"
                                             onclick="Edit({{ $item->id }})">Sửa</button>
@@ -732,6 +778,13 @@
 
                 if (selectedValue === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
                     $desError.removeClass('d-none');
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
+                    // Xóa giá trị trong các input linh kiện để tránh gửi nhầm
+                    $('.replacement-input').val('');
+                    $('.quantity-input').val('0');
+                    $('.unit-price-input').val('0');
                 } else if (selectedValue === 'Từ chối bảo hành') {
                     $rejectionReason.removeClass('d-none');
                     $components.addClass('d-none');
@@ -810,9 +863,17 @@
                     });
 
                     // 3. Thêm các mảng vào dataToSend
-                    dataToSend['replacement'] = replacements;
-                    dataToSend['quantity'] = quantities;
-                    dataToSend['unit_price'] = unitPrices;
+                    // Nếu là "Sửa chữa tại chỗ (lỗi nhẹ)", không gửi replacement array
+                    if (dataToSend['solution'] === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+                        // Không gửi replacement, quantity, unit_price cho trường hợp này
+                        dataToSend['replacement'] = null;
+                        dataToSend['quantity'] = null;
+                        dataToSend['unit_price'] = null;
+                    } else {
+                        dataToSend['replacement'] = replacements;
+                        dataToSend['quantity'] = quantities;
+                        dataToSend['unit_price'] = unitPrices;
+                    }
 
                     if (!dataToSend['_token']) {
                         dataToSend['_token'] = '{{ csrf_token() }}';
@@ -1180,24 +1241,56 @@
         }
 
         function Edit(id) {
+            // Sử dụng dữ liệu gốc (chưa nhóm) từ quatrinhsuaRaw
+            const quatrinhsuaRaw = {!! json_encode($quatrinhsuaRaw) !!};
             const quatrinhsua = {!! json_encode($quatrinhsua) !!};
-            const data = quatrinhsua.find(item => item.id === id);
+            const selectedData = quatrinhsua.find(item => item.id === id);
             resetRepairForm(); // Reset form trước khi điền
-            $('#warranty_request_id').val(data.warranty_request_id);
-            $('#error_type').val(data.error_type);
-            $('#solution').val(data.solution);
+            
+            // Tìm tất cả các bản ghi gốc liên quan (cùng error_type, solution, warranty_request_id, và Ngaytao)
+            const relatedRecords = quatrinhsuaRaw.filter(item => 
+                item.warranty_request_id === selectedData.warranty_request_id &&
+                item.error_type === selectedData.error_type &&
+                item.solution === selectedData.solution &&
+                item.Ngaytao === selectedData.Ngaytao
+            );
 
-            // Chỉ điền vào dòng linh kiện đầu tiên
-            const $firstRow = $('.component-row:first');
-            $firstRow.find('.replacement-input').val(data.replacement);
-            $firstRow.find('.quantity-input').val(data.quantity);
-            // Định dạng lại đơn giá khi edit
-            const unitPriceInput = $firstRow.find('.unit-price-input');
-            unitPriceInput.val(data.unit_price);
-            formatCurrency(unitPriceInput);
+            $('#id').val(id);
+            $('#warranty_request_id').val(selectedData.warranty_request_id);
+            $('#error_type').val(selectedData.error_type);
+            $('#solution').val(selectedData.solution);
+            
+            // Điền mô tả nếu là "Sửa chữa tại chỗ (lỗi nhẹ)"
+            if (selectedData.solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+                // Lấy replacement từ bản ghi đầu tiên (vì đã được nhóm)
+                const firstRecord = relatedRecords.length > 0 ? relatedRecords[0] : null;
+                if (firstRecord && firstRecord.replacement) {
+                    $('#des_error_type').val(firstRecord.replacement);
+                }
+                // Xóa tất cả các dòng linh kiện và để trống
+                $('.component-row-wrapper').remove();
+            } else {
+                // Xóa tất cả các dòng linh kiện trừ dòng đầu tiên
+                $('.component-row-wrapper:not(:first)').remove();
 
-            // Xóa các dòng linh kiện thừa nếu có
-            $('.component-row-wrapper:not(:first)').remove();
+                // Điền dữ liệu vào các dòng từ dữ liệu gốc
+                if (relatedRecords.length > 0) {
+                    // Điền dòng đầu tiên
+                    const $firstRow = $('.component-row-wrapper:first');
+                    fillComponentRow($firstRow, relatedRecords[0], 0);
+                    
+                    // Thêm các dòng còn lại
+                    for (let i = 1; i < relatedRecords.length; i++) {
+                        $('#add-component-btn').trigger('click');
+                        const $newRow = $('.component-row-wrapper:last');
+                        fillComponentRow($newRow, relatedRecords[i], i);
+                    }
+                } else {
+                    // Nếu không có bản ghi nào, giữ lại dòng đầu tiên trống
+                    const $firstRow = $('.component-row-wrapper:first');
+                    fillComponentRow($firstRow, { replacement: '', quantity: 0, unit_price: 0 }, 0);
+                }
+            }
 
             // Kích hoạt sự kiện change để ẩn/hiện các trường đúng
             $('#solution').trigger('change');
@@ -1205,6 +1298,27 @@
             updateTotalPrice();
 
             $('#repairModal').modal('show');
+        }
+
+        // Hàm helper để điền dữ liệu vào một dòng linh kiện
+        function fillComponentRow($row, record, index) {
+            $row.find('.replacement-input').val(record.replacement || '');
+            $row.find('.quantity-input').val(record.quantity || 0);
+            const unitPriceInput = $row.find('.unit-price-input');
+            unitPriceInput.val(record.unit_price || 0);
+            formatCurrency(unitPriceInput);
+            
+            // Cập nhật ID cho các input
+            $row.find('.replacement-input').attr('id', 'replacement_' + index);
+            $row.find('.quantity-input').attr('id', 'quantity_' + index);
+            $row.find('.unit-price-input').attr('id', 'unit_price_' + index);
+            
+            // Hiển thị nút xóa nếu không phải dòng đầu tiên
+            if (index > 0) {
+                $row.find('.remove-component-btn').show();
+            } else {
+                $row.find('.remove-component-btn').hide();
+            }
         }
 
         function Delete(id) {
