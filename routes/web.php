@@ -18,6 +18,12 @@ Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
 
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
+
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
 });
