@@ -45,6 +45,7 @@ class LoginController extends Controller
             // Xử lý device token
             $deviceFingerprint = $request->input('device_fingerprint');
             $browserInfo = $request->input('browser_info');
+            $currentIp = $request->ip();
             
             if ($deviceFingerprint) {
                 // Kiểm tra device token trong cookie
@@ -63,12 +64,47 @@ class LoginController extends Controller
                                 'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.Vui lòng sử dụng thiết bị khác.'
                             ])->withInput();
                         }
-                        // Token thuộc về user này → Cập nhật last_used_at
-                        $tokenRecord->update(['last_used_at' => now()]);
+                        
+                        // Token thuộc về user này → Kiểm tra IP thay đổi
+                        if ($tokenRecord->ip_address !== $currentIp) {
+                            // IP đã thay đổi → Kiểm tra device_fingerprint
+                            if ($tokenRecord->device_fingerprint !== $deviceFingerprint) {
+                                // Device fingerprint khác → Chặn
+                                return back()->withErrors([
+                                    'password' => 'Thiết bị này không khớp với thiết bị đã đăng nhập trước đó. Vui lòng sử dụng thiết bị đã đăng ký.'
+                                ])->withInput();
+                            }
+                            // Device fingerprint giống → Cho phép và cập nhật IP
+                            $tokenRecord->update([
+                                'ip_address' => $currentIp,
+                                'last_used_at' => now()
+                            ]);
+                        } else {
+                            // IP không thay đổi → Chỉ cập nhật last_used_at
+                            $tokenRecord->update(['last_used_at' => now()]);
+                        }
                         $deviceToken = $existingToken;
                     } else {
-                        // Token không tồn tại trong DB → Tạo mới
-                        $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
+                        // Token không tồn tại trong DB → Kiểm tra device fingerprint và IP
+                        // Kiểm tra xem user này có device record nào khác với IP khác không
+                        $otherDeviceRecord = UserDeviceToken::where('user_id', $user->id)
+                            ->where('is_active', 1)
+                            ->where('ip_address', '!=', $currentIp)
+                            ->whereNotNull('ip_address')
+                            ->first();
+                        
+                        if ($otherDeviceRecord) {
+                            // User đã có device record với IP khác → Kiểm tra device_fingerprint
+                            if ($otherDeviceRecord->device_fingerprint !== $deviceFingerprint) {
+                                // Device fingerprint khác → Chặn
+                                return back()->withErrors([
+                                    'password' => 'Thiết bị này không khớp với thiết bị đã đăng nhập trước đó. Vui lòng sử dụng thiết bị đã đăng ký.'
+                                ])->withInput();
+                            }
+                            // Device fingerprint giống → Cho phép tạo mới
+                        }
+                        
+                        $result = $this->createNewDeviceToken($user, $deviceFingerprint, $currentIp, $browserInfo);
                         if ($result === false) {
                             return back()->withErrors([
                                 'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
@@ -78,27 +114,67 @@ class LoginController extends Controller
                     }
                 } else {
                     // Không có token trong cookie → Kiểm tra device fingerprint
-                    // Kiểm tra device này có đang được user khác sử dụng không (is_active = 1)
                     $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
                         ->where('is_active', 1)
                         ->first();
                     
-                    if ($existingDevice && $existingDevice->user_id !== $user->id) {
-                        // Device đang được user khác sử dụng → Chặn
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
+                    if ($existingDevice) {
+                        if ($existingDevice->user_id !== $user->id) {
+                            // Device đã được user khác sử dụng → Chặn
+                            return back()->withErrors([
+                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
+                            ])->withInput();
+                        }
+                        
+                        // Device thuộc về user này → Kiểm tra IP thay đổi
+                        if ($existingDevice->ip_address !== $currentIp) {
+                            // IP đã thay đổi nhưng device_fingerprint giống → Cho phép và cập nhật
+                            $result = $this->createNewDeviceToken($user, $deviceFingerprint, $currentIp, $browserInfo);
+                            if ($result === false) {
+                                return back()->withErrors([
+                                    'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
+                                ])->withInput();
+                            }
+                            $deviceToken = $result;
+                        } else {
+                            // IP không thay đổi → Tạo token mới hoặc cập nhật
+                            $result = $this->createNewDeviceToken($user, $deviceFingerprint, $currentIp, $browserInfo);
+                            if ($result === false) {
+                                return back()->withErrors([
+                                    'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
+                                ])->withInput();
+                            }
+                            $deviceToken = $result;
+                        }
+                    } else {
+                        // Không có device record với device_fingerprint này
+                        // Kiểm tra xem user này có device record nào khác với IP khác không
+                        $otherDeviceRecord = UserDeviceToken::where('user_id', $user->id)
+                            ->where('is_active', 1)
+                            ->where('ip_address', '!=', $currentIp)
+                            ->whereNotNull('ip_address')
+                            ->first();
+                        
+                        if ($otherDeviceRecord) {
+                            // User đã có device record với IP khác → Kiểm tra device_fingerprint
+                            if ($otherDeviceRecord->device_fingerprint !== $deviceFingerprint) {
+                                // Device fingerprint khác → Chặn
+                                return back()->withErrors([
+                                    'password' => 'Thiết bị này không khớp với thiết bị đã đăng nhập trước đó. Vui lòng sử dụng thiết bị đã đăng ký.'
+                                ])->withInput();
+                            }
+                            // Device fingerprint giống → Cho phép tạo mới
+                        }
+                        
+                        // Tạo mới device record
+                        $result = $this->createNewDeviceToken($user, $deviceFingerprint, $currentIp, $browserInfo);
+                        if ($result === false) {
+                            return back()->withErrors([
+                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
+                            ])->withInput();
+                        }
+                        $deviceToken = $result;
                     }
-                    
-                    // Nếu device_fingerprint đã tồn tại với cùng user_id (dù is_active = 0 hay 1), cho phép đăng nhập lại
-                    // Tạo token mới hoặc cập nhật token cũ
-                    $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
-                    if ($result === false) {
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
-                    }
-                    $deviceToken = $result;
                 }
             }
             
@@ -141,21 +217,16 @@ class LoginController extends Controller
             $token = Str::random(60);
             $hashedToken = hash('sha256', $token);
             
-            // Kiểm tra device này có đang được user khác sử dụng không (is_active = 1)
-            $existingActiveDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
+            // Kiểm tra device này đã có token của user khác chưa?
+            $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
                 ->where('is_active', 1)
                 ->where('user_id', '!=', $user->id)
                 ->first();
             
-            if ($existingActiveDevice) {
-                // Device đang được user khác sử dụng → Trả về false
+            if ($existingDevice) {
+                // Device đã được user khác sử dụng → Trả về false thay vì throw exception
                 return false;
             }
-            
-            // Kiểm tra xem device_fingerprint đã tồn tại với user_id này chưa (bất kể is_active)
-            $existingDeviceForUser = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                ->where('user_id', $user->id)
-                ->first();
             
             // Xử lý browser_info nếu là JSON string
             $browserInfoJson = null;
@@ -169,47 +240,25 @@ class LoginController extends Controller
                 }
             }
             
-            // Nếu đã có record với cùng user_id và device_fingerprint, cập nhật nó
-            // (cho phép user đăng nhập lại trên cùng thiết bị, kể cả khi IP thay đổi)
-            if ($existingDeviceForUser) {
-                // Cùng thiết bị (device_fingerprint giống) → Cho phép đăng nhập (đổi IP)
-                $existingDeviceForUser->update([
-                    'device_token' => $hashedToken,
-                    'ip_address' => $ipAddress, // Cập nhật IP mới
-                    'browser_info' => $browserInfoJson,
-                    'is_active' => 1, // Kích hoạt lại nếu đã bị vô hiệu hóa
-                    'last_used_at' => now()
-                ]);
-            } else {
-                // Thiết bị mới (device_fingerprint khác) → Vô hiệu hóa tất cả thiết bị khác của user này
-                // Đảm bảo chỉ 1 thiết bị được active tại một thời điểm
-                UserDeviceToken::where('user_id', $user->id)
-                    ->where('device_fingerprint', '!=', $deviceFingerprint)
-                    ->where('is_active', 1)
-                    ->update(['is_active' => 0]);
-                
-                // Xóa các record cũ không còn active của user khác (nếu có)
-                UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                    ->where('is_active', 0)
-                    ->where('user_id', '!=', $user->id)
-                    ->delete();
-                
-                // Tạo mới record cho thiết bị này
-                UserDeviceToken::create([
+            // Tạo hoặc cập nhật token
+            UserDeviceToken::updateOrCreate(
+                [
                     'user_id' => $user->id,
-                    'device_fingerprint' => $deviceFingerprint,
+                    'device_fingerprint' => $deviceFingerprint
+                ],
+                [
                     'device_token' => $hashedToken,
                     'ip_address' => $ipAddress,
                     'browser_info' => $browserInfoJson,
                     'is_active' => 1,
                     'last_used_at' => now()
-                ]);
-            }
+                ]
+            );
             
             return $token;
         } catch (\Exception $e) {
             // Log lỗi và trả về false
-            Log::error('Error creating device token: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            Log::error('Error creating device token: ' . $e->getMessage());
             return false;
         }
     }
