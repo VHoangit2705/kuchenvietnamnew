@@ -17,8 +17,9 @@
                 <div class="mb-3">
                     <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
                     <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required autofocus>
+                    <div class="invalid-feedback"></div>
                     @error('username')
-                        <small class="text-danger">{{ $message }}</small>
+                        <div class="text-danger small">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="mb-3">
@@ -53,6 +54,52 @@
             
             document.getElementById('device_fingerprint').value = fingerprint;
             document.getElementById('browser_info').value = JSON.stringify(browserInfo);
+
+            // Real-time validation for username
+            const usernameInput = document.getElementById('username');
+            const usernameFeedback = usernameInput.nextElementSibling;
+            
+            usernameInput.addEventListener('input', function() {
+                const username = this.value.trim();
+                usernameInput.classList.remove('is-invalid');
+                if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
+                    usernameFeedback.textContent = '';
+                }
+                
+                if (username) {
+                    // Validate username: không được có dấu tiếng Việt và không được có dấu cách
+                    // Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-)
+                    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                    if (!usernameRegex.test(username)) {
+                        usernameInput.classList.add('is-invalid');
+                        if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
+                            usernameFeedback.textContent = 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).';
+                        }
+                    }
+                }
+            });
+
+            // Validate before submit
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                const username = usernameInput.value.trim();
+                usernameInput.classList.remove('is-invalid');
+                if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
+                    usernameFeedback.textContent = '';
+                }
+
+                if (username) {
+                    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                    if (!usernameRegex.test(username)) {
+                        e.preventDefault();
+                        usernameInput.classList.add('is-invalid');
+                        if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
+                            usernameFeedback.textContent = 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).';
+                        }
+                        usernameInput.focus();
+                        return false;
+                    }
+                }
+            });
         });
     </script>
 </body>

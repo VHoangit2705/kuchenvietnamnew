@@ -26,13 +26,18 @@ class LoginController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string'
-        ], [
-            'username.required' => 'Vui lòng nhập tên đăng nhập.',
-            'password.required' => 'Vui lòng nhập mật khẩu.',
+            'username' => [
+                'required',
+                'string',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'password' => 'required|string',
             'device_fingerprint' => 'nullable|string',
             'browser_info' => 'nullable|json'
+        ], [
+            'username.required' => 'Vui lòng nhập tên đăng nhập.',
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
+            'password.required' => 'Vui lòng nhập mật khẩu.'
         ]);
 
         $user = User::where('username', $request->username)
@@ -40,7 +45,6 @@ class LoginController extends Controller
                     ->first();
 
             
-        $user = User::where('password', md5($request->password))->first();
         if ($user) {
             // Xử lý device token
             $deviceFingerprint = $request->input('device_fingerprint');
