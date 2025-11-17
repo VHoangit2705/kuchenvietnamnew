@@ -198,7 +198,12 @@ class LoginController extends Controller
         }
     }
 
-    public function logout(Request $request)
+    /**
+     * Thực hiện logout user (tái sử dụng cho logout và đổi mật khẩu)
+     * @param Request $request
+     * @return void
+     */
+    private function performLogout(Request $request)
     {
         $token = $request->cookie('remember_token');
         $user = null;
@@ -227,6 +232,11 @@ class LoginController extends Controller
         $request->session()->regenerateToken(); // Tạo lại CSRF token
         Cookie::queue(Cookie::forget('remember_token'));
         Cookie::queue(Cookie::forget('device_token'));
+    }
+
+    public function logout(Request $request)
+    {
+        $this->performLogout($request);
         return redirect('/login');
     }
 
@@ -355,30 +365,8 @@ class LoginController extends Controller
             $message = 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại với mật khẩu mới.';
             $shouldLogout = true;
             
-            // Logout user sau khi đổi mật khẩu
-            $token = $request->cookie('remember_token');
-            if ($token) {
-                $hashedToken = hash('sha256', $token);
-                $userToUpdate = User::where('cookie_value', $hashedToken)->first();
-                if ($userToUpdate) {
-                    $userToUpdate->cookie_value = null;
-                    $userToUpdate->save();
-                }
-            }
-            
-            // Xóa tất cả device token của user này trước khi logout
-            // Chỉ xóa device token từ database, không dựa vào request body
-            UserDeviceToken::where('user_id', $user->id)
-                ->where('is_active', 1)
-                ->update(['is_active' => 0]);
-            
-            Auth::logout();
-            session()->flush();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-            
-            // Xóa cookie device_token (cần set trong response)
-            // Vì đây là JSON response, cookie sẽ được xóa qua frontend
+            // Logout user sau khi đổi mật khẩu (tái sử dụng function logout)
+            $this->performLogout($request);
         }
 
         $response = response()->json([
