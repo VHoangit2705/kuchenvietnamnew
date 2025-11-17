@@ -51,23 +51,36 @@ class LoginController extends Controller
                 $existingToken = Cookie::get('device_token');
                 
                 if ($existingToken) {
-                    // Kiểm tra token này thuộc về user nào
-                    $tokenRecord = UserDeviceToken::where('device_token', hash('sha256', $existingToken))
+                    // Kiểm tra token này thuộc về user nào (bao gồm cả inactive)
+                    $hashedToken = hash('sha256', $existingToken);
+                    $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
                         ->where('is_active', 1)
                         ->first();
                     
                     if ($tokenRecord) {
-                        // Token đã tồn tại và thuộc về user khác
+                        // Token đã tồn tại và active
                         if ($tokenRecord->user_id !== $user->id) {
+                            // Token thuộc về user khác → Chặn
                             return back()->withErrors([
                                 'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.Vui lòng sử dụng thiết bị khác.'
                             ])->withInput();
                         }
-                        // Token thuộc về user này → Cập nhật last_used_at
+                        // Token thuộc về user này và active → Cập nhật last_used_at
                         $tokenRecord->update(['last_used_at' => now()]);
                         $deviceToken = $existingToken;
                     } else {
-                        // Token không tồn tại trong DB → Tạo mới
+                        // Token không tồn tại hoặc không active → Kiểm tra xem có phải token cũ của user này không
+                        $oldTokenRecord = UserDeviceToken::where('device_token', $hashedToken)
+                            ->where('is_active', 0)
+                            ->where('user_id', $user->id)
+                            ->first();
+                        
+                        if ($oldTokenRecord) {
+                            // Token cũ của user này (đã bị deactivate) → Xóa cookie và tạo mới
+                            Cookie::queue(Cookie::forget('device_token'));
+                        }
+                        
+                        // Tạo token mới
                         $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
                         if ($result === false) {
                             return back()->withErrors([
@@ -188,6 +201,7 @@ class LoginController extends Controller
     public function logout(Request $request)
     {
         $token = $request->cookie('remember_token');
+        $user = null;
 
         if ($token) {
             $hashedToken = hash('sha256', $token);
@@ -199,12 +213,11 @@ class LoginController extends Controller
             }
         }
         
-        // Xóa device token
-        $deviceToken = $request->cookie('device_token');
-        if ($deviceToken && Auth::check()) {
-            $hashedDeviceToken = hash('sha256', $deviceToken);
-            UserDeviceToken::where('device_token', $hashedDeviceToken)
-                ->where('user_id', Auth::id())
+        // Xóa tất cả device token của user (nếu có user từ cookie hoặc từ Auth)
+        $userId = $user ? $user->id : (Auth::check() ? Auth::id() : null);
+        if ($userId) {
+            UserDeviceToken::where('user_id', $userId)
+                ->where('is_active', 1)
                 ->update(['is_active' => 0]);
         }
         
@@ -226,6 +239,31 @@ class LoginController extends Controller
                 'success' => false,
                 'message' => 'Người dùng chưa đăng nhập.'
             ], 401);
+        }
+        
+        // Chặn việc gửi device_token từ request body (chỉ cho phép từ cookie)
+        if ($request->has('device_token') || $request->has('device_fingerprint')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không được phép thay đổi thông tin thiết bị từ request.'
+            ], 403);
+        }
+        
+        // Kiểm tra device_token trong cookie phải thuộc về user hiện tại
+        $deviceToken = Cookie::get('device_token');
+        if ($deviceToken) {
+            $hashedToken = hash('sha256', $deviceToken);
+            $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
+                ->where('is_active', 1)
+                ->first();
+            
+            if ($tokenRecord && $tokenRecord->user_id !== $user->id) {
+                // Device token không thuộc về user hiện tại → Chặn
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Thiết bị không được xác thực. Vui lòng đăng nhập lại.'
+                ], 403);
+            }
         }
         
         // Validation rules
@@ -344,16 +382,35 @@ class LoginController extends Controller
                     $userToUpdate->save();
                 }
             }
+            
+            // Xóa tất cả device token của user này trước khi logout
+            // Chỉ xóa device token từ database, không dựa vào request body
+            UserDeviceToken::where('user_id', $user->id)
+                ->where('is_active', 1)
+                ->update(['is_active' => 0]);
+            
             Auth::logout();
+            session()->flush();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+            
+            // Xóa cookie device_token (cần set trong response)
+            // Vì đây là JSON response, cookie sẽ được xóa qua frontend
         }
 
-        return response()->json([
+        $response = response()->json([
             'success' => true,
             'message' => $message,
             'logout_required' => $shouldLogout
         ]);
+        
+        // Nếu cần logout, xóa cookie device_token
+        if ($shouldLogout) {
+            $response->cookie(Cookie::forget('device_token'));
+            $response->cookie(Cookie::forget('remember_token'));
+        }
+        
+        return $response;
     }
 
     public function checkPasswordExpiry(Request $request)
