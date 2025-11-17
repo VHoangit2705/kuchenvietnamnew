@@ -112,16 +112,30 @@ class PermissionController extends Controller
     public function CreateUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|string|max:255|unique:users,username',
-            'email' => 'required|email|max:255|unique:users,email',
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:users,username',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'email' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:users,email',
+                'regex:/^[^\s@]+@[^\s@]+\.[^\s@]+$/'
+            ],
             'full_name' => 'required|string|max:255',
             'password' => 'required|string|min:6',
             'zone' => 'required|string'
         ], [
             'username.required' => 'Tên đăng nhập là bắt buộc.',
             'username.unique' => 'Tên đăng nhập này đã được sử dụng.',
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
             'email.required' => 'Email là bắt buộc.',
             'email.email' => 'Email không đúng định dạng.',
+            'email.regex' => 'Email không đúng định dạng.',
             'email.unique' => 'Email này đã được sử dụng.',
             'full_name.required' => 'Tên đầy đủ là bắt buộc.',
             'password.required' => 'Mật khẩu là bắt buộc.',

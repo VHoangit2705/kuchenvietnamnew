@@ -253,6 +253,11 @@
                 showConfirmButton: confirm
             });
         }
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
         $(document).ready(function() {
             ThongBao();
             CheckPasswordExpiry();
@@ -286,6 +291,37 @@
                 $('#email').val('{{ Auth::user()->email ?? "" }}');
             });
 
+            // Real-time validation for username (sử dụng event delegation để tránh đăng ký nhiều lần)
+            $(document).on('input', '#changePasswordModal #username', function() {
+                const $username = $(this);
+                const username = $username.val().trim();
+                $username.removeClass('is-invalid');
+                $username.next('.invalid-feedback').text('');
+                
+                if (username) {
+                    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                    if (!usernameRegex.test(username)) {
+                        $username.addClass('is-invalid');
+                        $username.next('.invalid-feedback').text('Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).');
+                    }
+                }
+            });
+
+            // Real-time validation for email (sử dụng event delegation để tránh đăng ký nhiều lần)
+            $(document).on('input', '#changePasswordModal #email', function() {
+                const $email = $(this);
+                const email = $email.val().trim();
+                $email.removeClass('is-invalid');
+                $email.next('.invalid-feedback').text('');
+                
+                if (email) {
+                    if (!validateEmail(email)) {
+                        $email.addClass('is-invalid');
+                        $email.next('.invalid-feedback').text('Email không đúng định dạng.');
+                    }
+                }
+            });
+
             // Xử lý form cập nhật thông tin
             $('#changePasswordForm').on('submit', function(e) {
                 e.preventDefault();
@@ -305,20 +341,28 @@
                     $('#username').addClass('is-invalid');
                     $('#username').next('.invalid-feedback').text('Vui lòng nhập tên đăng nhập.');
                     return;
+                } else {
+                    // Validate username: không được có dấu tiếng Việt và không được có dấu cách
+                    // Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-)
+                    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                    if (!usernameRegex.test(username.trim())) {
+                        $('#username').addClass('is-invalid');
+                        $('#username').next('.invalid-feedback').text('Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).');
+                        return;
+                    }
                 }
 
                 if (!email || email.trim() === '') {
                     $('#email').addClass('is-invalid');
                     $('#email').next('.invalid-feedback').text('Vui lòng nhập email.');
                     return;
-                }
-
-                // Validate email format
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    $('#email').addClass('is-invalid');
-                    $('#email').next('.invalid-feedback').text('Email không hợp lệ.');
-                    return;
+                } else {
+                    // Validate email format using the provided function
+                    if (!validateEmail(email.trim())) {
+                        $('#email').addClass('is-invalid');
+                        $('#email').next('.invalid-feedback').text('Email không đúng định dạng.');
+                        return;
+                    }
                 }
 
                 // Validate mật khẩu nếu có nhập

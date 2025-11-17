@@ -230,14 +230,26 @@ class LoginController extends Controller
         
         // Validation rules
         $rules = [
-            'username' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'email' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[^\s@]+@[^\s@]+\.[^\s@]+$/'
+            ],
         ];
 
         $messages = [
             'username.required' => 'Vui lòng nhập tên đăng nhập.',
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
             'email.required' => 'Vui lòng nhập email.',
             'email.email' => 'Email không hợp lệ.',
+            'email.regex' => 'Email không đúng định dạng.',
         ];
 
         // Nếu có nhập mật khẩu mới thì bắt buộc phải có mật khẩu hiện tại
