@@ -249,23 +249,6 @@ class LoginController extends Controller
             ], 403);
         }
         
-        // Kiểm tra device_token trong cookie phải thuộc về user hiện tại
-        $deviceToken = Cookie::get('device_token');
-        if ($deviceToken) {
-            $hashedToken = hash('sha256', $deviceToken);
-            $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
-                ->where('is_active', 1)
-                ->first();
-            
-            if ($tokenRecord && $tokenRecord->user_id !== $user->id) {
-                // Device token không thuộc về user hiện tại → Chặn
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Thiết bị không được xác thực. Vui lòng đăng nhập lại.'
-                ], 403);
-            }
-        }
-        
         // Validation rules
         $rules = [
             'username' => 'required|string|max:255',
