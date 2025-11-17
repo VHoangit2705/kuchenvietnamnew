@@ -26,6 +26,12 @@ use App\Models\Kho\WarrantyActive;
 use App\Models\Kho\OrderProduct;
 use App\Models\Kho\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\KyThuat\UserDeviceToken;
+use App\Models\KyThuat\WarrantyAnomalyAlert;
+use App\Models\KyThuat\WarrantyAnomalyBlock;
+use App\Services\WarrantyAnomalyDetector;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Auth;
 
 Paginator::useBootstrap();
 
@@ -1245,6 +1251,28 @@ class WarrantyController extends Controller
     }
     public function CreateWarrany(Request $request)
     {
+        // Kiểm tra device token
+        $deviceToken = Cookie::get('device_token');
+        if (!$deviceToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Thiết bị không được xác thực. Vui lòng đăng nhập lại.'
+            ], 403);
+        }
+
+        $hashedToken = hash('sha256', $deviceToken);
+        $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
+            ->where('is_active', 1)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$tokenRecord) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token thiết bị không hợp lệ. Vui lòng đăng nhập lại.'
+            ], 403);
+        }
+
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $name = $request->product;
         $product = Product::where('product_name', $name)->first();
@@ -1256,6 +1284,20 @@ class WarrantyController extends Controller
         }
         $shipmentDate = Carbon::createFromFormat('d/m/Y', $request->shipment_date);
         $warrantyEnd = $shipmentDate->copy()->addMonths($product->month);
+        
+        // Kiểm tra anomaly và chặn nếu vượt ngưỡng
+        $staffName = session('user');
+        $branch = $request->branch;
+        $anomalyDetector = new WarrantyAnomalyDetector();
+        $anomalyCheck = $anomalyDetector->checkAndBlock($staffName, $branch);
+        
+        if ($anomalyCheck['blocked']) {
+            return response()->json([
+                'success' => false,
+                'message' => $anomalyCheck['message'],
+                'block_info' => $anomalyCheck['block_info']
+            ], 403);
+        }
         
         //Kiểm tra trùng lặp trước khi tạo phiếu
         $today = Carbon::today();
@@ -1385,6 +1427,177 @@ class WarrantyController extends Controller
             'photos' => $photos,
             'video' => $videoPath,
             'success' => true
+        ]);
+    }
+
+    /**
+     * Trang xem cảnh báo anomaly (chỉ admin)
+     */
+    public function AnomalyAlertsPage()
+    {
+        // Chỉ admin hoặc quản trị viên mới được xem
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            abort(403, 'Bạn không có quyền truy cập trang này.');
+        }
+
+        return view('warranty.anomaly_alerts');
+    }
+
+    /**
+     * Lấy danh sách cảnh báo anomaly (chỉ admin) - API
+     */
+    public function getAnomalyAlerts(Request $request)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xem
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xem cảnh báo này.'
+            ], 403);
+        }
+
+        $date = $request->input('date');
+        $branch = $request->input('branch');
+        $resolved = $request->input('resolved');
+
+        $anomalyDetector = new WarrantyAnomalyDetector();
+        $alerts = $anomalyDetector->getAlerts($date, $branch, $resolved);
+
+        // Thêm thông tin block vào mỗi alert
+        $alertsData = $alerts->map(function ($alert) {
+            $block = WarrantyAnomalyBlock::where('staff_name', $alert->staff_name)
+                ->where('branch', $alert->branch)
+                ->where('date', $alert->date)
+                ->where('is_active', true)
+                ->where('blocked_until', '>', now())
+                ->first();
+            
+            // Chuyển sang array và thêm field mới
+            $alertData = $alert->toArray();
+            $alertData['has_active_block'] = $block !== null;
+            return $alertData;
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $alertsData
+        ]);
+    }
+
+    /**
+     * Đánh dấu cảnh báo đã được xử lý
+     */
+    public function resolveAnomalyAlert(Request $request, $id)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xử lý
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xử lý cảnh báo này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($id);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        $alert->update([
+            'is_resolved' => true,
+            'resolved_by' => Auth::id(),
+            'resolved_at' => now()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã đánh dấu cảnh báo đã được xử lý.'
+        ]);
+    }
+
+    /**
+     * Gỡ block cho nhân viên
+     */
+    public function unblockStaff(Request $request, $alertId)
+    {
+        // Chỉ admin hoặc quản trị viên mới được gỡ block
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền gỡ block này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($alertId);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        // Tìm và gỡ tất cả block của nhân viên này trong ngày
+        $blocks = WarrantyAnomalyBlock::where('staff_name', $alert->staff_name)
+            ->where('branch', $alert->branch)
+            ->where('date', $alert->date)
+            ->where('is_active', true)
+            ->get();
+
+        // Gỡ tất cả block (nếu có)
+        if ($blocks->count() > 0) {
+            foreach ($blocks as $block) {
+                $block->update([
+                    'is_active' => false,
+                    'blocked_until' => now() // Đảm bảo block hết hiệu lực ngay
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã gỡ block cho nhân viên ' . $alert->staff_name . '. Nhân viên có thể tiếp tục tạo phiếu bảo hành.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Không tìm thấy block đang active cho nhân viên này.'
+        ], 404);
+    }
+
+    /**
+     * Xóa cảnh báo
+     */
+    public function deleteAnomalyAlert(Request $request, $id)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xóa cảnh báo
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xóa cảnh báo này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($id);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        // Xóa cảnh báo
+        $alert->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa cảnh báo thành công.'
         ]);
     }
 

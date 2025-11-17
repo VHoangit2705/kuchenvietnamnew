@@ -38,12 +38,15 @@ class User extends Authenticatable  implements OAuthenticatable
 	];
 
 	protected $fillable = [
+		'username',
+		'email',
 		'full_name',
 		'password',
 		'position',
 		'zone',
 		'img',
-		'cookie_value'
+		'cookie_value',
+		'password_changed_at'
 	];
 	
 	public function roles()
