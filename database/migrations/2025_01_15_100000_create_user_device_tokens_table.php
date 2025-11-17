@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('ip_address', 45)->nullable();
             $table->text('browser_info')->nullable();
             $table->boolean('is_active')->default(1);
+            $table->string('status', 20)->default('approved');
+            $table->timestamp('approval_requested_at')->nullable();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
 

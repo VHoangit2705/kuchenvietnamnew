@@ -388,8 +388,9 @@
                                 
                                 // Nếu đổi mật khẩu thì logout và redirect về login
                                 if (response.logout_required) {
-                                    // Xóa cookie device_token và remember_token trước khi redirect
-                                    document.cookie = 'device_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                                    // Xóa cookie thiết bị và remember_token trước khi redirect
+                                    document.cookie = 'browser_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                                    document.cookie = 'machine_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
                                     document.cookie = 'remember_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
                                     // Redirect về trang login (server đã logout rồi)
                                     window.location.href = "{{ route('login.form') }}";

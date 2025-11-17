@@ -16,11 +16,14 @@ class UserDeviceToken extends Model
         'ip_address',
         'browser_info',
         'is_active',
+        'status',
+        'approval_requested_at',
         'last_used_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'approval_requested_at' => 'datetime',
         'last_used_at' => 'datetime',
     ];
 

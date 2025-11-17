@@ -12,7 +12,7 @@
             <h5 class="text-center mb-4">ĐĂNG NHẬP TRUNG TÂM BẢO HÀNH</h5>
             <form action="{{ route('login') }}" method="POST" id="loginForm">
                 @csrf
-                <input type="hidden" name="device_fingerprint" id="device_fingerprint">
+                <input type="hidden" name="machine_id" id="machine_id">
                 <input type="hidden" name="browser_info" id="browser_info">
                 <div class="mb-3">
                     <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
@@ -47,12 +47,18 @@
     <script src="{{ asset('js/device-fingerprint.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Lấy device fingerprint và browser info
-            const fingerprint = window.DeviceFingerprint.get();
-            const browserInfo = window.DeviceFingerprint.getBrowserInfo();
-            
-            document.getElementById('device_fingerprint').value = fingerprint;
-            document.getElementById('browser_info').value = JSON.stringify(browserInfo);
+            const machineIdField = document.getElementById('machine_id');
+            const browserInfoField = document.getElementById('browser_info');
+
+            if (window.MachineIdentity) {
+                const machineId = window.MachineIdentity.get();
+                const browserInfo = window.MachineIdentity.getBrowserInfo();
+
+                machineIdField.value = machineId;
+                browserInfoField.value = JSON.stringify(browserInfo);
+            } else {
+                console.error('MachineIdentity script missing');
+            }
         });
     </script>
 </body>

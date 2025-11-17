@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 
 class LoginController extends Controller
 {
+    private const MAX_APPROVED_DEVICES = 2;
     
     private function User(): ?User
     {
@@ -27,92 +28,38 @@ class LoginController extends Controller
     {
         $request->validate([
             'username' => 'required|string',
-            'password' => 'required|string'
+            'password' => 'required|string',
+            'machine_id' => 'required|string|max:255',
+            'browser_info' => 'nullable|json'
         ], [
             'username.required' => 'Vui lòng nhập tên đăng nhập.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
-            'device_fingerprint' => 'nullable|string',
-            'browser_info' => 'nullable|json'
+            'machine_id.required' => 'Không thể nhận diện thiết bị. Vui lòng bật JavaScript và thử lại.',
         ]);
 
         $user = User::where('username', $request->username)
                     ->where('password', md5($request->password))
                     ->first();
 
-            
-        $user = User::where('password', md5($request->password))->first();
         if ($user) {
-            // Xử lý device token
-            $deviceFingerprint = $request->input('device_fingerprint');
-            $browserInfo = $request->input('browser_info');
-            
-            if ($deviceFingerprint) {
-                // Kiểm tra device token trong cookie
-                $existingToken = Cookie::get('device_token');
-                
-                if ($existingToken) {
-                    // Kiểm tra token này thuộc về user nào (bao gồm cả inactive)
-                    $hashedToken = hash('sha256', $existingToken);
-                    $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
-                        ->where('is_active', 1)
-                        ->first();
-                    
-                    if ($tokenRecord) {
-                        // Token đã tồn tại và active
-                        if ($tokenRecord->user_id !== $user->id) {
-                            // Token thuộc về user khác → Chặn
-                            return back()->withErrors([
-                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.Vui lòng sử dụng thiết bị khác.'
-                            ])->withInput();
-                        }
-                        // Token thuộc về user này và active → Cập nhật last_used_at
-                        $tokenRecord->update(['last_used_at' => now()]);
-                        $deviceToken = $existingToken;
-                    } else {
-                        // Token không tồn tại hoặc không active → Kiểm tra xem có phải token cũ của user này không
-                        $oldTokenRecord = UserDeviceToken::where('device_token', $hashedToken)
-                            ->where('is_active', 0)
-                            ->where('user_id', $user->id)
-                            ->first();
-                        
-                        if ($oldTokenRecord) {
-                            // Token cũ của user này (đã bị deactivate) → Xóa cookie và tạo mới
-                            Cookie::queue(Cookie::forget('device_token'));
-                        }
-                        
-                        // Tạo token mới
-                        $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
-                        if ($result === false) {
-                            return back()->withErrors([
-                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                            ])->withInput();
-                        }
-                        $deviceToken = $result;
-                    }
-                } else {
-                    // Không có token trong cookie → Kiểm tra device fingerprint
-                    $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                        ->where('is_active', 1)
-                        ->first();
-                    
-                    if ($existingDevice && $existingDevice->user_id !== $user->id) {
-                        // Device đã được user khác sử dụng → Chặn
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
-                    }
-                    
-                    // Tạo token mới
-                    $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
-                    if ($result === false) {
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
-                    }
-                    $deviceToken = $result;
-                }
+            $machineId = trim((string) $request->input('machine_id'));
+            $browserInfo = $this->normalizeBrowserInfo($request->input('browser_info'));
+            $ipAddress = $request->ip();
+
+            if (!$machineId) {
+                $machineId = $this->generateFallbackMachineId($request);
             }
-            
+
+            $deviceResult = $this->handleDeviceAuthorization($user, $machineId, $ipAddress, $browserInfo);
+
+            if ($deviceResult['status'] === 'error') {
+                return back()->withErrors([
+                    'password' => $deviceResult['message']
+                ])->withInput();
+            }
+
+            $browserToken = $deviceResult['browser_token'];
+
             Auth::login($user);
             $minutes = 60 * 24 * 7; // 7 ngày
             session([
@@ -121,20 +68,17 @@ class LoginController extends Controller
                 'position' => $user->position, // chức vụ
             ]);
             
-            // Remember token (giữ nguyên logic cũ)
+            // Remember token
             $token = Str::random(60);
             $user->cookie_value = hash('sha256', $token);
-            // Nếu chưa có password_changed_at, set nó thành thời điểm hiện tại
             if (!$user->password_changed_at) {
                 $user->password_changed_at = now();
             }
             $user->save();
             Cookie::queue('remember_token', $token, $minutes);
-            
-            // Device token (mới)
-            if (isset($deviceToken)) {
-                Cookie::queue('device_token', $deviceToken, $minutes);
-            }
+
+            Cookie::queue('browser_token', $browserToken, $minutes);
+            Cookie::queue('machine_id', $machineId, $minutes);
             
             return redirect()->intended('/');
         }
@@ -143,59 +87,133 @@ class LoginController extends Controller
     }
     
     /**
-     * Tạo device token mới
-     * @return string|false Trả về token nếu thành công, false nếu device đã được user khác sử dụng
+     * Xử lý cấp quyền truy cập thiết bị dựa trên MACHINE_ID.
      */
-    private function createNewDeviceToken($user, $deviceFingerprint, $ipAddress, $browserInfo)
+    private function handleDeviceAuthorization(User $user, string $machineId, string $ipAddress, ?string $browserInfo): array
     {
         try {
-            $token = Str::random(60);
-            $hashedToken = hash('sha256', $token);
-            
-            // Kiểm tra device này đã có token của user khác chưa?
-            $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                ->where('is_active', 1)
-                ->where('user_id', '!=', $user->id)
-                ->first();
-            
-            if ($existingDevice) {
-                // Device đã được user khác sử dụng → Trả về false thay vì throw exception
-                return false;
+            $currentDevice = UserDeviceToken::where('device_fingerprint', $machineId)->first();
+
+            if ($currentDevice && $currentDevice->user_id !== $user->id) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
+                ];
             }
-            
-            // Xử lý browser_info nếu là JSON string
-            $browserInfoJson = null;
-            if ($browserInfo) {
-                if (is_string($browserInfo)) {
-                    // Nếu là JSON string, decode nó
-                    $decoded = json_decode($browserInfo, true);
-                    $browserInfoJson = $decoded ? json_encode($decoded) : $browserInfo;
-                } else {
-                    $browserInfoJson = json_encode($browserInfo);
+
+            if ($currentDevice && $currentDevice->status === 'pending') {
+                return [
+                    'status' => 'error',
+                    'message' => 'Thiết bị này đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
+                ];
+            }
+
+            if (!$currentDevice) {
+                if ($this->hasReachedDeviceLimit($user->id)) {
+                    $this->createPendingDevice($user, $machineId, $ipAddress, $browserInfo);
+
+                    return [
+                        'status' => 'error',
+                        'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt.'
+                    ];
                 }
-            }
-            
-            // Tạo hoặc cập nhật token
-            UserDeviceToken::updateOrCreate(
-                [
+
+                $currentDevice = UserDeviceToken::create([
                     'user_id' => $user->id,
-                    'device_fingerprint' => $deviceFingerprint
-                ],
-                [
-                    'device_token' => $hashedToken,
+                    'device_fingerprint' => $machineId,
+                    'device_token' => hash('sha256', Str::random(60)),
                     'ip_address' => $ipAddress,
-                    'browser_info' => $browserInfoJson,
+                    'browser_info' => $browserInfo,
                     'is_active' => 1,
-                    'last_used_at' => now()
-                ]
-            );
-            
-            return $token;
+                    'status' => 'approved',
+                    'last_used_at' => now(),
+                ]);
+            }
+
+            $browserToken = $this->issueBrowserToken($currentDevice, $ipAddress, $browserInfo);
+
+            return [
+                'status' => 'ok',
+                'browser_token' => $browserToken,
+            ];
         } catch (\Exception $e) {
-            // Log lỗi và trả về false
-            Log::error('Error creating device token: ' . $e->getMessage());
-            return false;
+            Log::error('Error authorizing device: ' . $e->getMessage());
+            return [
+                'status' => 'error',
+                'message' => 'Không thể xác thực thiết bị. Vui lòng thử lại sau.'
+            ];
         }
+    }
+
+    private function issueBrowserToken(UserDeviceToken $device, string $ipAddress, ?string $browserInfo): string
+    {
+        $token = Str::random(80);
+        $hashedToken = hash('sha256', $token);
+
+        $device->update([
+            'device_token' => $hashedToken,
+            'ip_address' => $ipAddress,
+            'browser_info' => $browserInfo,
+            'is_active' => 1,
+            'status' => 'approved',
+            'approval_requested_at' => null,
+            'last_used_at' => now(),
+        ]);
+
+        return $token;
+    }
+
+    private function createPendingDevice(User $user, string $machineId, string $ipAddress, ?string $browserInfo): void
+    {
+        UserDeviceToken::updateOrCreate(
+            ['device_fingerprint' => $machineId],
+            [
+                'user_id' => $user->id,
+                'device_token' => hash('sha256', Str::random(60)),
+                'ip_address' => $ipAddress,
+                'browser_info' => $browserInfo,
+                'is_active' => 0,
+                'status' => 'pending',
+                'approval_requested_at' => now(),
+                'last_used_at' => null,
+            ]
+        );
+    }
+
+    private function hasReachedDeviceLimit(int $userId): bool
+    {
+        return UserDeviceToken::where('user_id', $userId)
+            ->where('status', 'approved')
+            ->count() >= self::MAX_APPROVED_DEVICES;
+    }
+
+    /**
+     * Chuẩn hoá browser info thành JSON để lưu DB
+     */
+    private function normalizeBrowserInfo($browserInfo): ?string
+    {
+        if (!$browserInfo) {
+            return null;
+        }
+
+        if (is_string($browserInfo)) {
+            $decoded = json_decode($browserInfo, true);
+            return $decoded ? json_encode($decoded) : $browserInfo;
+        }
+
+        return json_encode($browserInfo);
+    }
+
+    /**
+     * Tạo MACHINE_ID dự phòng khi client không gửi lên.
+     */
+    private function generateFallbackMachineId(Request $request): string
+    {
+        return hash('sha256', implode('|', [
+            $request->userAgent(),
+            $request->ip(),
+            Str::uuid()->toString(),
+        ]));
     }
 
     /**
@@ -231,7 +249,8 @@ class LoginController extends Controller
         $request->session()->invalidate(); // Hủy session hiện tại
         $request->session()->regenerateToken(); // Tạo lại CSRF token
         Cookie::queue(Cookie::forget('remember_token'));
-        Cookie::queue(Cookie::forget('device_token'));
+        Cookie::queue(Cookie::forget('browser_token'));
+        Cookie::queue(Cookie::forget('machine_id'));
     }
 
     public function logout(Request $request)
@@ -251,8 +270,8 @@ class LoginController extends Controller
             ], 401);
         }
         
-        // Chặn việc gửi device_token từ request body (chỉ cho phép từ cookie)
-        if ($request->has('device_token') || $request->has('device_fingerprint')) {
+        // Chặn việc gửi thông tin thiết bị giả mạo từ request body
+        if ($request->has('browser_token') || $request->has('machine_id')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không được phép thay đổi thông tin thiết bị từ request.'
@@ -375,9 +394,10 @@ class LoginController extends Controller
             'logout_required' => $shouldLogout
         ]);
         
-        // Nếu cần logout, xóa cookie device_token
+        // Nếu cần logout, xóa cookie liên quan đến thiết bị
         if ($shouldLogout) {
-            $response->cookie(Cookie::forget('device_token'));
+            $response->cookie(Cookie::forget('browser_token'));
+            $response->cookie(Cookie::forget('machine_id'));
             $response->cookie(Cookie::forget('remember_token'));
         }
         

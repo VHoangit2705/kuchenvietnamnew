@@ -1062,28 +1062,6 @@ class WarrantyController extends Controller
     }
     public function CreateWarrany(Request $request)
     {
-        // Kiểm tra device token
-        $deviceToken = Cookie::get('device_token');
-        if (!$deviceToken) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Thiết bị không được xác thực. Vui lòng đăng nhập lại.'
-            ], 403);
-        }
-
-        $hashedToken = hash('sha256', $deviceToken);
-        $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
-            ->where('is_active', 1)
-            ->where('user_id', Auth::id())
-            ->first();
-
-        if (!$tokenRecord) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token thiết bị không hợp lệ. Vui lòng đăng nhập lại.'
-            ], 403);
-        }
-
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $name = $request->product;
         $product = Product::where('product_name', $name)->first();

@@ -1,119 +1,161 @@
 /**
- * Device Fingerprint Generator
- * Tạo fingerprint duy nhất cho mỗi thiết bị/trình duyệt
+ * Machine Identity Helper
+ * Sinh mã MACHINE_ID ổn định để whitelist thiết bị.
  */
 (function() {
     'use strict';
 
-    /**
-     * Tạo device fingerprint từ các thông tin trình duyệt
-     */
-    function generateDeviceFingerprint() {
-        const components = [];
+    const STORAGE_KEY = 'machine_id';
 
-        // User Agent
-        if (navigator.userAgent) {
-            components.push(navigator.userAgent);
+    function collectMachineTraits() {
+        const parts = [];
+
+        parts.push(navigator.userAgent || '');
+        parts.push(navigator.platform || '');
+        parts.push(navigator.language || '');
+
+        if (screen) {
+            parts.push(`${screen.width || 0}x${screen.height || 0}`);
+            parts.push(screen.colorDepth || 0);
         }
 
-        // Screen resolution
-        if (screen.width && screen.height) {
-            components.push(`${screen.width}x${screen.height}`);
-        }
+        parts.push(Intl && Intl.DateTimeFormat ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '');
+        parts.push(navigator.hardwareConcurrency || 0);
+        parts.push(navigator.deviceMemory || 0);
+        parts.push(getPluginsSignature());
+        parts.push(getCanvasFingerprint());
+        parts.push(getAudioFingerprint());
 
-        // Timezone
-        if (Intl && Intl.DateTimeFormat) {
-            try {
-                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                components.push(timezone);
-            } catch (e) {
-                // Fallback
-                components.push(new Date().getTimezoneOffset().toString());
+        return parts.join('|');
+    }
+
+    function getPluginsSignature() {
+        try {
+            if (!navigator.plugins) {
+                return '';
             }
-        }
 
-        // Language
-        if (navigator.language) {
-            components.push(navigator.language);
+            const names = [];
+            for (let i = 0; i < navigator.plugins.length; i++) {
+                names.push(navigator.plugins[i].name);
+            }
+            return names.join(',');
+        } catch (error) {
+            return '';
         }
+    }
 
-        // Platform
-        if (navigator.platform) {
-            components.push(navigator.platform);
-        }
-
-        // Canvas fingerprint (nếu có thể)
+    function getCanvasFingerprint() {
         try {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.textBaseline = 'top';
-                ctx.font = '14px Arial';
-                ctx.fillText('Device fingerprint', 2, 2);
-                const canvasFingerprint = canvas.toDataURL();
-                components.push(canvasFingerprint.substring(0, 50)); // Lấy một phần để tránh quá dài
+            if (!ctx) {
+                return '';
             }
-        } catch (e) {
-            // Ignore
-        }
 
-        // Kết hợp và hash
-        const combined = components.join('|');
-        return hashString(combined);
+            ctx.textBaseline = 'top';
+            ctx.font = '16px Arial';
+            ctx.fillText('machine-id', 2, 2);
+            ctx.strokeRect(0, 0, 50, 50);
+            return canvas.toDataURL().substring(0, 80);
+        } catch (error) {
+            return '';
+        }
     }
 
-    /**
-     * Hash string thành hash code
-     */
-    function hashString(str) {
-        let hash = 0;
-        if (str.length === 0) return hash.toString();
-        
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32bit integer
+    function getAudioFingerprint() {
+        try {
+            const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1000, 44100);
+            const oscillator = ctx.createOscillator();
+            oscillator.type = 'triangle';
+            oscillator.frequency.value = 10000;
+
+            const compressor = ctx.createDynamicsCompressor();
+            oscillator.connect(compressor);
+            compressor.connect(ctx.destination);
+            oscillator.start(0);
+            return 'audio:' + (oscillator.type || '') + ',' + compressor.threshold.value;
+        } catch (error) {
+            return '';
         }
-        
+    }
+
+    function hashString(value) {
+        let hash = 0;
+
+        if (!value) {
+            return '0';
+        }
+
+        for (let i = 0; i < value.length; i++) {
+            const char = value.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash |= 0; // Convert to 32bit integer
+        }
+
         return Math.abs(hash).toString(16);
     }
 
-    /**
-     * Lấy device fingerprint (lưu vào localStorage để tái sử dụng)
-     */
-    function getDeviceFingerprint() {
-        const storageKey = 'device_fingerprint';
-        let fingerprint = localStorage.getItem(storageKey);
-        
-        if (!fingerprint) {
-            fingerprint = generateDeviceFingerprint();
-            localStorage.setItem(storageKey, fingerprint);
-        }
-        
-        return fingerprint;
+    function generateMachineId() {
+        return hashString(collectMachineTraits());
     }
 
-    /**
-     * Lấy browser info để gửi lên server
-     */
+    function persistMachineId(id) {
+        try {
+            localStorage.setItem(STORAGE_KEY, id);
+        } catch (error) {
+            // ignore storage errors
+        }
+    }
+
+    function getStoredMachineId() {
+        try {
+            return localStorage.getItem(STORAGE_KEY);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function getMachineId() {
+        let machineId = getStoredMachineId();
+
+        if (!machineId) {
+            machineId = generateMachineId();
+            persistMachineId(machineId);
+        }
+
+        return machineId;
+    }
+
     function getBrowserInfo() {
         return {
             userAgent: navigator.userAgent || '',
+            language: navigator.language || '',
+            platform: navigator.platform || '',
+            timezone: Intl && Intl.DateTimeFormat ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '',
             screen: {
                 width: screen.width || 0,
-                height: screen.height || 0
-            },
-            timezone: Intl ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '',
-            language: navigator.language || '',
-            platform: navigator.platform || ''
+                height: screen.height || 0,
+                colorDepth: screen.colorDepth || 0,
+            }
         };
     }
 
-    // Export functions to window
+    window.MachineIdentity = {
+        get: getMachineId,
+        getBrowserInfo,
+        regenerate: () => {
+            const id = generateMachineId();
+            persistMachineId(id);
+            return id;
+        }
+    };
+
+    // Giữ tương thích ngược với tên gọi cũ
     window.DeviceFingerprint = {
-        get: getDeviceFingerprint,
-        getBrowserInfo: getBrowserInfo,
-        generate: generateDeviceFingerprint
+        get: getMachineId,
+        getBrowserInfo,
+        generate: generateMachineId
     };
 })();
 
