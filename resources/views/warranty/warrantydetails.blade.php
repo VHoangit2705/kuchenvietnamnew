@@ -354,7 +354,6 @@
                                             @foreach($components as $index => $component)
                                                 <div class="component-item-row">{{ $component['quantity'] }}</div>
                                             @endforeach
-                                            <div class="component-total-row"><strong>Tổng: {{ $item->quantity }}</strong></div>
                                         @else
                                             {{ $item->quantity }}
                                         @endif
