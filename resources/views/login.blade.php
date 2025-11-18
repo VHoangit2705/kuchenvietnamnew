@@ -28,7 +28,7 @@
             @endif
             
             <!-- Thông báo số lần thử còn lại (sai mật khẩu) -->
-            @if(session('remaining_attempts') && !session('account_locked'))
+            @if(session('remaining_attempts') && !session('account_locked') && !session('device_limit_warning'))
                 <div id="attemptsAlert" class="alert alert-warning" role="alert">
                     <div id="attemptsMessage">
                         <strong>⚠️ Cảnh báo:</strong> Bạn đã nhập sai mật khẩu {{ session('failed_attempts') }} lần. 
@@ -42,11 +42,11 @@
             @endif
             
             <!-- Thông báo số lần thử còn lại (spam device limit) -->
-            @if(session('device_limit_warning') && session('device_limit_remaining_attempts') && !session('account_locked'))
+            @if(session('device_limit_warning') && session('remaining_attempts') && !session('account_locked'))
                 <div id="deviceLimitAlert" class="alert alert-danger" role="alert">
                     <div id="deviceLimitMessage">
-                        <strong>⚠️ Cảnh báo:</strong> Bạn đã cố gắng đăng nhập {{ session('device_limit_failed_attempts') }} lần khi đạt giới hạn thiết bị. 
-                        Còn lại <strong>{{ session('device_limit_remaining_attempts') }}</strong> lần thử trước khi tài khoản bị khóa trong 1 giờ.
+                        <strong>⚠️ Cảnh báo:</strong> Bạn đã cố gắng đăng nhập {{ session('failed_attempts') }} lần khi đạt giới hạn thiết bị. 
+                        Còn lại <strong>{{ session('remaining_attempts') }}</strong> lần thử trước khi tài khoản bị khóa trong 1 giờ.
                     </div>
                 </div>
             @else
@@ -61,9 +61,10 @@
                 <div class="mb-3">
                     <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
                     <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required autofocus>
-                    <div class="invalid-feedback"></div>
                     @error('username')
-                        <div class="text-danger small">{{ $message }}</div>
+                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                    @else
+                        <div class="invalid-feedback"></div>
                     @enderror
                 </div>
                 <div class="mb-3">
@@ -147,22 +148,20 @@
                 }
             @endif
 
-            // Lấy device fingerprint và browser info
-            const fingerprint = window.DeviceFingerprint.get();
-            const browserInfo = window.DeviceFingerprint.getBrowserInfo();
-            
-            document.getElementById('device_fingerprint').value = fingerprint;
-            document.getElementById('browser_info').value = JSON.stringify(browserInfo);
-
             // Real-time validation for username
             const usernameInput = document.getElementById('username');
             const usernameFeedback = usernameInput.nextElementSibling;
+            const initialUsername = usernameInput.value;
             
             usernameInput.addEventListener('input', function() {
                 const username = this.value.trim();
-                usernameInput.classList.remove('is-invalid');
-                if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
-                    usernameFeedback.textContent = '';
+                
+                // Nếu user đã thay đổi giá trị so với ban đầu, xóa lỗi từ server và validate lại
+                if (username !== initialUsername) {
+                    usernameInput.classList.remove('is-invalid');
+                    if (usernameFeedback && usernameFeedback.classList.contains('invalid-feedback')) {
+                        usernameFeedback.textContent = '';
+                    }
                 }
                 
                 if (username) {

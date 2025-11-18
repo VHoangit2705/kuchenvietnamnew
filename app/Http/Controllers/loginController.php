@@ -153,12 +153,6 @@ class LoginController extends Controller
             Cache::forget($attemptsKey);
             Cache::forget($lockoutKey);
             
-            // Xóa số lần spam device limit (sẽ xóa lại ở cuối nếu đăng nhập thành công)
-            $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
-            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
-            Cache::forget($deviceLimitAttemptsKey);
-            Cache::forget($deviceLimitLockoutKey);
-            
             $machineId = trim((string) $request->input('machine_id'));
             $browserInfo = $this->normalizeBrowserInfo($request->input('browser_info'));
             $ipAddress = $request->ip();
@@ -174,7 +168,7 @@ class LoginController extends Controller
                 $isDeviceLimitError = strpos($deviceResult['message'], 'đạt giới hạn 2 thiết bị') !== false;
                 
                 if ($isDeviceLimitError) {
-                    // Đếm số lần spam device limit
+                    // Đếm số lần spam device limit (giống logic nhập sai mật khẩu)
                     $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
                     $deviceLimitAttempts = Cache::get($deviceLimitAttemptsKey, 0);
                     $deviceLimitAttempts++;
@@ -210,15 +204,15 @@ class LoginController extends Controller
                         ]);
                     }
                     
-                    // Lưu số lần spam (hết hạn sau 2 giờ)
+                    // Lưu số lần spam (hết hạn sau 2 giờ để tránh tích lũy)
                     Cache::put($deviceLimitAttemptsKey, $deviceLimitAttempts, now()->addHours(2));
                     
                     return back()->withErrors([
-                        'password' => $deviceResult['message']
+                        'msg' => $deviceResult['message']
                     ])->withInput()->with([
-                        'device_limit_remaining_attempts' => $deviceLimitRemainingAttempts,
-                        'device_limit_failed_attempts' => $deviceLimitAttempts,
-                        'device_limit_warning' => true
+                        'device_limit_warning' => true,
+                        'remaining_attempts' => $deviceLimitRemainingAttempts,
+                        'failed_attempts' => $deviceLimitAttempts
                     ]);
                 }
                 
