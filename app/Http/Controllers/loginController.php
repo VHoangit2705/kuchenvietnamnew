@@ -92,19 +92,46 @@ class LoginController extends Controller
     private function handleDeviceAuthorization(User $user, string $machineId, string $ipAddress, ?string $browserInfo): array
     {
         try {
-            $currentDevice = UserDeviceToken::where('device_fingerprint', $machineId)->first();
-
-            if ($currentDevice && $currentDevice->user_id !== $user->id) {
+            $deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
+            
+            // Ưu tiên kiểm tra device pending của user hiện tại TRƯỚC
+            $pendingDeviceForUser = $deviceMatches->first(function ($device) use ($user) {
+                return (int) $device->user_id === $user->id && $device->status === 'pending';
+            });
+            
+            if ($pendingDeviceForUser) {
                 return [
                     'status' => 'error',
-                    'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
+                    'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
                 ];
             }
+            
+            $reactivableDevice = $deviceMatches->first(function ($device) use ($user) {
+                return (int) $device->user_id === $user->id
+                    && (int) $device->is_active === 0
+                    && $device->status === 'approved';
+            });
 
+            $currentDevice = $reactivableDevice
+                ?? $deviceMatches->firstWhere('user_id', $user->id)
+                ?? $deviceMatches->first();
+
+            if ($currentDevice && $currentDevice->user_id !== $user->id) {
+                if ($reactivableDevice) {
+                    $currentDevice = $reactivableDevice;
+                } else {
+                    return [
+                        'status' => 'error',
+                        'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
+                    ];
+                }
+            }
+
+            // Kiểm tra pending cho các trường hợp khác (nếu có)
             if ($currentDevice && $currentDevice->status === 'pending') {
                 return [
                     'status' => 'error',
-                    'message' => 'Thiết bị này đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
+                    'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
                 ];
             }
 
@@ -114,7 +141,7 @@ class LoginController extends Controller
 
                     return [
                         'status' => 'error',
-                        'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt.'
+                        'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
                     ];
                 }
 
