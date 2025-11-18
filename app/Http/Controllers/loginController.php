@@ -8,11 +8,15 @@ use App\Models\KyThuat\UserDeviceToken;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class LoginController extends Controller
 {
     private const MAX_APPROVED_DEVICES = 2;
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_DURATION = 60; // 60 phút = 1 giờ
     
     private function User(): ?User
     {
@@ -20,8 +24,26 @@ class LoginController extends Controller
         return $user instanceof User ? $user : null;
     }
 
-    public function Index()
+    public function Index(Request $request)
     {
+        // Kiểm tra nếu có username trong old input và tài khoản bị khóa
+        $username = old('username');
+        if ($username) {
+            $lockoutKey = "login_lockout_{$username}";
+            $lockoutUntilValue = Cache::get($lockoutKey);
+            
+            if ($lockoutUntilValue) {
+                $lockoutUntil = $lockoutUntilValue instanceof Carbon ? $lockoutUntilValue : Carbon::parse($lockoutUntilValue);
+                
+                if (now()->lt($lockoutUntil)) {
+                    return view("login")->with([
+                        'account_locked' => true,
+                        'lockout_until' => $lockoutUntil->timestamp
+                    ]);
+                }
+            }
+        }
+        
         return view("login");
     }
     public function login(Request $request)
@@ -37,11 +59,49 @@ class LoginController extends Controller
             'machine_id.required' => 'Không thể nhận diện thiết bị. Vui lòng bật JavaScript và thử lại.',
         ]);
 
-        $user = User::where('username', $request->username)
+        $username = $request->username;
+        
+        // Kiểm tra xem tài khoản có bị khóa không
+        $lockoutKey = "login_lockout_{$username}";
+        $lockoutUntilValue = Cache::get($lockoutKey);
+        
+        if ($lockoutUntilValue) {
+            $lockoutUntil = $lockoutUntilValue instanceof Carbon ? $lockoutUntilValue : Carbon::parse($lockoutUntilValue);
+            
+            if (now()->lt($lockoutUntil)) {
+                $totalSeconds = now()->diffInSeconds($lockoutUntil, false);
+                $hours = floor($totalSeconds / 3600);
+                $minutes = floor(($totalSeconds % 3600) / 60);
+                $seconds = $totalSeconds % 60;
+                
+                $timeString = '';
+                if ($hours > 0) {
+                    $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                } elseif ($minutes > 0) {
+                    $timeString = "{$minutes} phút {$seconds} giây";
+                } else {
+                    $timeString = "{$seconds} giây";
+                }
+                
+                return back()->withErrors([
+                    'msg' => "Tài khoản đã bị khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau {$timeString}."
+                ])->withInput()->with([
+                    'account_locked' => true,
+                    'lockout_until' => $lockoutUntil->timestamp
+                ]);
+            }
+        }
+
+        $user = User::where('username', $username)
                     ->where('password', md5($request->password))
                     ->first();
 
         if ($user) {
+            // Đăng nhập thành công - xóa số lần thử sai
+            $attemptsKey = "login_attempts_{$username}";
+            Cache::forget($attemptsKey);
+            Cache::forget($lockoutKey);
+            
             $machineId = trim((string) $request->input('machine_id'));
             $browserInfo = $this->normalizeBrowserInfo($request->input('browser_info'));
             $ipAddress = $request->ip();
@@ -83,7 +143,36 @@ class LoginController extends Controller
             return redirect()->intended('/');
         }
         
-        return back()->withErrors(['msg' => 'Tên đăng nhập hoặc mật khẩu không chính xác'])->withInput();
+        // Đăng nhập thất bại - tăng số lần thử sai
+        $attemptsKey = "login_attempts_{$username}";
+        $attempts = Cache::get($attemptsKey, 0);
+        $attempts++;
+        
+        $remainingAttempts = self::MAX_LOGIN_ATTEMPTS - $attempts;
+        
+        if ($attempts >= self::MAX_LOGIN_ATTEMPTS) {
+            // Khóa tài khoản trong 1 giờ
+            $lockoutUntil = now()->addMinutes(self::LOCKOUT_DURATION);
+            Cache::put($lockoutKey, $lockoutUntil, now()->addMinutes(self::LOCKOUT_DURATION + 5));
+            Cache::forget($attemptsKey);
+            
+            return back()->withErrors([
+                'msg' => 'Bạn đã nhập sai mật khẩu quá 5 lần. Tài khoản đã bị khóa trong 1 giờ.'
+            ])->withInput()->with([
+                'account_locked' => true,
+                'lockout_until' => $lockoutUntil->timestamp
+            ]);
+        }
+        
+        // Lưu số lần thử sai (hết hạn sau 2 giờ để tránh tích lũy)
+        Cache::put($attemptsKey, $attempts, now()->addHours(2));
+        
+        return back()->withErrors([
+            'msg' => 'Tên đăng nhập hoặc mật khẩu không chính xác'
+        ])->withInput()->with([
+            'remaining_attempts' => $remainingAttempts,
+            'failed_attempts' => $attempts
+        ]);
     }
     
     /**
