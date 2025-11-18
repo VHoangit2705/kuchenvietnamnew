@@ -29,6 +29,7 @@ class LoginController extends Controller
         // Kiểm tra nếu có username trong old input và tài khoản bị khóa
         $username = old('username');
         if ($username) {
+            // Kiểm tra khóa do sai mật khẩu
             $lockoutKey = "login_lockout_{$username}";
             $lockoutUntilValue = Cache::get($lockoutKey);
             
@@ -39,6 +40,21 @@ class LoginController extends Controller
                     return view("login")->with([
                         'account_locked' => true,
                         'lockout_until' => $lockoutUntil->timestamp
+                    ]);
+                }
+            }
+            
+            // Kiểm tra khóa do spam device limit
+            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+            $deviceLimitLockoutUntilValue = Cache::get($deviceLimitLockoutKey);
+            
+            if ($deviceLimitLockoutUntilValue) {
+                $deviceLimitLockoutUntil = $deviceLimitLockoutUntilValue instanceof Carbon ? $deviceLimitLockoutUntilValue : Carbon::parse($deviceLimitLockoutUntilValue);
+                
+                if (now()->lt($deviceLimitLockoutUntil)) {
+                    return view("login")->with([
+                        'account_locked' => true,
+                        'lockout_until' => $deviceLimitLockoutUntil->timestamp
                     ]);
                 }
             }
@@ -61,7 +77,7 @@ class LoginController extends Controller
 
         $username = $request->username;
         
-        // Kiểm tra xem tài khoản có bị khóa không
+        // Kiểm tra xem tài khoản có bị khóa do sai mật khẩu không
         $lockoutKey = "login_lockout_{$username}";
         $lockoutUntilValue = Cache::get($lockoutKey);
         
@@ -91,16 +107,53 @@ class LoginController extends Controller
                 ]);
             }
         }
+        
+        // Kiểm tra xem tài khoản có bị khóa do spam device limit không
+        $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+        $deviceLimitLockoutUntilValue = Cache::get($deviceLimitLockoutKey);
+        
+        if ($deviceLimitLockoutUntilValue) {
+            $deviceLimitLockoutUntil = $deviceLimitLockoutUntilValue instanceof Carbon ? $deviceLimitLockoutUntilValue : Carbon::parse($deviceLimitLockoutUntilValue);
+            
+            if (now()->lt($deviceLimitLockoutUntil)) {
+                $totalSeconds = now()->diffInSeconds($deviceLimitLockoutUntil, false);
+                $hours = floor($totalSeconds / 3600);
+                $minutes = floor(($totalSeconds % 3600) / 60);
+                $seconds = $totalSeconds % 60;
+                
+                $timeString = '';
+                if ($hours > 0) {
+                    $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                } elseif ($minutes > 0) {
+                    $timeString = "{$minutes} phút {$seconds} giây";
+                } else {
+                    $timeString = "{$seconds} giây";
+                }
+                
+                return back()->withErrors([
+                    'msg' => "Tài khoản đã bị khóa do cố gắng đăng nhập quá nhiều lần khi đạt giới hạn thiết bị. Vui lòng thử lại sau {$timeString}."
+                ])->withInput()->with([
+                    'account_locked' => true,
+                    'lockout_until' => $deviceLimitLockoutUntil->timestamp
+                ]);
+            }
+        }
 
         $user = User::where('username', $username)
                     ->where('password', md5($request->password))
                     ->first();
 
         if ($user) {
-            // Đăng nhập thành công - xóa số lần thử sai
+            // Đăng nhập thành công - xóa số lần thử sai mật khẩu
             $attemptsKey = "login_attempts_{$username}";
             Cache::forget($attemptsKey);
             Cache::forget($lockoutKey);
+            
+            // Xóa số lần spam device limit (sẽ xóa lại ở cuối nếu đăng nhập thành công)
+            $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
+            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+            Cache::forget($deviceLimitAttemptsKey);
+            Cache::forget($deviceLimitLockoutKey);
             
             $machineId = trim((string) $request->input('machine_id'));
             $browserInfo = $this->normalizeBrowserInfo($request->input('browser_info'));
@@ -113,10 +166,68 @@ class LoginController extends Controller
             $deviceResult = $this->handleDeviceAuthorization($user, $machineId, $ipAddress, $browserInfo);
 
             if ($deviceResult['status'] === 'error') {
+                // Kiểm tra nếu là lỗi "đạt giới hạn 2 thiết bị" - đếm số lần spam
+                $isDeviceLimitError = strpos($deviceResult['message'], 'đạt giới hạn 2 thiết bị') !== false;
+                
+                if ($isDeviceLimitError) {
+                    // Đếm số lần spam device limit
+                    $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
+                    $deviceLimitAttempts = Cache::get($deviceLimitAttemptsKey, 0);
+                    $deviceLimitAttempts++;
+                    
+                    $deviceLimitRemainingAttempts = self::MAX_LOGIN_ATTEMPTS - $deviceLimitAttempts;
+                    
+                    if ($deviceLimitAttempts >= self::MAX_LOGIN_ATTEMPTS) {
+                        // Khóa tài khoản trong 1 giờ do spam device limit
+                        $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+                        $deviceLimitLockoutUntil = now()->addMinutes(self::LOCKOUT_DURATION);
+                        Cache::put($deviceLimitLockoutKey, $deviceLimitLockoutUntil, now()->addMinutes(self::LOCKOUT_DURATION + 5));
+                        Cache::forget($deviceLimitAttemptsKey);
+                        
+                        $totalSeconds = now()->diffInSeconds($deviceLimitLockoutUntil, false);
+                        $hours = floor($totalSeconds / 3600);
+                        $minutes = floor(($totalSeconds % 3600) / 60);
+                        $seconds = $totalSeconds % 60;
+                        
+                        $timeString = '';
+                        if ($hours > 0) {
+                            $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                        } elseif ($minutes > 0) {
+                            $timeString = "{$minutes} phút {$seconds} giây";
+                        } else {
+                            $timeString = "{$seconds} giây";
+                        }
+                        
+                        return back()->withErrors([
+                            'msg' => "Bạn đã cố gắng đăng nhập quá nhiều lần khi đạt giới hạn thiết bị. Tài khoản đã bị khóa trong 1 giờ. Vui lòng thử lại sau {$timeString}."
+                        ])->withInput()->with([
+                            'account_locked' => true,
+                            'lockout_until' => $deviceLimitLockoutUntil->timestamp
+                        ]);
+                    }
+                    
+                    // Lưu số lần spam (hết hạn sau 2 giờ)
+                    Cache::put($deviceLimitAttemptsKey, $deviceLimitAttempts, now()->addHours(2));
+                    
+                    return back()->withErrors([
+                        'password' => $deviceResult['message']
+                    ])->withInput()->with([
+                        'device_limit_remaining_attempts' => $deviceLimitRemainingAttempts,
+                        'device_limit_failed_attempts' => $deviceLimitAttempts,
+                        'device_limit_warning' => true
+                    ]);
+                }
+                
                 return back()->withErrors([
                     'password' => $deviceResult['message']
                 ])->withInput();
             }
+            
+            // Đăng nhập thành công - xóa số lần spam device limit
+            $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
+            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+            Cache::forget($deviceLimitAttemptsKey);
+            Cache::forget($deviceLimitLockoutKey);
 
             $browserToken = $deviceResult['browser_token'];
 

@@ -27,7 +27,7 @@
                 </div>
             @endif
             
-            <!-- Thông báo số lần thử còn lại -->
+            <!-- Thông báo số lần thử còn lại (sai mật khẩu) -->
             @if(session('remaining_attempts') && !session('account_locked'))
                 <div id="attemptsAlert" class="alert alert-warning" role="alert">
                     <div id="attemptsMessage">
@@ -38,6 +38,20 @@
             @else
                 <div id="attemptsAlert" class="alert alert-warning d-none" role="alert">
                     <div id="attemptsMessage"></div>
+                </div>
+            @endif
+            
+            <!-- Thông báo số lần thử còn lại (spam device limit) -->
+            @if(session('device_limit_warning') && session('device_limit_remaining_attempts') && !session('account_locked'))
+                <div id="deviceLimitAlert" class="alert alert-danger" role="alert">
+                    <div id="deviceLimitMessage">
+                        <strong>⚠️ Cảnh báo:</strong> Bạn đã cố gắng đăng nhập {{ session('device_limit_failed_attempts') }} lần khi đạt giới hạn thiết bị. 
+                        Còn lại <strong>{{ session('device_limit_remaining_attempts') }}</strong> lần thử trước khi tài khoản bị khóa trong 1 giờ.
+                    </div>
+                </div>
+            @else
+                <div id="deviceLimitAlert" class="alert alert-danger d-none" role="alert">
+                    <div id="deviceLimitMessage"></div>
                 </div>
             @endif
             <form action="{{ route('login') }}" method="POST" id="loginForm">
