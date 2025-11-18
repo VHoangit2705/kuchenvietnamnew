@@ -380,7 +380,56 @@ class WarrantyController extends Controller
     public function Details($id)
     {
         $data = WarrantyRequest::where('id', $id)->first();
-        $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
+        $quatrinhsuaRaw = WarrantyRequestDetail::where('warranty_request_id', $id)
+            ->orderBy('Ngaytao', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+        
+        // Nhóm các bản ghi có cùng error_type, solution, và Ngaytao
+        $quatrinhsua = collect();
+        $grouped = $quatrinhsuaRaw->groupBy(function ($item) {
+            return $item->error_type . '|' . $item->solution . '|' . $item->Ngaytao;
+        });
+        
+        foreach ($grouped as $group) {
+            $firstItem = $group->first();
+            $components = $group->map(function ($item, $index) {
+                return [
+                    'number' => $index + 1,
+                    'name' => $item->replacement,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total' => $item->quantity * $item->unit_price
+                ];
+            });
+            
+            // Tính tổng số lượng và thành tiền
+            $totalQuantity = $group->sum('quantity');
+            $totalAmount = $group->sum(function ($item) {
+                return $item->quantity * $item->unit_price;
+            });
+            
+            // Kiểm tra xem có nhiều linh kiện với đơn giá khác nhau không
+            $uniquePrices = $group->pluck('unit_price')->unique()->count();
+            $hasMultiplePrices = $uniquePrices > 1 || $group->count() > 1;
+            
+            // Tạo object mới với thông tin đã nhóm
+            $groupedItem = (object) [
+                'id' => $firstItem->id, 
+                'error_type' => $firstItem->error_type,
+                'solution' => $firstItem->solution,
+                'replacement' => $components,
+                'quantity' => $totalQuantity,
+                'unit_price' => $hasMultiplePrices ? null : ($group->first()->unit_price ?? 0),
+                'total' => $totalAmount,
+                'Ngaytao' => $firstItem->Ngaytao,
+                'warranty_request_id' => $firstItem->warranty_request_id,
+                'edit_by' => $firstItem->edit_by,
+            ];
+            
+            $quatrinhsua->push($groupedItem);
+        }
+        
         $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
         
@@ -388,28 +437,68 @@ class WarrantyController extends Controller
         $view = session('brand') === 'hurom' ? 3 : 1;
         $sanpham = Product::where('view', $view)->select('product_name')->get();
         
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
+        // Truyền cả dữ liệu để có thể sử dụng khi edit
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'quatrinhsuaRaw', 'history', 'linhkien', 'sanpham'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
     {
-        $request->merge([
-            'quantity' => (int) $request->quantity
-        ]);
-        $validator = Validator::make($request->all(), [
+        // Kiểm tra nếu replacement là mảng (nhiều linh kiện)
+        $isMultipleComponents = false;
+        if (is_array($request->replacement) && count($request->replacement) > 0) {
+            $isMultipleComponents = true;
+        }
+        
+        // Validation rules
+        $rules = [
             'error_type' => 'required|string|max:255',
             'solution' => 'required|string|max:255',
-            'replacement' => 'nullable|string|max:255',
-            'quantity' => 'nullable',
-            'unit_price' => 'nullable|integer|min:0',
             'des_error_type' => 'nullable',
-        ]);
+        ];
 
-        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
-            $validator->after(function ($validator) use ($request) {
-                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
-                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
-            });
+        if ($isMultipleComponents) {
+            // Validation cho nhiều linh kiện
+            $rules['replacement'] = 'required|array';
+            $rules['replacement.*'] = 'nullable|string|max:255';
+            $rules['quantity'] = 'required|array';
+            $rules['quantity.*'] = 'nullable|integer|min:0';
+            $rules['unit_price'] = 'required|array';
+            $rules['unit_price.*'] = 'nullable|integer|min:0';
+        } else {
+            // Validation cho một linh kiện (backward compatible)
+            $rules['replacement'] = 'nullable|string|max:255';
+            $rules['quantity'] = 'nullable|integer|min:0';
+            $rules['unit_price'] = 'nullable|integer|min:0';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        // Kiểm tra bắt buộc linh kiện cho một số giải pháp
+        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm')) {
+            if ($isMultipleComponents) {
+                $hasValidComponent = false;
+                foreach ($request->replacement as $index => $replacement) {
+                    if (!empty($replacement) && 
+                        isset($request->quantity[$index]) && 
+                        $request->quantity[$index] > 0) {
+                        $hasValidComponent = true;
+                        break;
+                    }
+                }
+                if (!$hasValidComponent) {
+                    $validator->after(function ($validator) use ($request) {
+                        $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                        $validator->errors()->add('replacement.0', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
+                    });
+                }
+            } else {
+                if (empty($request->replacement)) {
+                    $validator->after(function ($validator) use ($request) {
+                        $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                        $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
+                    });
+                }
+            }
         }
 
         if ($validator->fails()) {
@@ -417,38 +506,114 @@ class WarrantyController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-        
-        $data = $validator->validated();
-        if($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)'){
-            $data['replacement'] = $request->des_error_type;
-        }
-        if($request->replacement){
-            // Tìm sản phẩm trong cả linh kiện và sản phẩm chính
-            $product = Product::getProductByName($request->replacement);
-            if (!$product) {
-                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
-                $view = session('brand') === 'hurom' ? 3 : 1;
-                $product = Product::where('product_name', $request->replacement)
-                    ->where('view', $view)
-                    ->first();
-            }
-            $data['replacement_price'] = $product->price ?? $request->unit_price;
-        }
-        // Thêm thông tin bổ sung
-        $data['warranty_request_id'] =  $request->warranty_request_id;
-        $data['total'] =  $request->quantity * $request->unit_price;
-        $data['Ngaytao'] = Carbon::now();
-        $data['edit_by'] = session('user');
-        if ($request->id) {
-            $detail = WarrantyRequestDetail::find($request->id);
-            if ($detail) {
-                $detail->update($data);
-                return response()->json(['success' => true, 'updated' => true]);
-            }
-        }
-        WarrantyRequestDetail::create($data);
 
-        return response()->json(['success' => true, 'created' => true]);
+        // Xử lý khi edit (có id) - xóa các bản ghi cũ và tạo mới
+        if ($request->id) {
+            $oldDetail = WarrantyRequestDetail::find($request->id);
+            if ($oldDetail) {
+                WarrantyRequestDetail::where('warranty_request_id', $oldDetail->warranty_request_id)
+                    ->where('error_type', $oldDetail->error_type)
+                    ->where('solution', $oldDetail->solution)
+                    ->where('Ngaytao', $oldDetail->Ngaytao)
+                    ->delete();
+            }
+        }
+
+        // Dữ liệu chung cho tất cả các bản ghi
+        $commonData = [
+            'warranty_request_id' => $request->warranty_request_id,
+            'error_type' => $request->error_type,
+            'solution' => $request->solution,
+            'Ngaytao' => Carbon::now(),
+            'edit_by' => session('user'),
+        ];
+
+        // Xử lý cho trường hợp "Sửa chữa tại chỗ (lỗi nhẹ)"
+        if ($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            $commonData['replacement'] = $request->des_error_type;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý nhiều linh kiện
+        if ($isMultipleComponents) {
+            $createdCount = 0;
+            $replacements = $request->replacement ?? [];
+            $quantities = $request->quantity ?? [];
+            $unitPrices = $request->unit_price ?? [];
+
+            foreach ($replacements as $index => $replacement) {
+                if (empty($replacement) || 
+                    !isset($quantities[$index]) || 
+                    $quantities[$index] <= 0) {
+                    continue;
+                }
+
+                $quantity = (int)($quantities[$index] ?? 0);
+                $unitPrice = (int)($unitPrices[$index] ?? 0);
+                
+                // Tìm giá sản phẩm
+                $product = Product::getProductByName($replacement);
+                if (!$product) {
+                    $view = session('brand') === 'hurom' ? 3 : 1;
+                    $product = Product::where('product_name', $replacement)
+                        ->where('view', $view)
+                        ->first();
+                }
+
+                $detailData = array_merge($commonData, [
+                    'replacement' => $replacement,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total' => $quantity * $unitPrice,
+                    'replacement_price' => $product->price ?? $unitPrice,
+                ]);
+
+                WarrantyRequestDetail::create($detailData);
+                $createdCount++;
+            }
+
+            if ($createdCount > 0) {
+                return response()->json([
+                    'success' => true, 
+                    'created' => true,
+                    'message' => "Đã lưu {$createdCount} linh kiện thành công."
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng nhập ít nhất một linh kiện hợp lệ.'
+                ], 422);
+            }
+        } else {
+            // Xử lý một linh kiện (backward compatible)
+            $data = $commonData;
+            $data['replacement'] = $request->replacement;
+            $data['quantity'] = (int)($request->quantity ?? 0);
+            $data['unit_price'] = (int)($request->unit_price ?? 0);
+            $data['total'] = $data['quantity'] * $data['unit_price'];
+
+            if ($request->replacement) {
+                $product = Product::getProductByName($request->replacement);
+                if (!$product) {
+                    $view = session('brand') === 'hurom' ? 3 : 1;
+                    $product = Product::where('product_name', $request->replacement)
+                        ->where('view', $view)
+                        ->first();
+                }
+                $data['replacement_price'] = $product->price ?? $data['unit_price'];
+            } else {
+                $data['replacement_price'] = 0;
+            }
+
+            WarrantyRequestDetail::create($data);
+            return response()->json(['success' => true, 'created' => true]);
+        }
     }
     //Xoá quá trình
     public function DeleteDetail(Request $request)
@@ -457,11 +622,17 @@ class WarrantyController extends Controller
             $detail = WarrantyRequestDetail::find($request->id);
 
             if ($detail) {
-                $detail->delete();
+                $deletedCount = WarrantyRequestDetail::where('warranty_request_id', $detail->warranty_request_id)
+                    ->where('error_type', $detail->error_type)
+                    ->where('solution', $detail->solution)
+                    ->where('Ngaytao', $detail->Ngaytao)
+                    ->delete();
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Xóa bản ghi thành công.'
+                    'message' => $deletedCount > 1 
+                        ? "Đã xóa {$deletedCount} bản ghi thành công." 
+                        : 'Xóa bản ghi thành công.'
                 ]);
             } else {
                 return response()->json([
@@ -505,6 +676,24 @@ class WarrantyController extends Controller
                         'message' => "Số seri tem bảo hành không được để trống.",
                         'old_value' => $detail->serial_number,
                     ]);
+                }
+                if($type == 'address'){
+                    // Validate địa chỉ: chữ, số và các ký tự '().,-', tối đa 100 ký tự
+                    if($value != null && strlen($value) > 100){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Địa chỉ tối đa 100 ký tự.",
+                            'old_value' => $detail->address,
+                        ]);
+                    }
+                    // Kiểm tra ký tự hợp lệ (chữ, số, khoảng trắng, và các ký tự đặc biệt: ().,-)
+                    if($value != null && !preg_match('/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ().,\-]+$/', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Chỉ cho phép chữ, số và các ký tự '().,-'",
+                            'old_value' => $detail->address,
+                        ]);
+                    }
                 }
                 $detail->update($data);
                 return response()->json(['success' => true, 'message' => "Cập nhật thành công"]);
@@ -1062,27 +1251,7 @@ class WarrantyController extends Controller
     }
     public function CreateWarrany(Request $request)
     {
-        // Kiểm tra device token
-        $deviceToken = Cookie::get('device_token');
-        if (!$deviceToken) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Thiết bị không được xác thực. Vui lòng đăng nhập lại.'
-            ], 403);
-        }
-
-        $hashedToken = hash('sha256', $deviceToken);
-        $tokenRecord = UserDeviceToken::where('device_token', $hashedToken)
-            ->where('is_active', 1)
-            ->where('user_id', Auth::id())
-            ->first();
-
-        if (!$tokenRecord) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token thiết bị không hợp lệ. Vui lòng đăng nhập lại.'
-            ], 403);
-        }
+        
 
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $name = $request->product;
