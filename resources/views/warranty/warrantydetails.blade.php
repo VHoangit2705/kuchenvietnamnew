@@ -1,5 +1,143 @@
 @extends('layout.layout')
 
+<style>
+    /* Giới hạn chiều cao modal và cho phép cuộn */
+    .modal-content {
+        max-height: 70vh;
+        /* Giới hạn chiều cao modal là 70% chiều cao màn hình */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-body {
+        overflow-y: auto;
+        /* Cho phép cuộn nội dung modal body nếu quá dài */
+    }
+
+    .component-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+    }
+
+    /* --- QUY TẮC DESKTOP --- */
+
+    .component-col-replacement {
+        flex: 0 0 41.66666667%;
+        padding-right: 8px;
+        margin-right: 25px;
+    }
+
+    .component-col-quantity {
+        flex: 0 0 25%;
+        padding-right: 8px;
+        margin-right: 25px;
+    }
+
+    .component-col-price {
+        flex: 0 0 25%;
+        padding-right: 8px;
+        margin-right: 25px;
+    }
+
+    .component-col-delete {
+        flex: 0 0 8.33333333%;
+        text-align: center;
+    }
+
+    /* Ẩn nút xoá mobile trên desktop */
+    .delete_mobile {
+        display: none;
+    }
+
+
+    #repairForm .error {
+        min-height: 1.2em;
+        visibility: hidden;
+    }
+
+    .component-input-row {
+        display: flex;
+        width: 100%;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    /* --- QUY TẮC MOBILE --- */
+    @media (max-width: 767.98px) {
+
+        .component-input-row {
+            gap: 10px;
+        }
+
+        .component-scroll-container {
+            flex-grow: 1;
+            flex-shrink: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            min-width: 0;
+            padding-bottom: 2px;
+        }
+
+        .component-row {
+            gap: 8px;
+        }
+
+        .component-col-replacement {
+            width: 200px;
+            flex: 1 0 200px;
+            padding-right: 0;
+        }
+
+        .component-col-quantity {
+            width: 80px;
+            flex: 0 0 80px;
+            padding-right: 0;
+        }
+
+        .component-col-price {
+            width: 100px;
+            flex: 0 0 100px;
+            padding-right: 0;
+        }
+
+        .component-col-delete {
+            padding-bottom: 5px;
+            flex-basis: auto;
+            width: auto;
+        }
+
+        .component-input-row .form-label.d-md-none {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 1rem;
+        }
+
+        .delete_destop {
+            display: none;
+        }
+
+        .delete_mobile {
+            display: block;
+        }
+    }
+
+    .replacement-suggestions {
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1050;
+    }
+
+    .component-item-row {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 4px 0;
+    }
+
+    .component-item-row:last-child {
+        border-bottom: none;
+    }
+</style>
+
 @section('content')
     <div class="container-fluid mt-2">
         <div class="row g-4">
@@ -52,7 +190,14 @@
                                     </tr>
                                     <tr>
                                         <th>Địa chỉ:</th>
-                                        <td>{{ $data->address }}</td>
+                                        <td data-type="address" data-id="{{ $data->id }}">
+                                            <span class="serial-text">{{ $data->address }}</span>
+                                            <input type="text" class="serial-input form-control form-control-sm d-none"
+                                                value="{{ $data->address }}" style="width: 150px; display: inline-block;">
+                                            <img src="{{ asset('icons/pen.png') }}" alt="Chỉnh sửa địa chỉ"
+                                                title="Chỉnh sửa địa chỉ" class="edit-serial-icon"
+                                                style="height: 13px; cursor: pointer; margin-left: 5px;">
+                                        </td>
                                     </tr>
                                     @if (isset($history) && count($history) > 1)
                                         <tr>
@@ -187,11 +332,47 @@
                                     <td class="text-center">{{ $loop->iteration }}</td>
                                     <td>{{ $item->error_type }}</td>
                                     <td>{{ $item->solution }}</td>
-                                    <td>{{ $item->replacement }}</td>
-                                    <td class="text-center">{{ $item->quantity }}</td>
-                                    <td class="text-center">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                    <td>
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">
+                                                    <strong>{{ $component['number'] }}.</strong> {{ $component['name'] }}
+                                                </div>
+                                            @endforeach
+                                        @else
+                                            {{ $item->replacement }}
+                                        @endif
+                                    </td>
                                     <td class="text-center">
-                                        {{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">{{ $component['quantity'] }}</div>
+                                            @endforeach
+                                        @else
+                                            {{ $item->quantity }}
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if(is_array($item->replacement) || is_object($item->replacement))
+                                            @php
+                                                $components = is_array($item->replacement) ? $item->replacement : $item->replacement->toArray();
+                                            @endphp
+                                            @foreach($components as $index => $component)
+                                                <div class="component-item-row">{{ number_format($component['unit_price'], 0, ',', '.') }}</div>
+                                            @endforeach
+                                        @elseif($item->quantity > 0 && $item->unit_price !== null)
+                                            {{ number_format($item->unit_price, 0, ',', '.') }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                    <td class="text-center">{{ number_format($item->total, 0, ',', '.') }}</td>
                                     <td class="text-center">
                                         <button class="btn btn-warning btn-sm edit-row"
                                             onclick="Edit({{ $item->id }})">Sửa</button>
@@ -298,22 +479,23 @@
         </div>
     </div>
     <div class="modal fade" id="repairModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Thêm quá trình sửa chữa</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="repairForm">
+                    <form id="repairForm" style="position: relative;">
                         <input hidden type="text" class="form-control" id="id" name="id" value="">
                         <input hidden type="text" class="form-control" id="warranty_request_id"
                             name="warranty_request_id" value="{{ $data->id }}">
+
                         <div class="mb-2">
                             <label for="error_type" class="form-label">Lỗi gặp phải</label>
                             <input type="text" class="form-control" id="error_type" name="error_type"
                                 placeholder="Nhập lỗi gặp phải">
-                            <div class="error error_type text-danger small mt-1 d-none"></div>
+                            <div class="error error_type text-danger small mt-1"></div>
                         </div>
                         <div class="mb-2">
                             <label for="solution" class="form-label">Cách xử lý</label>
@@ -327,36 +509,104 @@
                                 <option value="Từ chối bảo hành">Từ chối bảo hành</option>
                                 <option value="KH không muốn bảo hành">KH không muốn bảo hành</option>
                             </select>
-                            <div class="error error_sl text-danger small mt-1 d-none"></div>
+                            <div class="error error_sl text-danger small mt-1"></div>
                         </div>
                         <div id="des_error_container" class="mb-2 d-none">
                             <label for="des_error_type" class="form-label">Mô tả cách xử lý</label>
                             <input type="text" class="form-control" id="des_error_type" name="des_error_type"
                                 placeholder="Nhập mô tả các xử lý">
-                            <div class="error error_des text-danger small mt-1 d-none"></div>
+                            <div class="error error_des text-danger small mt-1"></div>
                         </div>
-                        <div class="mb-2">
-                            <label for="replacement" class="form-label">Linh kiện thay thế</label>
-                            <div style="position: relative;">
-                                <input type="text" id="replacement" name="replacement" class="form-control"
-                                    placeholder="Nhập linh kiện thay thế">
-                                <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"></div>
-                                <div class="error error_replace text-danger small mt-1 d-none"></div>
+                        <div id="rejection_reason_container" class="mb-2 d-none">
+                            <label for="rejection_reason" class="form-label">Lý do từ chối bảo hành</label>
+                            <input type="text" class="form-control" id="rejection_reason" name="rejection_reason"
+                                placeholder="Nhập lý do từ chối">
+                            <div class="error error_rejection_reason text-danger small mt-1"></div>
+                        </div>
+
+                        <div id="customer_refusal_reason_container" class="mb-2 d-none">
+                            <label for="customer_refusal_reason" class="form-label">Lý do KH không muốn bảo hành</label>
+                            <input type="text" class="form-control" id="customer_refusal_reason"
+                                name="customer_refusal_reason" placeholder="Nhập lý do khách hàng từ chối">
+                            <div class="error error_customer_refusal_reason text-danger small mt-1"></div>
+                        </div>
+
+
+                        <div id="components-container">
+                            <hr class="my-3">
+
+                            <div class="row g-2 mb-1 d-none d-md-flex">
+                                <div class="col-md-5">
+                                    <label class="form-label fw-bold">Linh kiện thay thế</label>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Số lượng</label>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Đơn giá</label>
+                                </div>
+                                <div class="col-md-1">
+                                </div>
+                            </div>
+
+                            <div class="component-row-wrapper border-bottom pb-2 mb-2">
+
+                                <div class="component-input-row">
+                                    <div class="component-scroll-container">
+                                        <div class="component-row">
+
+                                            <div class="component-col-replacement">
+                                                <label class="form-label d-md-none">Linh kiện:</label>
+                                                <div>
+                                                    <input type="text" name="replacement[]"
+                                                        class="form-control replacement-input"
+                                                        placeholder="Nhập linh kiện..." id="replacement_0">
+                                                    <div
+                                                        class="replacement-suggestions list-group position-absolute w-100 d-none">
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="component-col-quantity">
+                                                <label class="form-label d-md-none">SL:</label>
+                                                <input type="number" name="quantity[]"
+                                                    class="form-control quantity-input" min="0" value="0"
+                                                    placeholder="0" id="quantity_0">
+                                            </div>
+
+                                            <div class="component-col-price">
+                                                <label class="form-label d-md-none">Đơn giá:</label>
+                                                <input type="text" name="unit_price[]"
+                                                    class="form-control unit-price-input" value="0" placeholder="0"
+                                                    id="unit_price_0">
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="delete_destop component-col-delete">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-component-btn"
+                                            title="Xoá linh kiện">
+                                            Xoá
+                                        </button>
+                                    </div>
+                                    <div class="delete_mobile component-col-delete">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-component-btn"
+                                            title="Xoá linh kiện">
+                                            Xoá
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="error component-error-row text-danger small mt-1"></div>
                             </div>
                         </div>
-                        <div class="mb-2">
-                            <label for="quantity" class="form-label">Số lượng</label>
-                            <input type="number" class="form-control" id="quantity" name="quantity" min="0">
-                            <div class="error error_quan text-danger small mt-1 d-none"></div>
-                        </div>
-                        <div class="mb-2">
-                            <label for="unit_price" class="form-label">Đơn giá (vnđ)</label>
-                            <input type="text" class="form-control" id="unit_price" name="unit_price"
-                                placeholder="0">
-                            <div class="error error_price text-danger small mt-1 d-none"></div>
-                        </div>
-                        <div class="mb-2">
-                            <label for="unit_price" class="form-label">Thành tiền (vnđ)</label>
+
+                        <button type="button" id="add-component-btn" class="btn btn-success btn-sm mt-2">
+                            <i class="bi bi-plus-circle"></i> Thêm linh kiện
+                        </button>
+
+                        <div class="mb-2 mt-3"> <label for="unit_price" class="form-label">Thành tiền (vnđ)</label>
                             <input type="text" class="form-control" id="total_price" name="total_price" disabled>
                         </div>
                     </form>
@@ -471,10 +721,11 @@
             $('.timeline-header, .timeline-details').click(function() {
                 toggleTimelineDetails($(this).closest('.timeline-item'));
             });
-            $('#quantity, #unit_price').on('input', updateTotalPrice);
+            $('#repairModal').on('input', '.quantity-input, .unit-price-input', updateTotalPrice);
             ChangeSelect();
             LuuQuaTrinhSua();
             PrintRequest();
+            setupComponentActions();
         });
 
         function PrintRequest() {
@@ -506,10 +757,47 @@
 
         function ChangeSelect() {
             $('#solution').on('change', function() {
-                if ($(this).val() === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
-                    $('#des_error_container').closest('.mb-2').removeClass('d-none'); // Hiện
-                } else {
-                    $('#des_error_container').closest('.mb-2').addClass('d-none'); // Ẩn
+                const selectedValue = $(this).val();
+                const $desError = $('#des_error_container');
+                const $rejectionReason = $('#rejection_reason_container');
+                const $customerRefusal = $('#customer_refusal_reason_container');
+                const $components = $('#components-container');
+                const $addComponentBtn = $('#add-component-btn');
+                const $totalPrice = $('#total_price').closest('.mb-2');
+
+                // Reset tất cả các trường đặc biệt
+                $desError.addClass('d-none');
+                $rejectionReason.addClass('d-none');
+                $customerRefusal.addClass('d-none');
+
+                // Mặc định hiện linh kiện
+                $components.removeClass('d-none');
+                $addComponentBtn.removeClass('d-none');
+                $totalPrice.removeClass('d-none');
+
+                if (selectedValue === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+                    $desError.removeClass('d-none');
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
+                    // Xóa giá trị trong các input linh kiện để tránh gửi nhầm
+                    $('.replacement-input').val('');
+                    $('.quantity-input').val('0');
+                    $('.unit-price-input').val('0');
+                } else if (selectedValue === 'Từ chối bảo hành') {
+                    $rejectionReason.removeClass('d-none');
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
+                } else if (selectedValue === 'KH không muốn bảo hành') {
+                    $customerRefusal.removeClass('d-none');
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
+                } else if (selectedValue === 'Gửi về trung tâm bảo hành NSX') {
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
                 }
             })
         }
@@ -522,40 +810,79 @@
         // Reset form
         function resetRepairForm() {
             $('#repairForm')[0].reset();
-            // Xóa tất cả các lỗi validation khi reset form
-            $('#repairForm .error').text('').addClass('d-none'); // Xóa thông báo lỗi cũ
+
+            // Kích hoạt sự kiện change để ẩn/hiện các trường đúng theo giá trị mặc định
+            $('#solution').trigger('change');
+
+            $('#id').val(''); // Đảm bảo ID được xóa
+
+            // Xóa tất cả các dòng linh kiện trừ dòng đầu tiên
+            $('.component-row-wrapper:not(:first)').remove();
+
+            // Reset giá trị và lỗi của dòng đầu tiên
+            const $firstRow = $('.component-row-wrapper:first');
+            $firstRow.find('input').val('');
+            $firstRow.find('input[name="quantity[]"]').val('0');
+            $firstRow.find('input[name="unit_price[]"]').val('0');
+            $firstRow.find('.remove-component-btn').hide(); // Ẩn nút xoá
+
+            // Ẩn tất cả các thông báo lỗi
+            $('#repairForm .error').text('').css('visibility', 'hidden');
+
+
             repairFormErrors = {}; // Reset cờ lỗi
             updateSaveButtonState(); // Cập nhật trạng thái nút Lưu
         }
+
         function LuuQuaTrinhSua() {
             $('#saveRepairBtn').on('click', function(e) {
                 e.preventDefault();
                 if (validateRepairForm()) {
-                    
-                    // --- THAY ĐỔI Ở ĐÂY ---
-                    // 1. Lấy giá trị "sạch" của đơn giá (loại bỏ dấu chấm)
-                    let rawUnitPrice = $('#unit_price').val().replace(/[^0-9]/g, '');
 
-                    // 2. Tự tạo đối tượng formData thay vì dùng serialize()
-                    let formData = {
-                        _token: '{{ csrf_token() }}', // Cần thêm token thủ công
-                        id: $('#id').val(),
-                        warranty_request_id: $('#warranty_request_id').val(),
-                        error_type: $('#error_type').val(),
-                        solution: $('#solution').val(),
-                        des_error_type: $('#des_error_type').val(),
-                        replacement: $('#replacement').val(),
-                        quantity: $('#quantity').val(),
-                        unit_price: rawUnitPrice ? parseInt(rawUnitPrice) : 0 // Gửi đi số nguyên
-                    };
-                    // --- KẾT THÚC THAY ĐỔI ---
+                    // 1. Dùng serializeArray để lấy tất cả dữ liệu form
+                    let formDataArray = $('#repairForm').serializeArray();
+                    let dataToSend = {};
+                    let replacements = [];
+                    let quantities = [];
+                    let unitPrices = [];
+
+                    // 2. Gom nhóm các trường
+                    formDataArray.forEach(function(item) {
+                        if (item.name === 'replacement[]') {
+                            replacements.push(item.value);
+                        } else if (item.name === 'quantity[]') {
+                            quantities.push(item.value ? parseInt(item.value) : 0);
+                        } else if (item.name === 'unit_price[]') {
+                            const rawPrice = item.value.replace(/[^0-9]/g, '');
+                            unitPrices.push(rawPrice ? parseInt(rawPrice) : 0);
+                        } else {
+                            // Giữ lại các trường khác (id, error_type, solution...)
+                            dataToSend[item.name] = item.value;
+                        }
+                    });
+
+                    // 3. Thêm các mảng vào dataToSend
+                    // Nếu là "Sửa chữa tại chỗ (lỗi nhẹ)", không gửi replacement array
+                    if (dataToSend['solution'] === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+                        // Không gửi replacement, quantity, unit_price cho trường hợp này
+                        dataToSend['replacement'] = null;
+                        dataToSend['quantity'] = null;
+                        dataToSend['unit_price'] = null;
+                    } else {
+                        dataToSend['replacement'] = replacements;
+                        dataToSend['quantity'] = quantities;
+                        dataToSend['unit_price'] = unitPrices;
+                    }
+
+                    if (!dataToSend['_token']) {
+                        dataToSend['_token'] = '{{ csrf_token() }}';
+                    }
 
                     OpenWaitBox();
                     $.ajax({
                         url: '{{ route('warranty.updatedetail') }}',
                         method: 'POST',
-                        data: formData, // Gửi đối tượng data đã tạo
-                        // headers: không cần nữa vì token đã ở trong data
+                        data: dataToSend, // Gửi object chứa các mảng
                         success: function(response) {
                             CloseWaitBox();
                             Swal.fire({
@@ -569,57 +896,79 @@
                                 location.reload();
                             });
                         },
-                        // --- CẢI TIẾN HÀM ERROR ---
                         error: function(xhr) {
                             CloseWaitBox();
-                            // 3. Xử lý lỗi 422 và hiển thị thông báo từ server
                             if (xhr.status === 422) {
                                 let errors = xhr.responseJSON.errors;
-                                // Xóa các lỗi cũ
-                                $('#repairForm .error').text('').addClass('d-none');
-                                
+                                // Ẩn lỗi cũ
+                                $('#repairForm .component-row-wrapper .error').text('').css(
+                                    'visibility', 'hidden');
+                                $('#repairForm .error:not(.component-row-wrapper .error)').text('')
+                                    .addClass('d-none');
+
                                 let errorMessages = [];
                                 $.each(errors, function(key, value) {
-                                    // Map key từ server (VD: 'unit_price') với class CSS (VD: 'error_price')
-                                    let fieldName = key;
-                                    if (key === 'solution') fieldName = 'sl';
-                                    if (key === 'des_error_type') fieldName = 'des';
-                                    if (key === 'replacement') fieldName = 'replace';
-                                    if (key === 'quantity') fieldName = 'quan';
-                                    if (key === 'unit_price') fieldName = 'price';
+                                    const parts = key.split('.'); // VD: "replacement.0"
+                                    let $errorDiv;
 
-                                    let $errorDiv = $('#repairForm .error_' + fieldName);
-                                    if ($errorDiv.length) {
-                                        // Hiển thị lỗi ngay dưới trường bị lỗi
-                                        $errorDiv.text(value[0]).removeClass('d-none');
+                                    if (parts.length === 2) {
+                                        // Xử lý lỗi cho mảng (VD: replacement.0)
+                                        const fieldName = parts[0]; // replacement
+                                        const index = parts[1]; // 0
+                                        const $row = $(`.component-row-wrapper:eq(${index})`);
+
+                                        $errorDiv = $row.find(
+                                            `.error_${fieldName.replace('[]', '')}`);
+
+                                        // Dùng logic tìm ô lỗi cá nhân (vì file bạn đang dùng)
+                                        if (fieldName === 'replacement') $errorDiv = $row.find(
+                                            '.error_replace');
+                                        else if (fieldName === 'quantity') $errorDiv = $row
+                                            .find('.error_quan');
+                                        else if (fieldName === 'unit_price') $errorDiv = $row
+                                            .find('.error_price');
+
+                                    } else {
+                                        // Lỗi trường đơn (error_type, solution)
+                                        let fieldClass = key === 'solution' ? 'sl' : key;
+                                        $errorDiv = $('#repairForm .error_' + fieldClass);
+                                    }
+
+                                    // Hiển thị lỗi
+                                    if ($errorDiv && $errorDiv.length) {
+                                        if ($errorDiv.closest('.component-row-wrapper').length >
+                                            0) {
+                                            $errorDiv.text(value[0]).css('visibility',
+                                                'visible');
+                                        } else {
+                                            $errorDiv.text(value[0]).removeClass('d-none');
+                                        }
                                     }
                                     errorMessages.push(value[0]);
                                 });
 
-                                // Thông báo lỗi chung
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Dữ liệu không hợp lệ',
-                                    html: 'Vui lòng kiểm tra lại các trường:<br>' + errorMessages.join('<br>'),
+                                    html: 'Vui lòng kiểm tra lại các trường:<br>' +
+                                        errorMessages.join('<br>'),
                                     showConfirmButton: true
                                 });
 
                             } else {
-                                // Xử lý các lỗi khác (500, 403, 404...)
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Lỗi',
-                                    text: 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.' + xhr.statusText,
+                                    text: 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.' +
+                                        xhr.statusText,
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
                             }
                         }
-                        // --- KẾT THÚC CẢI TIẾN ERROR ---
                     });
 
                 } else {
-                    // Thông báo cho người dùng sửa lỗi (phía client)
                     Swal.fire({
                         icon: 'error',
                         title: 'Lỗi nhập liệu',
@@ -715,59 +1064,260 @@
             return true;
         }
 
+        // 4. Validate địa chỉ (chữ, số, (),.- , max 100)
+        function validateAddress(input) {
+            const value = input.val();
+            hideError(input);
+            const regex =
+                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ().,\-]+$/;
+            if (value && !regex.test(value)) {
+                showError(input, "Chỉ cho phép chữ, số và các ký tự '().,-'");
+                return false;
+            }
+            if (value.length > 100) {
+                showError(input, "Tối đa 100 ký tự.");
+                return false;
+            }
+            return true;
+        }
+
         $(document).ready(function() {
-            const replacementList = {!! json_encode($linhkien) !!};
-            $('#replacement').on('input', function() {
-                const keyword = $(this).val().toLowerCase().trim();
-                const $suggestionsBox = $('#replacement-suggestions');
-                $suggestionsBox.empty();
+            const componentList = {!! json_encode($linhkien) !!}; // view = 2
+            const productList = {!! json_encode($sanpham) !!}; // view = 1 hoặc 3
+            let currentReplacementList = componentList; // Mặc định là linh kiện
+            let $activeSuggestionInput = null; // Biến toàn cục để lưu input đang gõ
+            let $activeSuggestionBox = null; // Biến toàn cục để lưu box gợi ý
+
+            // Hàm để gắn lại box gợi ý về chỗ cũ
+            function reattachSuggestionBox() {
+                if ($activeSuggestionInput && $activeSuggestionBox) {
+                    $activeSuggestionBox.addClass('d-none').css({
+                        top: '',
+                        left: '',
+                        width: '',
+                        position: ''
+                    });
+                    // Gắn lại vào div cha của input
+                    $activeSuggestionInput.parent().append($activeSuggestionBox);
+                }
+                $activeSuggestionInput = null;
+                $activeSuggestionBox = null;
+            }
+
+            $('#components-container').on('input', '.replacement-input', function() {
+                const $input = $(this);
+                const keyword = $input.val().toLowerCase().trim();
+
+                // Gắn lại box cũ nếu có
+                reattachSuggestionBox();
+
+                // Lưu lại input và box hiện tại
+                $activeSuggestionInput = $input;
+                $activeSuggestionBox = $input.siblings('.replacement-suggestions');
+
+                const $form = $input.closest('form');
+                $activeSuggestionBox.empty();
 
                 if (!keyword) {
-                    $suggestionsBox.addClass('d-none');
+                    $activeSuggestionBox.addClass('d-none');
                     return;
                 }
-                const matchedReplacement = replacementList.filter(p =>
+
+                // Lọc
+                const matchedReplacement = currentReplacementList.filter(p =>
                     p.product_name.toLowerCase().includes(keyword)
                 );
 
                 if (matchedReplacement.length > 0) {
                     matchedReplacement.slice(0, 10).forEach(p => {
-                        $suggestionsBox.append(
-                            `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`
-                        );
+                        const button =
+                            `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`;
+                        $activeSuggestionBox.append(button);
                     });
-                    $suggestionsBox.removeClass('d-none');
+
+                    // 1. Lấy vị trí input và form
+                    const inputOffset = $input.offset();
+                    const formOffset = $form.offset();
+
+                    // 2. Di chuyển box ra khỏi vùng cuộn và gắn vào form
+                    $form.append($activeSuggestionBox);
+
+                    // 3. Set vị trí tuyệt đối cho box (so với form)
+                    $activeSuggestionBox.css({
+                        position: 'absolute',
+                        top: (inputOffset.top - formOffset.top) + $input.outerHeight() + 'px',
+                        left: (inputOffset.left - formOffset.left) + 'px',
+                        width: $input.outerWidth() + 'px',
+                        zIndex: 1051 // Đảm bảo nổi trên modal
+                    });
+
+                    $activeSuggestionBox.removeClass('d-none');
                 } else {
-                    $suggestionsBox.addClass('d-none');
+                    $activeSuggestionBox.addClass('d-none');
                 }
             });
 
-            $(document).on('click', '#replacement-suggestions button', function() {
-                $('#replacement').val($(this).text());
-                $('#replacement-suggestions').addClass('d-none');
+            // Dùng $(document) vì box gợi ý giờ nằm ngoài #components-container
+            $(document).on('click', '.replacement-suggestions button', function(e) {
+                e.preventDefault();
+                const $button = $(this);
+
+                if ($activeSuggestionInput) {
+                    $activeSuggestionInput.val($button.text());
+                    $activeSuggestionInput.trigger('input'); // Kích hoạt validation
+                }
+
+                reattachSuggestionBox(); // Gắn lại box về chỗ cũ
             });
 
             $(document).on('click', function(e) {
-                if (!$(e.target).closest('#replacement, #replacement-suggestions').length) {
-                    $('#replacement-suggestions').addClass('d-none');
+                if (!$(e.target).closest('.replacement-input, .replacement-suggestions').length) {
+                    // Nếu click ra ngoài, gắn lại box
+                    reattachSuggestionBox();
                 }
+            });
+
+            // Cập nhật danh sách gợi ý khi thay đổi "Cách xử lý"
+            $('#solution').on('change', function() {
+                const selectedValue = $(this).val();
+                if (selectedValue === 'Đổi mới sản phẩm') {
+                    currentReplacementList = productList;
+                } else {
+                    currentReplacementList = componentList;
+                }
+                // Xóa gợi ý hiện tại nếu có
+                $('.replacement-suggestions').addClass('d-none').empty();
             });
         });
 
+        function setupComponentActions() {
+            // Sự kiện khi bấm nút THÊM
+            $('#add-component-btn').on('click', function() {
+                const lastRowIndex = $('.component-row-wrapper').length;
+
+                // 1. Clone (sao chép) TOÀN BỘ .component-row-wrapper ĐẦU TIÊN
+                const $newRowWrapper = $('.component-row-wrapper:first').clone(true);
+
+                $newRowWrapper.find('input').val(''); // Xóa giá trị
+                $newRowWrapper.find('input[name="quantity[]"]').val('0'); // Set SL = 0
+                $newRowWrapper.find('input[name="unit_price[]"]').val('0'); // Set Giá = 0
+                // Sửa logic: Dùng visibility
+                $newRowWrapper.find('.error').text('').css('visibility', 'hidden');
+
+                $newRowWrapper.find('.replacement-input').attr('id', 'replacement_' + lastRowIndex);
+                $newRowWrapper.find('.quantity-input').attr('id', 'quantity_' + lastRowIndex);
+                $newRowWrapper.find('.unit-price-input').attr('id', 'unit_price_' + lastRowIndex);
+
+                $newRowWrapper.find('.remove-component-btn').show();
+
+                // 5. Thêm dòng mới vào ĐÚNG vùng chứa
+                $('#components-container').append($newRowWrapper);
+
+                updateTotalPrice(); // Tính lại tổng tiền
+            });
+
+            // Sự kiện khi bấm nút XOÁ (X)
+            $('#components-container').on('click', '.remove-component-btn', function() {
+                // Tìm .component-row-wrapper gần nhất
+                const $rowWrapper = $(this).closest('.component-row-wrapper');
+
+                // Chỉ xoá khi có nhiều hơn 1 dòng
+                if ($('.component-row-wrapper').length > 1) {
+                    $rowWrapper.remove();
+                } else {
+                    // Nếu là dòng cuối cùng, chỉ xoá dữ liệu
+                    $rowWrapper.find('input').val('');
+                    $rowWrapper.find('input[name="quantity[]"]').val('0');
+                    $rowWrapper.find('input[name="unit_price[]"]').val('0');
+                    // Sửa logic: Dùng visibility
+                    $rowWrapper.find('.error').text('').css('visibility', 'hidden');
+                }
+                updateTotalPrice(); // Tính lại tổng tiền
+            });
+
+            // Ẩn nút xoá của dòng đầu tiên khi tải trang
+            $('.component-row-wrapper:first .remove-component-btn').hide();
+        }
+
         function Edit(id) {
+            // Sử dụng dữ liệu gốc (chưa nhóm) từ quatrinhsuaRaw
+            const quatrinhsuaRaw = {!! json_encode($quatrinhsuaRaw) !!};
             const quatrinhsua = {!! json_encode($quatrinhsua) !!};
-            const data = quatrinhsua.find(item => item.id === id);
-            $('#id').val(data.id);
-            $('#warranty_request_id').val(data.warranty_request_id);
-            $('#error_type').val(data.error_type);
-            $('#solution').val(data.solution);
-            $('#replacement').val(data.replacement);
-            $('#quantity').val(data.quantity);
-            $('#unit_price').val(parseInt(data.unit_price));
+            const selectedData = quatrinhsua.find(item => item.id === id);
+            resetRepairForm(); // Reset form trước khi điền
+            
+            // Tìm tất cả các bản ghi gốc liên quan (cùng error_type, solution, warranty_request_id, và Ngaytao)
+            const relatedRecords = quatrinhsuaRaw.filter(item => 
+                item.warranty_request_id === selectedData.warranty_request_id &&
+                item.error_type === selectedData.error_type &&
+                item.solution === selectedData.solution &&
+                item.Ngaytao === selectedData.Ngaytao
+            );
+
+            $('#id').val(id);
+            $('#warranty_request_id').val(selectedData.warranty_request_id);
+            $('#error_type').val(selectedData.error_type);
+            $('#solution').val(selectedData.solution);
+            
+            // Điền mô tả nếu là "Sửa chữa tại chỗ (lỗi nhẹ)"
+            if (selectedData.solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+                // Lấy replacement từ bản ghi đầu tiên (vì đã được nhóm)
+                const firstRecord = relatedRecords.length > 0 ? relatedRecords[0] : null;
+                if (firstRecord && firstRecord.replacement) {
+                    $('#des_error_type').val(firstRecord.replacement);
+                }
+                // Xóa tất cả các dòng linh kiện và để trống
+                $('.component-row-wrapper').remove();
+            } else {
+                // Xóa tất cả các dòng linh kiện trừ dòng đầu tiên
+                $('.component-row-wrapper:not(:first)').remove();
+
+                // Điền dữ liệu vào các dòng từ dữ liệu gốc
+                if (relatedRecords.length > 0) {
+                    // Điền dòng đầu tiên
+                    const $firstRow = $('.component-row-wrapper:first');
+                    fillComponentRow($firstRow, relatedRecords[0], 0);
+                    
+                    // Thêm các dòng còn lại
+                    for (let i = 1; i < relatedRecords.length; i++) {
+                        $('#add-component-btn').trigger('click');
+                        const $newRow = $('.component-row-wrapper:last');
+                        fillComponentRow($newRow, relatedRecords[i], i);
+                    }
+                } else {
+                    // Nếu không có bản ghi nào, giữ lại dòng đầu tiên trống
+                    const $firstRow = $('.component-row-wrapper:first');
+                    fillComponentRow($firstRow, { replacement: '', quantity: 0, unit_price: 0 }, 0);
+                }
+            }
+
+            // Kích hoạt sự kiện change để ẩn/hiện các trường đúng
+            $('#solution').trigger('change');
 
             updateTotalPrice();
 
             $('#repairModal').modal('show');
+        }
+
+        // Hàm helper để điền dữ liệu vào một dòng linh kiện
+        function fillComponentRow($row, record, index) {
+            $row.find('.replacement-input').val(record.replacement || '');
+            $row.find('.quantity-input').val(record.quantity || 0);
+            const unitPriceInput = $row.find('.unit-price-input');
+            unitPriceInput.val(record.unit_price || 0);
+            formatCurrency(unitPriceInput);
+            
+            // Cập nhật ID cho các input
+            $row.find('.replacement-input').attr('id', 'replacement_' + index);
+            $row.find('.quantity-input').attr('id', 'quantity_' + index);
+            $row.find('.unit-price-input').attr('id', 'unit_price_' + index);
+            
+            // Hiển thị nút xóa nếu không phải dòng đầu tiên
+            if (index > 0) {
+                $row.find('.remove-component-btn').show();
+            } else {
+                $row.find('.remove-component-btn').hide();
+            }
         }
 
         function Delete(id) {
@@ -840,6 +1390,9 @@
                 case 'return_date':
                     isValid = validateReturnDate(input);
                     break;
+                case 'address':
+                    isValid = validateAddress(input);
+                    break;
             }
         });
 
@@ -862,6 +1415,9 @@
                     break;
                 case 'return_date':
                     isValid = validateReturnDate(input);
+                    break;
+                case 'address':
+                    isValid = validateAddress(input);
                     break;
             }
 
@@ -1090,7 +1646,7 @@
             const files = input.files;
             if (!files || files.length === 0) return;
 
-            const maxSize = 5 * 1024 * 1024;
+            const maxSize = 15 * 1024 * 1024;
             selectedPhotos = [];
 
             const $carouselInner = $('#carouselInner');
@@ -1276,7 +1832,6 @@
         }
     </script>
     <script>
-
         // 1. Cờ theo dõi trạng thái lỗi của form sửa chữa
         let repairFormErrors = {};
 
@@ -1287,13 +1842,19 @@
 
             hideRepairFormError($field); // Xóa lỗi cũ
 
-            // Sửa lỗi: Tìm .error trong thẻ cha gần nhất để xử lý các cấu trúc HTML khác nhau
-            let $errorDiv = $field.siblings('.error');
-            if ($errorDiv.length === 0) {
-                $errorDiv = $field.closest('div').find('.error');
+            let $errorDiv;
+            const $wrapper = $field.closest('.component-row-wrapper');
+
+            if ($wrapper.length > 0) {
+                // Nếu là lỗi linh kiện, dùng ô chung
+                $errorDiv = $wrapper.find('.component-error-row');
+            } else {
+                // Nếu là lỗi khác (Lỗi gặp phải, Cách xử lý)
+                $errorDiv = $field.siblings('.error');
+                if ($errorDiv.length === 0) $errorDiv = $field.closest('div').find('.error');
             }
 
-            $errorDiv.text(message).removeClass('d-none');
+            $errorDiv.text(message).css('visibility', 'visible'); // Luôn dùng VISIBILITY
 
             repairFormErrors[fieldId] = true; // Gắn cờ lỗi
             updateSaveButtonState();
@@ -1304,15 +1865,45 @@
             const fieldId = $field.attr('id');
             if (!fieldId) return;
 
-            // Sửa lỗi: Tìm .error trong thẻ cha gần nhất
-            let $errorDiv = $field.siblings('.error');
-            if ($errorDiv.length === 0) {
-                $errorDiv = $field.closest('div').find('.error');
+            let $errorDiv;
+            const $wrapper = $field.closest('.component-row-wrapper');
+
+            if ($wrapper.length > 0) {
+                // Nếu là lỗi linh kiện, kiểm tra các lỗi khác CÙNG HÀNG
+                delete repairFormErrors[fieldId]; // Xóa lỗi của trường HIỆN TẠI
+
+                $errorDiv = $wrapper.find('.component-error-row');
+
+                const $rep = $wrapper.find('.replacement-input');
+                const $qty = $wrapper.find('.quantity-input');
+                const $price = $wrapper.find('.unit-price-input');
+
+                // Re-validate trường khác nếu nó CÓ LỖI, để hiển thị lại lỗi đó
+                if (repairFormErrors[$rep.attr('id')]) {
+                    validateReplacement($rep);
+                    return;
+                }
+                if (repairFormErrors[$qty.attr('id')]) {
+                    validateQuantity($qty);
+                    return;
+                }
+                if (repairFormErrors[$price.attr('id')]) {
+                    validateUnitPrice($price);
+                    return;
+                }
+
+                // Nếu không còn lỗi nào khác, ẩn ô chung
+                $errorDiv.text('').css('visibility', 'hidden');
+
+            } else {
+                // Nếu là lỗi khác
+                $errorDiv = $field.siblings('.error');
+                if ($errorDiv.length === 0) $errorDiv = $field.closest('div').find('.error');
+                $errorDiv.text('').css('visibility', 'hidden'); // Luôn dùng VISIBILITY
             }
 
-            $errorDiv.text('').addClass('d-none');
-
-            delete repairFormErrors[fieldId]; // Bỏ cờ lỗi
+            // Bỏ cờ lỗi (có thể đã bị xóa ở trên, nhưng ở đây để an toàn)
+            delete repairFormErrors[fieldId];
             updateSaveButtonState();
         }
 
@@ -1324,7 +1915,7 @@
 
 
         // Lỗi gặp phải: chữ và số, max 150
-        function validateErrorType() {
+         function validateErrorType() {
   const $input = $('#error_type');
   const value = $input.val().trim();
   hideRepairFormError($input);
@@ -1339,25 +1930,52 @@
   }
 }
 
-
-        // Mô tả cách xử lý: chỉ nhập chữ, max 100
-        function validateDescription() {
-            const $input = $('#des_error_type');
+        // Mô tả cách xử lý: chữ và số, max 100
+        function validateDescription($input) {
             const value = $input.val().trim();
             hideRepairFormError($input);
-            if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/.test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ.");
+            if (value && !
+                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
+                .test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ và số.");
+            } else if (value.length > 100) {
+                showRepairFormError($input, "Tối đa 100 ký tự.");
+            }
+        }
+
+        // Lý do từ chối: chữ và số, max 100
+        function validateRejectionReason($input) {
+            const value = $input.val().trim();
+            hideRepairFormError($input);
+            if (value && !
+                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
+                .test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ, số và ký tự ,.-");
+            } else if (value.length > 100) {
+                showRepairFormError($input, "Tối đa 100 ký tự.");
+            }
+        }
+
+        // Lý do KH từ chối: chữ và số, max 100
+        function validateCustomerRefusalReason($input) {
+            const value = $input.val().trim();
+            hideRepairFormError($input);
+            if (value && !
+                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
+                .test(value)) {
+                showRepairFormError($input, "Chỉ được nhập chữ, số và ký tự ,.-");
             } else if (value.length > 100) {
                 showRepairFormError($input, "Tối đa 100 ký tự.");
             }
         }
 
         // Linh kiện thay thế: chữ và số, max 100
-        function validateReplacement() {
-            const $input = $('#replacement');
+        function validateReplacement($input) {
             const value = $input.val().trim();
             hideRepairFormError($input);
-            if (value && !/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/.test(value)) {
+            if (value && !
+                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ\-\_:;=+/,.() ]+$/
+                .test(value)) {
                 showRepairFormError($input, "Chỉ được nhập chữ và số.");
             } else if (value.length > 100) {
                 showRepairFormError($input, "Tối đa 100 ký tự.");
@@ -1365,8 +1983,7 @@
         }
 
         // Số lượng: số, max 5
-        function validateQuantity() {
-            const $input = $('#quantity');
+        function validateQuantity($input) {
             const value = $input.val();
             hideRepairFormError($input);
             if (value && !/^\d+$/.test(value)) {
@@ -1377,8 +1994,7 @@
         }
 
         // Đơn giá: số, max 8
-        function validateUnitPrice() {
-            const $input = $('#unit_price');
+        function validateUnitPrice($input) {
             const value = $input.val().replace(/[^0-9]/g, ''); // Lấy số thô
             hideRepairFormError($input);
             if (value.length > 8) {
@@ -1389,12 +2005,15 @@
         // Hàm kiểm tra các trường bắt buộc (dựa trên logic có sẵn)
         function validateRepairForm() {
             let isValid = true;
-            // Chạy tất cả các hàm validation
+            // Reset lại toàn bộ cờ lỗi trước mỗi lần validate tổng thể
+            repairFormErrors = {};
+            $('#repairForm .error').text('').css('visibility', 'hidden');
+
+            // Validate các trường đơn
             validateErrorType();
-            validateDescription();
-            validateReplacement();
-            validateQuantity();
-            validateUnitPrice();
+            validateDescription($('#des_error_type'));
+            validateRejectionReason($('#rejection_reason'));
+            validateCustomerRefusalReason($('#customer_refusal_reason'));
 
             // Kiểm tra các trường bắt buộc logic
             const $errorType = $('#error_type');
@@ -1411,34 +2030,62 @@
                 hideRepairFormError($solution);
             }
 
-            // Kiểm tra các trường phụ thuộc vào "Cách xử lý"
-            if ($solution.val() === 'Thay thế linh kiện/hardware') {
-                const $replacement = $('#replacement');
-                if ($replacement.val().trim() === '') {
-                    showRepairFormError($replacement, 'Vui lòng nhập linh kiện thay thế');
-                    isValid = false;
-                }
-
-                const $quantity = $('#quantity');
-                if (parseInt($quantity.val()) < 1 || !$quantity.val()) {
-                    showRepairFormError($quantity, 'Số lượng phải lớn hơn 0');
-                    isValid = false;
-                }
-            }
-
-            // Bắt buộc nhập số lượng nếu có linh kiện thay thế
-            const $replacementField = $('#replacement');
-            const $quantityField = $('#quantity');
-            if ($replacementField.val().trim() !== '' && (parseInt($quantityField.val()) < 1 || !$quantityField.val())) {
-                if (!repairFormErrors['quantity']) {
-                    showRepairFormError($quantityField, 'Vui lòng nhập số lượng khi có linh kiện.');
-                }
+            if ($solution.val() === 'Từ chối bảo hành' && $('#rejection_reason').val().trim() === '') {
+                showRepairFormError($('#rejection_reason'), 'Vui lòng nhập lý do từ chối');
                 isValid = false;
             }
+
+            if ($solution.val() === 'KH không muốn bảo hành' && $('#customer_refusal_reason').val().trim() === '') {
+                showRepairFormError($('#customer_refusal_reason'), 'Vui lòng nhập lý do khách hàng từ chối');
+                isValid = false;
+            }
+
+            // --- LOGIC VALIDATE NHIỀU DÒNG ---
+            // Lặp qua TẤT CẢ các hàng linh kiện
+            $('.component-row-wrapper').each(function() {
+                const $row = $(this);
+                const $replacement = $row.find('.replacement-input');
+                const $quantity = $row.find('.quantity-input');
+                const $price = $row.find('.unit-price-input');
+
+                // Chạy validate cơ bản (regex, độ dài)
+                validateReplacement($replacement);
+                validateQuantity($quantity);
+                validateUnitPrice($price);
+
+                // Kiểm tra logic bắt buộc
+                if ($solution.val() === 'Thay thế linh kiện/hardware') {
+                    // Nếu là dòng đầu tiên, HOẶC các dòng sau CÓ DỮ LIỆU
+                    if ($row.is(':first-child') || $replacement.val().trim() !== '' || $quantity.val() !== '0' ||
+                        $price.val() !== '0') {
+                        if ($replacement.val().trim() === '') {
+                            showRepairFormError($replacement, 'Vui lòng nhập linh kiện thay thế');
+                            isValid = false;
+                        }
+
+                        if (parseInt($quantity.val()) < 1 || !$quantity.val()) {
+                            showRepairFormError($quantity, 'Số lượng phải lớn hơn 0');
+                            isValid = false;
+                        }
+                    }
+                } else {
+                    // Các trường hợp khác: nếu nhập linh kiện thì phải nhập SL
+                    if ($replacement.val().trim() !== '' && (parseInt($quantity.val()) < 1 || !$quantity.val())) {
+                        if (!repairFormErrors[$quantity.attr('id')]) {
+                            showRepairFormError($quantity, 'Vui lòng nhập số lượng khi có linh kiện.');
+                        }
+                        isValid = false;
+                    }
+                }
+            });
+
             // Kiểm tra lại cờ lỗi tổng thể
             if (Object.keys(repairFormErrors).length > 0) {
                 isValid = false;
             }
+
+            // Cập nhật lại trạng thái nút bấm sau khi đã kiểm tra tất cả lỗi
+            updateSaveButtonState();
 
             return isValid;
         }
@@ -1454,30 +2101,49 @@
         }
 
         function updateTotalPrice() {
-            const quantity = parseInt($('#quantity').val()) || 0;
-            const unitPrice = parseInt($('#unit_price').val().replace(/[^0-9]/g, '')) || 0;
-            const total = quantity * unitPrice;
+            let total = 0;
+            $('.component-row').each(function() {
+                const quantity = parseInt($(this).find('.quantity-input').val()) || 0;
+                const unitPrice = parseInt($(this).find('.unit-price-input').val().replace(/[^0-9]/g, '')) || 0;
+                total += quantity * unitPrice;
+            });
             $('#total_price').val(total.toLocaleString('vi-VN'));
         }
 
         // Gắn sự kiện
         $(document).ready(function() {
-            $('#error_type').on('input', validateErrorType);
-            $('#des_error_type').on('input', validateDescription);
-            $('#replacement').on('input', validateReplacement);
-            $('#quantity').on('input', validateQuantity);
-            $('#unit_price').on('input', function() {
+            $('#repairModal').on('input', '.replacement-input', function() {
+                validateReplacement($(this));
+            });
+            $('#repairModal').on('input', '.quantity-input', function() {
+                validateQuantity($(this));
+                updateTotalPrice();
+            });
+            $('#repairModal').on('input', '.unit-price-input', function() {
                 formatCurrency($(this));
-                validateUnitPrice();
+                validateUnitPrice($(this));
+                updateTotalPrice();
+            });
+
+            $('#error_type').on('input', function() {
+                validateErrorType($(this));
+            });
+            $('#des_error_type').on('input', function() {
+                validateDescription($(this));
+            });
+            $('#rejection_reason').on('input', function() {
+                validateRejectionReason($(this));
+            });
+            $('#customer_refusal_reason').on('input', function() {
+                validateCustomerRefusalReason($(this));
             });
 
             // Gỡ lỗi cho trường "Cách xử lý" ngay khi người dùng chọn
             $('#solution').on('change', function() {
                 hideRepairFormError($(this));
+                // Khi thay đổi lựa chọn, các trường yêu cầu có thể thay đổi, nên cần validate lại
+                validateRepairForm();
             });
-
-            // Cập nhật tổng tiền khi số lượng hoặc đơn giá thay đổi
-            $('#quantity, #unit_price').on('input', updateTotalPrice);
         });
     </script>
 @endsection
