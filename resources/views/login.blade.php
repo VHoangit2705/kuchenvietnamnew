@@ -58,6 +58,7 @@
                 @csrf
                 <input type="hidden" name="machine_id" id="machine_id">
                 <input type="hidden" name="browser_info" id="browser_info">
+                <input type="hidden" name="device_type" id="device_type">
                 <div class="mb-3">
                     <label for="username" class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
                     <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username') }}" required autofocus>
@@ -90,7 +91,7 @@
     </script>
     @endif
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ asset('js/device-fingerprint.js') }}"></script>
+    <script src="{{ asset('public/js/device-fingerprint.js') }}?v=2025-11-18"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const machineIdField = document.getElementById('machine_id');
@@ -199,6 +200,17 @@
                 }
             });
         });
+        function detectDeviceType() {
+    const ua = navigator.userAgent.toLowerCase();
+
+    if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone") || ua.includes("ipad")) {
+        return "mobile";
+    }
+    return "pc";
+}
+
+document.getElementById('device_type').value = detectDeviceType();
+
     </script>
 </body>
 </html>

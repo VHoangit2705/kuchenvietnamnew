@@ -26,6 +26,10 @@ class LoginController extends Controller
 
     public function Index(Request $request)
     {
+        // 🔵 FIX: Nếu user đã đăng nhập thì chuyển thẳng vào trang chủ
+    if (Auth::check()) {
+        return redirect()->intended('/');
+    }
         // Kiểm tra nếu có username trong old input và tài khoản bị khóa
         $username = old('username');
         if ($username) {
@@ -283,92 +287,164 @@ class LoginController extends Controller
             'failed_attempts' => $attempts
         ]);
     }
-    
+    /** Hàm xác định loại thiết bị truy cập **/
+    private function detectDeviceType(): string
+{
+    $agent = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+    if (strpos($agent, 'mobile') !== false || 
+        strpos($agent, 'android') !== false ||
+        strpos($agent, 'iphone') !== false ||
+        strpos($agent, 'ipad') !== false) {
+        return 'mobile';
+    }
+
+    return 'pc';
+}
+/** Hàm kiểm tra giới hạn theo loại thiết bị **/
+
+private function hasReachedDeviceLimitByType(int $userId, string $deviceType): bool
+
+{
+    return UserDeviceToken::where('user_id', $userId)
+            ->where('status', 'approved')
+            ->where('device_type', $deviceType)
+            ->count() >= 1;
+}
+
     /**
      * Xử lý cấp quyền truy cập thiết bị dựa trên MACHINE_ID.
      */
-    private function handleDeviceAuthorization(User $user, string $machineId, string $ipAddress, ?string $browserInfo): array
-    {
-        try {
-            $deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
-            
-            // Ưu tiên kiểm tra device pending của user hiện tại TRƯỚC
-            $pendingDeviceForUser = $deviceMatches->first(function ($device) use ($user) {
-                return (int) $device->user_id === $user->id && $device->status === 'pending';
-            });
-            
-            if ($pendingDeviceForUser) {
-                return [
-                    'status' => 'error',
-                    'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
-                ];
-            }
-            
-            $reactivableDevice = $deviceMatches->first(function ($device) use ($user) {
-                return (int) $device->user_id === $user->id
-                    && (int) $device->is_active === 0
-                    && $device->status === 'approved';
-            });
+   private function handleDeviceAuthorization(User $user, string $machineId, string $ipAddress, ?string $browserInfo): array
+{
+    try {
+        Log::info("LOGIN DEBUG – user_id=".$user->id." – machine_id=".$machineId);
 
-            $currentDevice = $reactivableDevice
-                ?? $deviceMatches->firstWhere('user_id', $user->id)
-                ?? $deviceMatches->first();
+        // Xác định loại thiết bị: pc / mobile
+        $deviceType = $this->detectDeviceType();
 
-            if ($currentDevice && $currentDevice->user_id !== $user->id) {
-                if ($reactivableDevice) {
-                    $currentDevice = $reactivableDevice;
-                } else {
-                    return [
-                        'status' => 'error',
-                        'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
-                    ];
-                }
-            }
+       // 1) LẤY TẤT CẢ RECORD CÓ fingerprint GIỐNG machineId
+$deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
 
-            // Kiểm tra pending cho các trường hợp khác (nếu có)
-            if ($currentDevice && $currentDevice->status === 'pending') {
-                return [
-                    'status' => 'error',
-                    'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
-                ];
-            }
+// CLEANUP – mất record rác user khác (nếu có)
+UserDeviceToken::where('device_fingerprint', $machineId)
+    ->where('user_id', '!=', $user->id)
+    ->delete();
 
-            if (!$currentDevice) {
-                if ($this->hasReachedDeviceLimit($user->id)) {
-                    $this->createPendingDevice($user, $machineId, $ipAddress, $browserInfo);
 
-                    return [
-                        'status' => 'error',
-                        'message' => 'Bạn đã đạt giới hạn 2 thiết bị. Thiết bị mới đang chờ Admin duyệt. Vui lòng liên hệ quản trị viên.'
-                    ];
-                }
+$deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
+// 🔎 TEST LOG SO SÁNH user_id ĐỂ BẮT LỖI
+foreach ($deviceMatches as $d) {
+    Log::info("COMPARE – d.user_id=" . gettype($d->user_id) . " " . $d->user_id .
+        " | user.id=" . gettype($user->id) . " " . $user->id .
+        " | cmp=" . (( $d->user_id !== $user->id ) ? 'TRUE' : 'FALSE')
+    );
+}
+// 2) Block only if another APPROVED user owns this device
+$deviceOfOtherUser = $deviceMatches->first(function ($d) use ($user) {
+    return (int)$d->user_id !== (int)$user->id
+        && $d->status === 'approved';
+});
 
-                $currentDevice = UserDeviceToken::create([
-                    'user_id' => $user->id,
-                    'device_fingerprint' => $machineId,
-                    'device_token' => hash('sha256', Str::random(60)),
-                    'ip_address' => $ipAddress,
-                    'browser_info' => $browserInfo,
-                    'is_active' => 1,
-                    'status' => 'approved',
-                    'last_used_at' => now(),
-                ]);
-            }
 
-            $browserToken = $this->issueBrowserToken($currentDevice, $ipAddress, $browserInfo);
+if ($deviceOfOtherUser) {
+    return [
+        'status' => 'error',
+        'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
+    ];
+}
 
-            return [
-                'status' => 'ok',
-                'browser_token' => $browserToken,
-            ];
-        } catch (\Exception $e) {
-            Log::error('Error authorizing device: ' . $e->getMessage());
+
+
+        // ========================================================
+        // 🔵 3) LẤY RECORD THUỘC USER HIỆN TẠI (NẾU CÓ)
+        // ========================================================
+
+        // a) Thiết bị đã từng được user dùng
+        $deviceOfUser = $deviceMatches->firstWhere('user_id', $user->id);
+
+        // b) Thiết bị reactivate
+        $reactivableDevice = $deviceMatches->first(function ($d) use ($user) {
+            return $d->user_id == $user->id &&
+                   !$d->is_active &&
+                   $d->status === 'approved';
+        });
+
+        // c) Thiết bị pending
+        $pendingDevice = $deviceMatches->first(function ($d) use ($user) {
+            return $d->user_id == $user->id &&
+                   $d->status === 'pending';
+        });
+
+        // ========================================================
+        // 🔵 4) ƯU TIÊN XỬ LÝ
+        //    (1) reactivate → (2) device cũ → (3) pending → (4) thiết bị mới
+        // ========================================================
+
+        if ($reactivableDevice) {
+            $device = $reactivableDevice;
+        }
+        elseif ($deviceOfUser) {
+            $device = $deviceOfUser;
+        }
+        elseif ($pendingDevice) {
             return [
                 'status' => 'error',
-                'message' => 'Không thể xác thực thiết bị. Vui lòng thử lại sau.'
+                'message' => 'Bạn đã đạt giới hạn thiết bị. Thiết bị mới đang chờ Admin duyệt.'
             ];
         }
+        else {
+
+            // ========================================================
+            // 🔵 5) KIỂM TRA GIỚI HẠN PC / MOBILE (MỖI LOẠI CHỈ 1)
+            // ========================================================
+            if ($this->hasReachedDeviceLimitByType($user->id, $deviceType)) {
+
+                // Tạo pending device mới
+                $this->createPendingDevice($user, $machineId, $ipAddress, $browserInfo, $deviceType);
+
+                return [
+                    'status' => 'error',
+                    'message' => 'Bạn đã đạt giới hạn thiết bị. Thiết bị mới đang chờ Admin duyệt.'
+                ];
+            }
+
+            // ========================================================
+            // 🔵 6) TẠO DEVICE MỚI (APPROVED)
+            // ========================================================
+            $device = UserDeviceToken::create([
+                'user_id'           => $user->id,
+                'device_fingerprint'=> $machineId,
+                'device_token'      => hash('sha256', Str::random(60)),
+                'ip_address'        => $ipAddress,
+                'browser_info'      => $browserInfo,
+                'device_type'       => $deviceType,
+                'is_active'         => 1,
+                'status'            => 'approved',
+                'last_used_at'      => now(),
+            ]);
+        }
+
+        // ========================================================
+        // 🔵 7) CẤP BROWSER TOKEN (CẬP NHẬT ACTIVE)
+        // ========================================================
+        $browserToken = $this->issueBrowserToken($device, $ipAddress, $browserInfo);
+
+        return [
+            'status' => 'ok',
+            'browser_token' => $browserToken,
+        ];
     }
+    catch (\Exception $e) {
+
+        Log::error('Error authorizing device: ' . $e->getMessage());
+
+        return [
+            'status' => 'error',
+            'message' => 'Thiết bị chưa được cấp phép cho tài khoản này.'
+        ];
+    }
+}
 
     private function issueBrowserToken(UserDeviceToken $device, string $ipAddress, ?string $browserInfo): string
     {
@@ -388,22 +464,24 @@ class LoginController extends Controller
         return $token;
     }
 
-    private function createPendingDevice(User $user, string $machineId, string $ipAddress, ?string $browserInfo): void
-    {
-        UserDeviceToken::updateOrCreate(
-            ['device_fingerprint' => $machineId],
-            [
-                'user_id' => $user->id,
-                'device_token' => hash('sha256', Str::random(60)),
-                'ip_address' => $ipAddress,
-                'browser_info' => $browserInfo,
-                'is_active' => 0,
-                'status' => 'pending',
-                'approval_requested_at' => now(),
-                'last_used_at' => null,
-            ]
-        );
-    }
+    private function createPendingDevice(User $user, string $machineId, string $ipAddress, ?string $browserInfo, string $deviceType): void
+{
+    UserDeviceToken::updateOrCreate(
+        ['device_fingerprint' => $machineId],
+        [
+            'user_id' => $user->id,
+            'device_type' => $deviceType,
+            'device_token' => hash('sha256', Str::random(60)),
+            'ip_address' => $ipAddress,
+            'browser_info' => $browserInfo,
+            'is_active' => 0,
+            'status' => 'pending',
+            'approval_requested_at' => now(),
+            'last_used_at' => null,
+        ]
+    );
+}
+
 
     private function hasReachedDeviceLimit(int $userId): bool
     {
