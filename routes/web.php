@@ -12,11 +12,17 @@ use App\Http\Controllers\ImportExcelSyncController;
 use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
-
+use App\Http\Controllers\ExportReportController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
+
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
 
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
@@ -47,6 +53,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/request/{id}', [WarrantyController::class, 'Request'])->name('warranty.request');
     Route::get('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'CheckWarranty'])->name("warranty.check");
     Route::post('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'FindWarranty'])->name("warranty.find"); // tra cứu
+    Route::post('/baohanh/kiemtrabaohanh/order', [WarrantyController::class, 'FindWarrantyByOrderCode'])->name("warranty.findbyorder"); // tra cứu theo mã đơn hàng
     Route::post('/baohanh/kiemtranhanh', [WarrantyController::class, 'FindWarrantyQR'])->name("warranty.findqr"); // tra cứu qr
     Route::post('/baohanh/kiemtrabaohanhold', [WarrantyController::class, 'findWarantyOld'])->name("warranty.findold");
     Route::match(['GET', 'POST'], '/baohanh/phieubaohanh', [WarrantyController::class, 'FormWarrantyCard'])->name('warranty.formcard');
@@ -55,6 +62,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/themanhsanpham', [WarrantyController::class, 'TakePhotoWarranty'])->name("warranty.takephoto");
     Route::post('/baohanh/savemedia', [WarrantyController::class, 'StoreMedia'])->name('warranty.storemedia');
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
+    //Cảnh báo khóa nhập hộ ca bảo hành
+    Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
+    Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');
+    Route::post('/baohanh/anomaly-alerts/{id}/resolve', [WarrantyController::class, 'resolveAnomalyAlert'])->name('warranty.anomaly.resolve');
+    Route::post('/baohanh/anomaly-alerts/{id}/unblock', [WarrantyController::class, 'unblockStaff'])->name('warranty.anomaly.unblock');
+    Route::delete('/baohanh/anomaly-alerts/{id}', [WarrantyController::class, 'deleteAnomalyAlert'])->name('warranty.anomaly.delete');
 });
 
 // Collaborator
@@ -78,10 +91,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::get('/dieuphoicongtacvien/counts', [CollaboratorInstallCountsController::class, 'Counts'])->name('dieuphoi.counts');
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
+    Route::post('/dieuphoi/chitiet/update-address', [CollaboratorInstallController::class, 'UpdateDetailCustomerAddress'])->name('dieuphoi.update.address');
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
     Route::post('/upload-excel-sync', [ImportExcelSyncController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
-    Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke', [ExportReportController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke/preview', [ExportReportController::class, 'ReportCollaboratorInstallPreview'])->name('collaborator.export.preview');
 });
 
 // Report

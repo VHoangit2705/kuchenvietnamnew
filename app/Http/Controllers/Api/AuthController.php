@@ -31,8 +31,10 @@ class AuthController extends Controller
     public function Login(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'username' => 'required|string',
             'password' => 'required|string',
         ], [
+            'username.required' => 'Vui lòng nhập tên đăng nhập.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
     
@@ -40,12 +42,17 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first(),
+                'errors' => $validator->errors()
             ], 422);
         }
 
+        $username = $request->input('username');
         $password = $request->input('password');
 
-        $user = User::where('password', md5($password))->first();
+        $user = User::where('username', $username)
+                    ->where('password', md5($password))
+                    ->first();
+                    
         if ($user) {
             return response()->json([
                 'success' => true,
@@ -53,9 +60,10 @@ class AuthController extends Controller
                 'user' => $user
             ]);
         }
+        
         return response()->json([
             'success' => false,
-            'message' => 'Mật khẩu không đúng'
+            'message' => 'Tên đăng nhập hoặc mật khẩu không đúng'
         ], 401);
         
     }
