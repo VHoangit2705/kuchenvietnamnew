@@ -10,17 +10,21 @@ class UserDeviceToken extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'user_id',
-        'device_fingerprint',
-        'device_token',
-        'ip_address',
-        'browser_info',
-        'is_active',
-        'last_used_at',
-    ];
+    'user_id',
+    'device_fingerprint',
+    'device_token',
+    'ip_address',
+    'browser_info',
+    'device_type',          // <<== thêm dòng này
+    'is_active',
+    'status',
+    'approval_requested_at',
+    'last_used_at',
+];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'approval_requested_at' => 'datetime',
         'last_used_at' => 'datetime',
     ];
 
@@ -29,4 +33,3 @@ class UserDeviceToken extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 }
-

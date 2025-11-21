@@ -14,6 +14,8 @@ CREATE TABLE `user_device_tokens` (
     `ip_address` VARCHAR(45) NULL,
     `browser_info` TEXT NULL,
     `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'approved',
+    `approval_requested_at` TIMESTAMP NULL DEFAULT NULL,
     `last_used_at` TIMESTAMP NULL DEFAULT NULL,
     `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

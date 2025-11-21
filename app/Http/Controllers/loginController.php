@@ -8,98 +8,231 @@ use App\Models\KyThuat\UserDeviceToken;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class LoginController extends Controller
 {
-    
+    private const MAX_APPROVED_DEVICES = 2;
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_DURATION = 60; // 60 phút = 1 giờ
+
     private function User(): ?User
     {
         $user = Auth::user();
         return $user instanceof User ? $user : null;
     }
 
-    public function Index()
+    public function Index(Request $request)
     {
+        // 🔵 FIX: Nếu user đã đăng nhập thì chuyển thẳng vào trang chủ
+        if (Auth::check()) {
+            return redirect()->intended('/');
+        }
+        // Kiểm tra nếu có username trong old input và tài khoản bị khóa
+        $username = old('username');
+        if ($username) {
+            // Kiểm tra khóa do sai mật khẩu
+            $lockoutKey = "login_lockout_{$username}";
+            $lockoutUntilValue = Cache::get($lockoutKey);
+
+            if ($lockoutUntilValue) {
+                $lockoutUntil = $lockoutUntilValue instanceof Carbon ? $lockoutUntilValue : Carbon::parse($lockoutUntilValue);
+
+                if (now()->lt($lockoutUntil)) {
+                    return view("login")->with([
+                        'account_locked' => true,
+                        'lockout_until' => $lockoutUntil->timestamp
+                    ]);
+                }
+            }
+
+            // Kiểm tra khóa do spam device limit
+            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+            $deviceLimitLockoutUntilValue = Cache::get($deviceLimitLockoutKey);
+
+            if ($deviceLimitLockoutUntilValue) {
+                $deviceLimitLockoutUntil = $deviceLimitLockoutUntilValue instanceof Carbon ? $deviceLimitLockoutUntilValue : Carbon::parse($deviceLimitLockoutUntilValue);
+
+                if (now()->lt($deviceLimitLockoutUntil)) {
+                    return view("login")->with([
+                        'account_locked' => true,
+                        'lockout_until' => $deviceLimitLockoutUntil->timestamp
+                    ]);
+                }
+            }
+        }
+
         return view("login");
     }
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string'
+            'username' => [
+                'required',
+                'string',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'password' => 'required|string',
+            'machine_id' => 'required|string|max:255',
+            'browser_info' => 'nullable|json'
         ], [
             'username.required' => 'Vui lòng nhập tên đăng nhập.',
-            'password.required' => 'Vui lòng nhập mật khẩu.',
-            'device_fingerprint' => 'nullable|string',
-            'browser_info' => 'nullable|json'
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
+            'password.required' => 'Vui lòng nhập mật khẩu.'
         ]);
 
-        $user = User::where('username', $request->username)
-                    ->where('password', md5($request->password))
-                    ->first();
+        $username = $request->username;
 
-            
-        $user = User::where('password', md5($request->password))->first();
-        if ($user) {
-            // Xử lý device token
-            $deviceFingerprint = $request->input('device_fingerprint');
-            $browserInfo = $request->input('browser_info');
-            
-            if ($deviceFingerprint) {
-                // Kiểm tra device token trong cookie
-                $existingToken = Cookie::get('device_token');
-                
-                if ($existingToken) {
-                    // Kiểm tra token này thuộc về user nào
-                    $tokenRecord = UserDeviceToken::where('device_token', hash('sha256', $existingToken))
-                        ->where('is_active', 1)
-                        ->first();
-                    
-                    if ($tokenRecord) {
-                        // Token đã tồn tại và thuộc về user khác
-                        if ($tokenRecord->user_id !== $user->id) {
-                            return back()->withErrors([
-                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.Vui lòng sử dụng thiết bị khác.'
-                            ])->withInput();
-                        }
-                        // Token thuộc về user này → Cập nhật last_used_at
-                        $tokenRecord->update(['last_used_at' => now()]);
-                        $deviceToken = $existingToken;
-                    } else {
-                        // Token không tồn tại trong DB → Tạo mới
-                        $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
-                        if ($result === false) {
-                            return back()->withErrors([
-                                'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                            ])->withInput();
-                        }
-                        $deviceToken = $result;
-                    }
+        // Kiểm tra xem tài khoản có bị khóa do sai mật khẩu không
+        $lockoutKey = "login_lockout_{$username}";
+        $lockoutUntilValue = Cache::get($lockoutKey);
+
+        if ($lockoutUntilValue) {
+            $lockoutUntil = $lockoutUntilValue instanceof Carbon ? $lockoutUntilValue : Carbon::parse($lockoutUntilValue);
+
+            if (now()->lt($lockoutUntil)) {
+                $totalSeconds = now()->diffInSeconds($lockoutUntil, false);
+                $hours = floor($totalSeconds / 3600);
+                $minutes = floor(($totalSeconds % 3600) / 60);
+                $seconds = $totalSeconds % 60;
+
+                $timeString = '';
+                if ($hours > 0) {
+                    $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                } elseif ($minutes > 0) {
+                    $timeString = "{$minutes} phút {$seconds} giây";
                 } else {
-                    // Không có token trong cookie → Kiểm tra device fingerprint
-                    $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                        ->where('is_active', 1)
-                        ->first();
-                    
-                    if ($existingDevice && $existingDevice->user_id !== $user->id) {
-                        // Device đã được user khác sử dụng → Chặn
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
-                    }
-                    
-                    // Tạo token mới
-                    $result = $this->createNewDeviceToken($user, $deviceFingerprint, $request->ip(), $browserInfo);
-                    if ($result === false) {
-                        return back()->withErrors([
-                            'password' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác. Vui lòng sử dụng thiết bị khác.'
-                        ])->withInput();
-                    }
-                    $deviceToken = $result;
+                    $timeString = "{$seconds} giây";
                 }
+
+                return back()->withErrors([
+                    'msg' => "Tài khoản đã bị khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau {$timeString}."
+                ])->withInput()->with([
+                    'account_locked' => true,
+                    'lockout_until' => $lockoutUntil->timestamp
+                ]);
             }
-            
+        }
+
+        // Kiểm tra xem tài khoản có bị khóa do spam device limit không
+        $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+        $deviceLimitLockoutUntilValue = Cache::get($deviceLimitLockoutKey);
+
+        if ($deviceLimitLockoutUntilValue) {
+            $deviceLimitLockoutUntil = $deviceLimitLockoutUntilValue instanceof Carbon ? $deviceLimitLockoutUntilValue : Carbon::parse($deviceLimitLockoutUntilValue);
+
+            if (now()->lt($deviceLimitLockoutUntil)) {
+                $totalSeconds = now()->diffInSeconds($deviceLimitLockoutUntil, false);
+                $hours = floor($totalSeconds / 3600);
+                $minutes = floor(($totalSeconds % 3600) / 60);
+                $seconds = $totalSeconds % 60;
+
+                $timeString = '';
+                if ($hours > 0) {
+                    $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                } elseif ($minutes > 0) {
+                    $timeString = "{$minutes} phút {$seconds} giây";
+                } else {
+                    $timeString = "{$seconds} giây";
+                }
+
+                return back()->withErrors([
+                    'msg' => "Tài khoản đã bị khóa do cố gắng đăng nhập quá nhiều lần khi đạt giới hạn thiết bị. Vui lòng thử lại sau {$timeString}."
+                ])->withInput()->with([
+                    'account_locked' => true,
+                    'lockout_until' => $deviceLimitLockoutUntil->timestamp
+                ]);
+            }
+        }
+
+        $user = User::where('username', $username)
+            ->where('password', md5($request->password))
+            ->first();
+
+        if ($user) {
+            // Đăng nhập thành công - xóa số lần thử sai mật khẩu
+            $attemptsKey = "login_attempts_{$username}";
+            Cache::forget($attemptsKey);
+            Cache::forget($lockoutKey);
+
+            $machineId = trim((string) $request->input('machine_id'));
+            $browserInfo = $this->normalizeBrowserInfo($request->input('browser_info'));
+            $ipAddress = $request->ip();
+
+            if (!$machineId) {
+                $machineId = $this->generateFallbackMachineId($request);
+            }
+
+            $deviceResult = $this->handleDeviceAuthorization($user, $machineId, $ipAddress, $browserInfo);
+
+            if ($deviceResult['status'] === 'error') {
+                // Kiểm tra nếu là lỗi "đạt giới hạn 2 thiết bị" - đếm số lần spam
+                $isDeviceLimitError = strpos($deviceResult['message'], 'đạt giới hạn 2 thiết bị') !== false;
+
+                if ($isDeviceLimitError) {
+                    // Đếm số lần spam device limit (giống logic nhập sai mật khẩu)
+                    $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
+                    $deviceLimitAttempts = Cache::get($deviceLimitAttemptsKey, 0);
+                    $deviceLimitAttempts++;
+
+                    $deviceLimitRemainingAttempts = self::MAX_LOGIN_ATTEMPTS - $deviceLimitAttempts;
+
+                    if ($deviceLimitAttempts >= self::MAX_LOGIN_ATTEMPTS) {
+                        // Khóa tài khoản trong 1 giờ do spam device limit
+                        $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+                        $deviceLimitLockoutUntil = now()->addMinutes(self::LOCKOUT_DURATION);
+                        Cache::put($deviceLimitLockoutKey, $deviceLimitLockoutUntil, now()->addMinutes(self::LOCKOUT_DURATION + 5));
+                        Cache::forget($deviceLimitAttemptsKey);
+
+                        $totalSeconds = now()->diffInSeconds($deviceLimitLockoutUntil, false);
+                        $hours = floor($totalSeconds / 3600);
+                        $minutes = floor(($totalSeconds % 3600) / 60);
+                        $seconds = $totalSeconds % 60;
+
+                        $timeString = '';
+                        if ($hours > 0) {
+                            $timeString = "{$hours} giờ {$minutes} phút {$seconds} giây";
+                        } elseif ($minutes > 0) {
+                            $timeString = "{$minutes} phút {$seconds} giây";
+                        } else {
+                            $timeString = "{$seconds} giây";
+                        }
+
+                        return back()->withErrors([
+                            'msg' => "Bạn đã cố gắng đăng nhập quá nhiều lần khi đạt giới hạn thiết bị. Tài khoản đã bị khóa trong 1 giờ. Vui lòng thử lại sau {$timeString}."
+                        ])->withInput()->with([
+                            'account_locked' => true,
+                            'lockout_until' => $deviceLimitLockoutUntil->timestamp
+                        ]);
+                    }
+
+                    // Lưu số lần spam (hết hạn sau 2 giờ để tránh tích lũy)
+                    Cache::put($deviceLimitAttemptsKey, $deviceLimitAttempts, now()->addHours(2));
+
+                    return back()->withErrors([
+                        'msg' => $deviceResult['message']
+                    ])->withInput()->with([
+                        'device_limit_warning' => true,
+                        'remaining_attempts' => $deviceLimitRemainingAttempts,
+                        'failed_attempts' => $deviceLimitAttempts
+                    ]);
+                }
+
+                return back()->withErrors([
+                    'password' => $deviceResult['message']
+                ])->withInput();
+            }
+
+            // Đăng nhập thành công - xóa số lần spam device limit
+            $deviceLimitAttemptsKey = "device_limit_attempts_{$username}";
+            $deviceLimitLockoutKey = "device_limit_lockout_{$username}";
+            Cache::forget($deviceLimitAttemptsKey);
+            Cache::forget($deviceLimitLockoutKey);
+
+            $browserToken = $deviceResult['browser_token'];
+
             Auth::login($user);
             $minutes = 60 * 24 * 7; // 7 ngày
             session([
@@ -107,87 +240,295 @@ class LoginController extends Controller
                 'zone' => $user->zone, // chi nhánh
                 'position' => $user->position, // chức vụ
             ]);
-            
-            // Remember token (giữ nguyên logic cũ)
+
+            // Remember token
             $token = Str::random(60);
             $user->cookie_value = hash('sha256', $token);
-            // Nếu chưa có password_changed_at, set nó thành thời điểm hiện tại
             if (!$user->password_changed_at) {
                 $user->password_changed_at = now();
             }
             $user->save();
             Cookie::queue('remember_token', $token, $minutes);
-            
-            // Device token (mới)
-            if (isset($deviceToken)) {
-                Cookie::queue('device_token', $deviceToken, $minutes);
-            }
-            
+
+            Cookie::queue('browser_token', $browserToken, $minutes);
+            Cookie::queue('machine_id', $machineId, $minutes);
+
             return redirect()->intended('/');
         }
-        
-        return back()->withErrors(['msg' => 'Tên đăng nhập hoặc mật khẩu không chính xác'])->withInput();
+
+        // Đăng nhập thất bại - tăng số lần thử sai
+        $attemptsKey = "login_attempts_{$username}";
+        $attempts = Cache::get($attemptsKey, 0);
+        $attempts++;
+
+        $remainingAttempts = self::MAX_LOGIN_ATTEMPTS - $attempts;
+
+        if ($attempts >= self::MAX_LOGIN_ATTEMPTS) {
+            // Khóa tài khoản trong 1 giờ
+            $lockoutUntil = now()->addMinutes(self::LOCKOUT_DURATION);
+            Cache::put($lockoutKey, $lockoutUntil, now()->addMinutes(self::LOCKOUT_DURATION + 5));
+            Cache::forget($attemptsKey);
+
+            return back()->withErrors([
+                'msg' => 'Bạn đã nhập sai mật khẩu quá 5 lần. Tài khoản đã bị khóa trong 1 giờ.'
+            ])->withInput()->with([
+                'account_locked' => true,
+                'lockout_until' => $lockoutUntil->timestamp
+            ]);
+        }
+
+        // Lưu số lần thử sai (hết hạn sau 2 giờ để tránh tích lũy)
+        Cache::put($attemptsKey, $attempts, now()->addHours(2));
+
+        return back()->withErrors([
+            'msg' => 'Tên đăng nhập hoặc mật khẩu không chính xác'
+        ])->withInput()->with([
+            'remaining_attempts' => $remainingAttempts,
+            'failed_attempts' => $attempts
+        ]);
     }
-    
+    /** Hàm xác định loại thiết bị truy cập **/
+    private function detectDeviceType(): string
+    {
+        $agent = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+        if (
+            strpos($agent, 'mobile') !== false ||
+            strpos($agent, 'android') !== false ||
+            strpos($agent, 'iphone') !== false ||
+            strpos($agent, 'ipad') !== false
+        ) {
+            return 'mobile';
+        }
+
+        return 'pc';
+    }
+    /** Hàm kiểm tra giới hạn theo loại thiết bị **/
+
+    private function hasReachedDeviceLimitByType(int $userId, string $deviceType): bool
+
+    {
+        return UserDeviceToken::where('user_id', $userId)
+            ->where('status', 'approved')
+            ->where('device_type', $deviceType)
+            ->count() >= 1;
+    }
+
     /**
-     * Tạo device token mới
-     * @return string|false Trả về token nếu thành công, false nếu device đã được user khác sử dụng
+     * Xử lý cấp quyền truy cập thiết bị dựa trên MACHINE_ID.
      */
-    private function createNewDeviceToken($user, $deviceFingerprint, $ipAddress, $browserInfo)
+    private function handleDeviceAuthorization(User $user, string $machineId, string $ipAddress, ?string $browserInfo): array
     {
         try {
-            $token = Str::random(60);
-            $hashedToken = hash('sha256', $token);
-            
-            // Kiểm tra device này đã có token của user khác chưa?
-            $existingDevice = UserDeviceToken::where('device_fingerprint', $deviceFingerprint)
-                ->where('is_active', 1)
+            Log::info("LOGIN DEBUG – user_id=" . $user->id . " – machine_id=" . $machineId);
+
+            // Xác định loại thiết bị: pc / mobile
+            $deviceType = $this->detectDeviceType();
+
+            // 1) LẤY TẤT CẢ RECORD CÓ fingerprint GIỐNG machineId
+            $deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
+
+            // CLEANUP – mất record rác user khác (nếu có)
+            UserDeviceToken::where('device_fingerprint', $machineId)
                 ->where('user_id', '!=', $user->id)
-                ->first();
-            
-            if ($existingDevice) {
-                // Device đã được user khác sử dụng → Trả về false thay vì throw exception
-                return false;
+                ->delete();
+
+
+            $deviceMatches = UserDeviceToken::where('device_fingerprint', $machineId)->get();
+            // 🔎 TEST LOG SO SÁNH user_id ĐỂ BẮT LỖI
+            foreach ($deviceMatches as $d) {
+                Log::info(
+                    "COMPARE – d.user_id=" . gettype($d->user_id) . " " . $d->user_id .
+                        " | user.id=" . gettype($user->id) . " " . $user->id .
+                        " | cmp=" . (($d->user_id !== $user->id) ? 'TRUE' : 'FALSE')
+                );
             }
-            
-            // Xử lý browser_info nếu là JSON string
-            $browserInfoJson = null;
-            if ($browserInfo) {
-                if (is_string($browserInfo)) {
-                    // Nếu là JSON string, decode nó
-                    $decoded = json_decode($browserInfo, true);
-                    $browserInfoJson = $decoded ? json_encode($decoded) : $browserInfo;
-                } else {
-                    $browserInfoJson = json_encode($browserInfo);
+            // 2) Block only if another APPROVED user owns this device
+            $deviceOfOtherUser = $deviceMatches->first(function ($d) use ($user) {
+                return (int)$d->user_id !== (int)$user->id
+                    && $d->status === 'approved';
+            });
+
+
+            if ($deviceOfOtherUser) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Thiết bị này đã được đăng nhập bởi nhân viên khác.'
+                ];
+            }
+
+
+
+            // ========================================================
+            // 🔵 3) LẤY RECORD THUỘC USER HIỆN TẠI (NẾU CÓ)
+            // ========================================================
+            // (A) ONLY approved device (fix lỗi pending bị lẫn vào)
+            $deviceOfUser = $deviceMatches->first(function ($d) use ($user) {
+                return $d->user_id == $user->id &&
+                    $d->status === 'approved';     // ❗ LOẠI PENDING
+            });
+
+            // (B) Reactivable device (approved + inactive)
+            $reactivableDevice = $deviceMatches->first(function ($d) use ($user) {
+                return $d->user_id == $user->id &&
+                    !$d->is_active &&
+                    $d->status === 'approved';
+            });
+
+            // (C) Pending device
+            $pendingDevice = $deviceMatches->first(function ($d) use ($user) {
+                return $d->user_id == $user->id &&
+                    $d->status === 'pending';
+            });
+
+            // ========================================================
+            // 🔵 4) ƯU TIÊN XỬ LÝ
+            //    (1) reactivate → (2) device cũ → (3) pending → (4) thiết bị mới
+            // ========================================================
+
+            if ($reactivableDevice) {
+                $device = $reactivableDevice;
+            } elseif ($deviceOfUser) {
+                $device = $deviceOfUser;
+            } elseif ($pendingDevice) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Bạn đã đạt giới hạn thiết bị. Thiết bị mới đang chờ Admin duyệt.'
+                ];
+            } else {
+
+                // ========================================================
+                // 🔵 5) KIỂM TRA GIỚI HẠN PC / MOBILE (MỖI LOẠI CHỈ 1)
+                // ========================================================
+                if ($this->hasReachedDeviceLimitByType($user->id, $deviceType)) {
+
+                    // Tạo pending device mới
+                    $this->createPendingDevice($user, $machineId, $ipAddress, $browserInfo, $deviceType);
+
+                    return [
+                        'status' => 'error',
+                        'message' => 'Bạn đã đạt giới hạn thiết bị. Thiết bị mới đang chờ Admin duyệt.'
+                    ];
                 }
+
+                // ========================================================
+                // 🔵 6) TẠO DEVICE MỚI (APPROVED)
+                // ========================================================
+                $device = UserDeviceToken::create([
+                    'user_id'           => $user->id,
+                    'device_fingerprint' => $machineId,
+                    'device_token'      => hash('sha256', Str::random(60)),
+                    'ip_address'        => $ipAddress,
+                    'browser_info'      => $browserInfo,
+                    'device_type'       => $deviceType,
+                    'is_active'         => 1,
+                    'status'            => 'approved',
+                    'last_used_at'      => now(),
+                ]);
             }
-            
-            // Tạo hoặc cập nhật token
-            UserDeviceToken::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'device_fingerprint' => $deviceFingerprint
-                ],
-                [
-                    'device_token' => $hashedToken,
-                    'ip_address' => $ipAddress,
-                    'browser_info' => $browserInfoJson,
-                    'is_active' => 1,
-                    'last_used_at' => now()
-                ]
-            );
-            
-            return $token;
+
+            // ========================================================
+            // 🔵 7) CẤP BROWSER TOKEN (CẬP NHẬT ACTIVE)
+            // ========================================================
+            $browserToken = $this->issueBrowserToken($device, $ipAddress, $browserInfo);
+
+            return [
+                'status' => 'ok',
+                'browser_token' => $browserToken,
+            ];
         } catch (\Exception $e) {
-            // Log lỗi và trả về false
-            Log::error('Error creating device token: ' . $e->getMessage());
-            return false;
+
+            Log::error('Error authorizing device: ' . $e->getMessage());
+
+            return [
+                'status' => 'error',
+                'message' => 'Thiết bị chưa được cấp phép cho tài khoản này.'
+            ];
         }
     }
 
-    public function logout(Request $request)
+    private function issueBrowserToken(UserDeviceToken $device, string $ipAddress, ?string $browserInfo): string
+    {
+        $token = Str::random(80);
+        $hashedToken = hash('sha256', $token);
+
+        $device->update([
+            'device_token' => $hashedToken,
+            'ip_address' => $ipAddress,
+            'browser_info' => $browserInfo,
+            'is_active' => 1,
+            'status' => 'approved',
+            'approval_requested_at' => null,
+            'last_used_at' => now(),
+        ]);
+
+        return $token;
+    }
+
+    private function createPendingDevice(User $user, string $machineId, string $ipAddress, ?string $browserInfo, string $deviceType): void
+    {
+        UserDeviceToken::updateOrCreate(
+            ['device_fingerprint' => $machineId],
+            [
+                'user_id' => $user->id,
+                'device_type' => $deviceType,
+                'device_token' => hash('sha256', Str::random(60)),
+                'ip_address' => $ipAddress,
+                'browser_info' => $browserInfo,
+                'is_active' => 0,
+                'status' => 'pending',
+                'approval_requested_at' => now(),
+                'last_used_at' => null,
+            ]
+        );
+    }
+
+
+    private function hasReachedDeviceLimit(int $userId): bool
+    {
+        return UserDeviceToken::where('user_id', $userId)
+            ->where('status', 'approved')
+            ->count() >= self::MAX_APPROVED_DEVICES;
+    }
+
+    /**
+     * Chuẩn hoá browser info thành JSON để lưu DB
+     */
+    private function normalizeBrowserInfo($browserInfo): ?string
+    {
+        if (!$browserInfo) {
+            return null;
+        }
+
+        if (is_string($browserInfo)) {
+            $decoded = json_decode($browserInfo, true);
+            return $decoded ? json_encode($decoded) : $browserInfo;
+        }
+
+        return json_encode($browserInfo);
+    }
+
+    /**
+     * Tạo MACHINE_ID dự phòng khi client không gửi lên.
+     */
+    private function generateFallbackMachineId(Request $request): string
+    {
+        return hash('sha256', implode('|', [
+            $request->userAgent(),
+            $request->ip(),
+            Str::uuid()->toString(),
+        ]));
+    }
+
+    /**
+     * Thực hiện logout user (tái sử dụng cho logout và đổi mật khẩu)
+     * @param Request $request
+     * @return void
+     */
+    private function performLogout(Request $request)
     {
         $token = $request->cookie('remember_token');
+        $user = null;
 
         if ($token) {
             $hashedToken = hash('sha256', $token);
@@ -198,46 +539,71 @@ class LoginController extends Controller
                 $user->save();
             }
         }
-        
-        // Xóa device token
-        $deviceToken = $request->cookie('device_token');
-        if ($deviceToken && Auth::check()) {
-            $hashedDeviceToken = hash('sha256', $deviceToken);
-            UserDeviceToken::where('device_token', $hashedDeviceToken)
-                ->where('user_id', Auth::id())
+
+        // Xóa tất cả device token của user (nếu có user từ cookie hoặc từ Auth)
+        $userId = $user ? $user->id : (Auth::check() ? Auth::id() : null);
+        if ($userId) {
+            UserDeviceToken::where('user_id', $userId)
+                ->where('is_active', 1)
                 ->update(['is_active' => 0]);
         }
-        
+
         Auth::logout();
         session()->flush();
         $request->session()->invalidate(); // Hủy session hiện tại
         $request->session()->regenerateToken(); // Tạo lại CSRF token
         Cookie::queue(Cookie::forget('remember_token'));
-        Cookie::queue(Cookie::forget('device_token'));
+        Cookie::queue(Cookie::forget('browser_token'));
+        Cookie::queue(Cookie::forget('machine_id'));
+    }
+
+    public function logout(Request $request)
+    {
+        $this->performLogout($request);
         return redirect('/login');
     }
 
     public function changePassword(Request $request)
     {
         $user = $this->User();
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Người dùng chưa đăng nhập.'
             ], 401);
         }
-        
+
+        // Chặn việc gửi thông tin thiết bị giả mạo từ request body
+        if ($request->has('browser_token') || $request->has('machine_id')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không được phép thay đổi thông tin thiết bị từ request.'
+            ], 403);
+        }
+
         // Validation rules
         $rules = [
-            'username' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'email' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[^\s@]+@[^\s@]+\.[^\s@]+$/'
+            ],
         ];
 
         $messages = [
             'username.required' => 'Vui lòng nhập tên đăng nhập.',
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
             'email.required' => 'Vui lòng nhập email.',
             'email.email' => 'Email không hợp lệ.',
+            'email.regex' => 'Email không đúng định dạng.',
         ];
 
         // Nếu có nhập mật khẩu mới thì bắt buộc phải có mật khẩu hiện tại
@@ -245,7 +611,7 @@ class LoginController extends Controller
             $rules['current_password'] = 'required|string';
             $rules['new_password'] = ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/'];
             $rules['confirm_password'] = 'required|string|same:new_password';
-            
+
             $messages['current_password.required'] = 'Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu.';
             $messages['new_password.required'] = 'Vui lòng nhập mật khẩu mới.';
             $messages['new_password.min'] = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
@@ -260,7 +626,7 @@ class LoginController extends Controller
         $existingUser = User::where('username', $request->username)
             ->where('id', '!=', $user->id)
             ->first();
-        
+
         if ($existingUser) {
             return response()->json([
                 'success' => false,
@@ -273,7 +639,7 @@ class LoginController extends Controller
             $existingEmail = User::where('email', $request->email)
                 ->where('id', '!=', $user->id)
                 ->first();
-            
+
             if ($existingEmail) {
                 return response()->json([
                     'success' => false,
@@ -329,37 +695,35 @@ class LoginController extends Controller
 
         $message = 'Cập nhật thông tin thành công!';
         $shouldLogout = false;
-        
+
         if ($request->filled('new_password')) {
             $message = 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại với mật khẩu mới.';
             $shouldLogout = true;
-            
-            // Logout user sau khi đổi mật khẩu
-            $token = $request->cookie('remember_token');
-            if ($token) {
-                $hashedToken = hash('sha256', $token);
-                $userToUpdate = User::where('cookie_value', $hashedToken)->first();
-                if ($userToUpdate) {
-                    $userToUpdate->cookie_value = null;
-                    $userToUpdate->save();
-                }
-            }
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+
+            // Logout user sau khi đổi mật khẩu (tái sử dụng function logout)
+            $this->performLogout($request);
         }
 
-        return response()->json([
+        $response = response()->json([
             'success' => true,
             'message' => $message,
             'logout_required' => $shouldLogout
         ]);
+
+        // Nếu cần logout, xóa cookie liên quan đến thiết bị
+        if ($shouldLogout) {
+            $response->cookie(Cookie::forget('browser_token'));
+            $response->cookie(Cookie::forget('machine_id'));
+            $response->cookie(Cookie::forget('remember_token'));
+        }
+
+        return $response;
     }
 
     public function checkPasswordExpiry(Request $request)
     {
         $user = $this->User();
-        
+
         if (!$user) {
             return response()->json([
                 'should_warn' => false
