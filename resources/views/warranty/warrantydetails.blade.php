@@ -487,6 +487,7 @@
                 </a>
                 <a id="printRequest" href="#" data-id="{{ $data->id }}" class="ms-5 my-1">Yêu cầu in
                     phiếu</a>
+                <a id="printQr" href="#" data-id="{{ $data->id }}" class="ms-5 my-1">Yêu cầu in QR</a>
                 <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
                     <iframe id="pdfViewer" src="{{ route('warranty.pdf', ['id' => $data->id]) }}"
                         style="width: 100%; height: 100%; border: none;"></iframe>
@@ -693,6 +694,22 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrModalLabel">QR thanh toán</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="qrLoading" class="mb-2 d-none">Đang tải QR...</div>
+                    <img id="qrImage" src="" class="img-fluid mb-2 d-none" alt="QR thanh toán">
+                    <div id="qrInfo" class="small text-muted d-none"></div>
+                    <a id="qrDownloadLink" href="#" download class="btn btn-primary btn-sm d-none">Tải QR</a>
+                </div>
+            </div>
+        </div>
+    </div>
     @include('components.status_modal')
     <style>
         .timeline {
@@ -742,6 +759,7 @@
             LuuQuaTrinhSua();
             PrintRequest();
             setupComponentActions();
+            initQrModal();
         });
 
         function PrintRequest() {
@@ -769,6 +787,68 @@
                     }
                 });
             });
+        }
+
+        function initQrModal() {
+            const qrRouteTemplate = "{{ route('warranty.qr', ['id' => '__ID__']) }}";
+            $('#printQr').on('click', function(e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const url = qrRouteTemplate.replace('__ID__', id);
+                $('#qrLoading').removeClass('d-none');
+                $('#qrImage').addClass('d-none');
+                $('#qrInfo').addClass('d-none');
+                $('#qrModal').modal('show');
+                $.get(url).done(function(response) {
+                    if (response.success) {
+                        $('#qrImage').attr('src', response.data.image).removeClass('d-none');
+                        const infoHtml = [
+                            '<strong>NỘI DUNG:</strong>' + ((response.data.description || '').toUpperCase()) + '<br>',
+                            'Số tiền: ' + new Intl.NumberFormat('vi-VN').format(response.data.amount) + ' đ',
+                        ].join(' | ');
+                        $('#qrInfo').html(infoHtml).removeClass('d-none');
+                        buildQrDownload(response.data);
+                        $('#qrLoading').addClass('d-none');
+                    } else {
+                        $('#qrLoading').text(response.message || 'Không thể tải QR.');
+                    }
+                }).fail(function(xhr) {
+                    $('#qrLoading').text(xhr.responseJSON?.message || 'Lỗi khi tải QR.');
+                });
+                $('#qrModal').on('hidden.bs.modal', function() {
+                    $('#qrDownloadLink').addClass('d-none');
+                });
+            });
+        }
+
+        function buildQrDownload(data) {
+            const img = new Image();
+            img.onload = function() {
+                const padding = 20;
+                const infoLines = [
+                    'NỘI DUNG: ' + (data.description || '').toUpperCase(),
+                    'SỐ TIỀN: ' + new Intl.NumberFormat('vi-VN').format(data.amount) + ' Đ'
+                ].filter(Boolean);
+                const extraHeight = padding * (infoLines.length + 1);
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height + extraHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                infoLines.forEach((line, index) => {
+                    ctx.fillText(line, canvas.width / 2, img.height + padding * (index + 1));
+                });
+                $('#qrDownloadLink')
+                    .attr('href', canvas.toDataURL('image/png'))
+                    .attr('download', `QR-${data.title}.png`)
+                    .removeClass('d-none');
+            };
+            img.src = data.image;
         }
 
         function ChangeSelect() {

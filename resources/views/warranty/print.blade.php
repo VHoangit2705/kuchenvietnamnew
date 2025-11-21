@@ -78,6 +78,23 @@
             margin-top: 50px;
             text-align: center;
         }
+
+        .qr-payment-top {
+            text-align: right;
+            font-size: 10px;
+        }
+
+        .qr-payment-top img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            display: block;
+            margin-left: auto;
+        }
+
+        .qr-payment-top .qr-title {
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -85,7 +102,7 @@
     <div class="container">
         <table width="100%" style="margin-bottom: 10px;">
             <tr>
-                <td style="width: 15%; text-align: center;">
+                <td style="width: 12%; text-align: center;">
                     @if(session('brand') == 'hurom')
                         <img src="{{ public_path('imgs/hurom.webp') }}" alt="Logo Hurom" style="width: 70px; height: auto;">
                     @else
@@ -93,11 +110,18 @@
                             style="width: 50px; height: auto;">
                     @endif
                 </td>
-                <td style="width: 85%; text-align: left;">
+                <td style="width: 68%; text-align: left;">
                     <strong style="text-transform: uppercase;">{{ $name }} VIỆT NAM - CƠ SỞ BẢO HÀNH THÀNH PHỐ
                         {{ $city }}</strong><br>
                     Đ/C: {{ $address }}<br>
                     Hotline: {{ $hotline }} - Website: {{ $website }}
+                </td>
+                <td style="width: 20%; vertical-align: top; text-align: right;">
+                    @if(!empty($paymentQr))
+                        <div class="qr-payment-top">
+                            <img src="{{ $paymentQr['image'] }}" alt="QR thanh toán">
+                        </div>
+                    @endif
                 </td>
             </tr>
         </table>

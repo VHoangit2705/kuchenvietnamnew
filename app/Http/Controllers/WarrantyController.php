@@ -32,6 +32,7 @@ use App\Models\KyThuat\WarrantyAnomalyBlock;
 use App\Services\WarrantyAnomalyDetector;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 Paginator::useBootstrap();
 
@@ -803,8 +804,10 @@ class WarrantyController extends Controller
         }
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
+        $paymentQr = $this->buildPaymentQr($data, $total);
+
         // Tạo PDF
-        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv'))
+        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'))
             ->setPaper('A4')
             ->stream("phieu-bao-hanh-{$id}.pdf");
     }
@@ -848,9 +851,11 @@ class WarrantyController extends Controller
         }
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
+        $paymentQr = $this->buildPaymentQr($data, $total);
+
         // Tạo PDF
         $pdf = PDF::loadView('warranty.print', compact(
-            'data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv'
+            'data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'
         ))->setPaper('A4');
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/octet-stream',
@@ -884,6 +889,77 @@ class WarrantyController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Yêu cầu in phiếu thành công!'
+        ]);
+    }
+
+    /**
+     * Xây dựng thông tin QR thanh toán VietQR cho phiếu bảo hành.
+     */
+    private function buildPaymentQr(WarrantyRequest $data, float $total): ?array
+    {
+        $config = config('services.vietqr', []);
+        $bankId = $config['bank_id'] ?? null;
+        $accountNo = $config['account_no'] ?? null;
+        $accountName = $config['account_name'] ?? null;
+
+        if (!$bankId || !$accountNo || !$accountName) {
+            return null;
+        }
+
+        $amount = max(0, (int) round($total));
+        $description = "TTBH so phieu {$data->id}";
+        $qrPayLink = sprintf(
+            'https://img.vietqr.io/image/%s-%s-qr_only.jpg?amount=%s&addInfo=%s&accountName=%s',
+            rawurlencode($bankId),
+            rawurlencode($accountNo),
+            rawurlencode($amount),
+            rawurlencode($description),
+            rawurlencode($accountName)
+        );
+
+        try {
+            $response = Http::timeout(10)->get($qrPayLink);
+            if ($response->successful()) {
+                return [
+                    'title' => $description,
+                    'image' => 'data:image/png;base64,' . base64_encode($response->body()),
+                    'amount' => $amount,
+                    'account_no' => $accountNo,
+                    'account_name' => $accountName,
+                    'description' => $description,
+                ];
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Generate payment QR failed', [
+                'error' => $exception->getMessage(),
+                'warranty_id' => $data->id,
+            ]);
+        }
+
+        return null;
+    }
+
+    public function GetPaymentQr($id)
+    {
+        $data = WarrantyRequest::findOrFail($id);
+        $items = $data->details;
+        $total = 0;
+        foreach ($items as $item) {
+            $total += $item->quantity * $item->unit_price;
+        }
+
+        $qr = $this->buildPaymentQr($data, $total);
+
+        if (!$qr) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tạo QR thanh toán. Vui lòng kiểm tra cấu hình tài khoản.'
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $qr,
         ]);
     }
 
