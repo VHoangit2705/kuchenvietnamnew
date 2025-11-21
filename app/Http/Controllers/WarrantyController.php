@@ -430,7 +430,10 @@ class WarrantyController extends Controller
             $quatrinhsua->push($groupedItem);
         }
         
-        $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
+        $history = WarrantyRequest::where('serial_number', $data->serial_number)
+        ->where('phone_number', $data->phone_number)
+        ->where('product', $data->product)
+        ->orderBy('received_date', 'desc')->get();
         $linhkien = Product::where('view', '2')->select('product_name')->get();
         
         // Lấy danh sách sản phẩm dựa trên brand

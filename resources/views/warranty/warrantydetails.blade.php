@@ -434,9 +434,25 @@
                         @foreach ($history as $item)
                             <div class="timeline-item">
                                 <div class="timeline-header d-flex justify-content-between align-items-center">
-                                    <p><strong>Ngày tiếp nhận:
-                                        </strong>{{ \Carbon\Carbon::parse($item->received_date)->format('d/m/Y') }}</p>
-                                    <button class="btn btn-link toggle-details">▼</button>
+                                    <div class="flex-grow-1">
+                                            <a href="{{ route('warranty.detail', ['id' => $item->id]) }}" 
+                                               title="Xem chi tiết tình trạng tiếp nhận và quá trình sửa chữa">
+                                            Xem chi tiết
+                                            </a>
+                                        <p class="mb-1">
+                                            <strong>Ngày tiếp nhận:</strong> 
+                                            {{ \Carbon\Carbon::parse($item->received_date)->format('d/m/Y') }}
+                                        </p>
+                                        <p class="mb-1">
+                                            <strong>Tên sản phẩm:</strong> {{ $item->product ?? 'N/A' }}
+                                        </p>
+                                        @if($item->serial_number)
+                                        <p class="mb-0">
+                                            <strong>Mã bảo hành:</strong> {{ $item->serial_number }}
+                                        </p>
+                                        @endif
+                                    </div>
+                                    <button class="btn btn-link toggle-details ms-2">▼</button>
                                 </div>
                                 <div class="timeline-details" style="overflow: hidden; height: 0;">
                                     @php
