@@ -359,18 +359,20 @@ if ($deviceOfOtherUser) {
         // ========================================================
         // 🔵 3) LẤY RECORD THUỘC USER HIỆN TẠI (NẾU CÓ)
         // ========================================================
+        // (A) ONLY approved device (fix lỗi pending bị lẫn vào)
+        $deviceOfUser = $deviceMatches->first(function ($d) use ($user) {
+            return $d->user_id == $user->id &&
+                   $d->status === 'approved';     // ❗ LOẠI PENDING
+        });
 
-        // a) Thiết bị đã từng được user dùng
-        $deviceOfUser = $deviceMatches->firstWhere('user_id', $user->id);
-
-        // b) Thiết bị reactivate
+        // (B) Reactivable device (approved + inactive)
         $reactivableDevice = $deviceMatches->first(function ($d) use ($user) {
             return $d->user_id == $user->id &&
                    !$d->is_active &&
                    $d->status === 'approved';
         });
 
-        // c) Thiết bị pending
+        // (C) Pending device
         $pendingDevice = $deviceMatches->first(function ($d) use ($user) {
             return $d->user_id == $user->id &&
                    $d->status === 'pending';
