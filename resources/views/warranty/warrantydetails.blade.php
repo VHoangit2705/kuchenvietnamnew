@@ -471,10 +471,36 @@
                                         <p><strong>Hình thức bảo hành: </strong>{{ $warrantyTypeText }}</p>
                                     @endif
 
-                                    @if ($item->type != 'agent_component')
+                                    @if ($item->type != 'agent_component' && $item->initial_fault_condition)
                                         <p><strong>Loại lỗi gặp phải: </strong>{{ $item->initial_fault_condition }}</p>
                                     @endif
-                                    <p><strong>Người tiếp nhận: </strong> {{ $item->staff_received }}</p>
+                                    
+                                    @if ($item->staff_received)
+                                        <p><strong>Người tiếp nhận: </strong>{{ $item->staff_received }}</p>
+                                    @endif
+                                    
+                                    <p class="mb-2"><strong>Tình trạng tiếp nhận:</strong></p>
+                                    
+                                    @if ($item->initial_fault_condition)
+                                        <p class="mb-1">
+                                            <strong>Lỗi khách hàng phản ánh khi bàn giao:</strong> 
+                                            {{ $item->initial_fault_condition }}
+                                        </p>
+                                    @endif
+                                    
+                                    @if ($item->product_fault_condition)
+                                        <p class="mb-1">
+                                            <strong>Tình trạng bên ngoài của sản phẩm khi bàn giao:</strong> 
+                                            {{ $item->product_fault_condition }}
+                                        </p>
+                                    @endif
+                                    
+                                    @if ($item->product_quantity_description)
+                                        <p class="mb-1">
+                                            <strong>Số linh kiện, sản phẩm khi nhận bàn giao:</strong> 
+                                            {{ $item->product_quantity_description }}
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach
