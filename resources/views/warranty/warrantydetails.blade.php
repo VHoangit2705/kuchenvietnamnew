@@ -265,7 +265,7 @@
                                             <span style="cursor: pointer;"
                                                 class="p-1 @if ($data->status == 'Đã hoàn tất') bg-success @elseif($data->status == 'Chờ KH phản hồi') bg-secondary @elseif($data->status == 'Đã tiếp nhận') bg-primary @elseif($data->status == 'Đã gửi linh kiện') bg-info @else bg-warning @endif"
                                                 ?
-                                                @if (($data->status != 'Đã hoàn tất' && session('user') == $data->staff_received) || session('position') == 'admin') onclick="showStatusModal({{ $data->id }}, '{{ $data->status }}', '{{ $data->type }}', true)"
+                                                @if (($data->status != 'Đã hoàn tất' && session('user') == $data->staff_received) || session('position') == 'admin' || session('position') == 'quản trị viên') onclick="showStatusModal({{ $data->id }}, '{{ $data->status }}', '{{ $data->type }}', true)"
                                             @else
                                             onclick="showPermissionError()" @endif>
                                                 <strong>{{ $data->status }}</strong>
@@ -489,8 +489,15 @@
                     phiếu</a>
                 <a id="printQr" href="#" data-id="{{ $data->id }}" class="ms-5 my-1">Yêu cầu in QR</a>
                 <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
-                    <iframe id="pdfViewer" src="{{ route('warranty.pdf', ['id' => $data->id]) }}"
-                        style="width: 100%; height: 100%; border: none;"></iframe>
+                    <div id="pdfLoading" class="text-center" style="display: none;">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2">Đang tải phiếu bảo hành...</p>
+                    </div>
+                    <iframe id="pdfViewer" 
+                        data-src="{{ route('warranty.pdf', ['id' => $data->id]) }}"
+                        style="width: 100%; height: 100%; border: none; display: none;"></iframe>
                 </div>
             </div>
         </div>
@@ -760,6 +767,31 @@
             PrintRequest();
             setupComponentActions();
             initQrModal();
+            
+            // Lazy load PDF iframe khi tab Phiếu in được click
+            let pdfLoaded = false;
+            const pdfViewer = document.getElementById('pdfViewer');
+            const pdfLoading = document.getElementById('pdfLoading');
+            
+            // Lắng nghe sự kiện khi tab "phieuin" được show
+            const phieuinTab = document.querySelector('#tab4');
+            if (phieuinTab) {
+                phieuinTab.addEventListener('shown.bs.tab', function() {
+                    if (!pdfLoaded && pdfViewer && pdfViewer.dataset.src) {
+                        pdfLoading.style.display = 'block';
+                        pdfViewer.style.display = 'none';
+                        
+                        pdfViewer.src = pdfViewer.dataset.src;
+                        pdfLoaded = true;
+                        
+                        pdfViewer.addEventListener('load', function() {
+                            pdfLoading.style.display = 'none';
+                            pdfViewer.style.display = 'block';
+                        }, { once: true });
+                    }
+                });
+            }
+            
         });
 
         function PrintRequest() {
@@ -1900,14 +1932,20 @@
             }
         }
 
-        document.getElementById('pdfViewer').addEventListener('load', () => {
-            try {
-                const iframeWindow = document.getElementById('pdfViewer').contentWindow;
-                iframeWindow.document.addEventListener('keydown', handlePrintShortcut);
-            } catch (e) {
-                console.warn('Không thể gắn listener bên trong iframe (có thể do cross-origin)');
-            }
-        });
+        // Chỉ gắn listener khi iframe được load (lazy load)
+        const pdfViewer = document.getElementById('pdfViewer');
+        if (pdfViewer) {
+            pdfViewer.addEventListener('load', () => {
+                try {
+                    const iframeWindow = pdfViewer.contentWindow;
+                    if (iframeWindow && iframeWindow.document) {
+                        iframeWindow.document.addEventListener('keydown', handlePrintShortcut);
+                    }
+                } catch (e) {
+                    console.warn('Không thể gắn listener bên trong iframe (có thể do cross-origin)');
+                }
+            }, { once: true });
+        }
         $(document).ready(function() {
             let isLoaded = false;
             const pdfSupported = isPdfSupported();

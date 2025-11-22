@@ -238,7 +238,7 @@
     <script>
         function goBackOrReload() {
             if (document.referrer) {
-                window.location.href = "{{ route('warranty.' . session('brand')) }}";
+                window.history.back();
             }
         }
 
