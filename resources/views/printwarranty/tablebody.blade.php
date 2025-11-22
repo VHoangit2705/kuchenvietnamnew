@@ -153,7 +153,7 @@
                     @else
                         <a href="{{ route('warrantycard.serial_detail', ['maphieu' => $item->id]) }}" class="btn btn-info btn-sm align-items-center fw-bold">Xem phiếu</a>
                     @endif
-                    @if(session('position') == 'quản trị viên')
+                    @if(session('position') == 'quản trị viên' || session('position') == 'admin')
                         <a href="" data-url="{{ route('warrantycard.delete', ['id' => $item->id]) }}"
                             class="btn btn-danger btn-sm d-flex align-items-center justify-content-center gap-1 btn-delete"
                             style="height: 30px;"

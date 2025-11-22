@@ -27,7 +27,7 @@ class ReportController extends BaseController
         $parts = explode(' ', session('zone'));
         $zoneWithoutFirst = implode(' ', array_slice($parts, 1));
         $brand = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
-        if(session('position') == 'admin'){
+        if(session('position') == 'admin' || session('position') == 'quản trị viên'){
             $brand = '';
         }
 

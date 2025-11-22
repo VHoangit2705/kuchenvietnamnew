@@ -31,7 +31,7 @@
                 <td class="text-center" style="min-width: 150px;">{{ \Carbon\Carbon::parse($item->return_date)->format('d/m/Y') }}</td>
                 <td class="text-center" style="min-width: 150px;">
                     <span style="font-size: 16px; cursor: pointer;" class="badge @if($item->status == 'Đã hoàn tất') bg-success @elseif($item->status == 'Chờ KH phản hồi') bg-primary @else bg-warning text-dark @endif"
-                        @if(($item->status != 'Đã hoàn tất'&& session('user') == $item->staff_received) || session('position') == 'admin')
+                        @if(($item->status != 'Đã hoàn tất'&& session('user') == $item->staff_received) || session('position') == 'admin' || session('position') == 'quản trị viên')
                         onclick="showStatusModal({{ $item->id }}, '{{ $item->status }}', '{{ $item->type }}')"
                         @else
                         onclick="showError()"

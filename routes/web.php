@@ -50,6 +50,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::post('/baohanh/chitiet/uploadvideo', [WarrantyController::class, 'UploadVideo'])->name('video.upload');  // tải video lên
     Route::get('/baohanh/phieuin/{id}', [WarrantyController::class, 'GeneratePdf'])->name('warranty.pdf');
     Route::get('/baohanh/dowloadpdf/{id}', [WarrantyController::class, 'DowloadPdf'])->name('warranty.dowloadpdf');
+    Route::get('/baohanh/qr/{id}', [WarrantyController::class, 'GetPaymentQr'])->name('warranty.qr');
     Route::get('/baohanh/request/{id}', [WarrantyController::class, 'Request'])->name('warranty.request');
     Route::get('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'CheckWarranty'])->name("warranty.check");
     Route::post('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'FindWarranty'])->name("warranty.find"); // tra cứu
