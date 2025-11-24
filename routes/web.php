@@ -108,6 +108,9 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/xuatbaocao', [ReportController::class, 'GetExportExcel'])->name('xuatbaocao');
 });
 
+// Public route to view report PDF (for email links)
+Route::get('/reports/view/{filename}', [ReportController::class, 'viewReportPdf']);
+
 //Code Warranty
 Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
     Route::get('/baohanh/inphieubaohanh', [PrintWarrantyController::class, "Index"])->name('warrantycard');

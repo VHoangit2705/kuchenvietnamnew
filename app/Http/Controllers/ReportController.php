@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller as BaseController;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\Kho\Product;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 
 class ReportController extends BaseController
@@ -518,4 +519,28 @@ class ReportController extends BaseController
             'Cache-Control' => 'max-age=0',
         ]);
     }
+
+    /**
+     * View PDF report by filename
+     */
+    public function viewReportPdf($filename)
+    {
+        $filename = basename($filename);
+
+        $filePath = public_path('storage/reports/' . $filename . '.pdf');
+
+        if (!file_exists($filePath)) {
+            Log::error("PDF file not found", [
+                'filename' => $filename,
+                'filePath' => $filePath,
+            ]);
+            abort(404, 'File không tồn tại: ' . $filename);
+        }
+
+        return response()->file($filePath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '.pdf"',
+        ]);
+    }
+
 }
