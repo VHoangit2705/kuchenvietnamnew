@@ -80,6 +80,9 @@
         }
 
         .qr-payment-top {
+            position: absolute;
+            top: 20px;
+            right: 50px;
             text-align: right;
             font-size: 10px;
         }
