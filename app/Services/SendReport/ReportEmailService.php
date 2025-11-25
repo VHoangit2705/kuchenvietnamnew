@@ -98,6 +98,32 @@ class ReportEmailService
         $filterFromDate = Carbon::parse($fromDate)->startOfDay();
         $filterToDate = Carbon::parse($toDate)->endOfDay();
         
+        // Tính toán các số liệu trực tiếp từ warranty_requests (real-time)
+        $query = WarrantyRequest::query()
+            ->whereBetween('received_date', [$filterFromDate, $filterToDate])
+            ->whereNotNull('staff_received')
+            ->where('staff_received', '!=', '');
+
+        if ($branch && $branch !== 'all' && $branch !== '') {
+            $query->where('branch', 'LIKE', '%' . $branch . '%');
+        }
+
+        // Tính toán các số liệu real-time
+        $stats = $query
+            ->select(
+                'staff_received',
+                'branch',
+                DB::raw('COUNT(*) as tong_tiep_nhan'),
+                DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
+                DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
+                DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
+                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as qua_han')
+            )
+            ->groupBy('staff_received', 'branch')
+            ->orderBy('branch')
+            ->orderBy('staff_received')
+            ->get();
+
         // Xác định report_type nếu không được truyền vào
         if (!$reportType) {
             // Nếu khoảng thời gian <= 14 ngày: ưu tiên weekly
@@ -121,51 +147,40 @@ class ReportEmailService
             }
         }
 
-        // Lấy dữ liệu từ bảng warranty_overdue_rate_history
-        // Chỉ lấy các bản ghi có staff_received (không NULL) - chỉ lấy theo kỹ thuật viên
-        $query = WarrantyOverdueRateHistory::query()
+        // Lấy "Tỉ lệ trễ ca bảo hành (%)" từ bảng warranty_overdue_rate_history
+        $overdueRates = WarrantyOverdueRateHistory::query()
             ->whereNotNull('staff_received')
             ->where('staff_received', '!=', '')
             ->where('report_type', $reportType)
             ->where(function($q) use ($filterFromDate, $filterToDate) {
-                // Lấy các bản ghi có khoảng thời gian overlap với khoảng thời gian filter
                 $q->where('from_date', '<=', $filterToDate->toDateString())
                   ->where('to_date', '>=', $filterFromDate->toDateString());
             });
 
         if ($branch && $branch !== 'all' && $branch !== '') {
-            $query->where('branch', 'LIKE', '%' . $branch . '%');
+            $overdueRates->where('branch', 'LIKE', '%' . $branch . '%');
         }
 
-        // Tổng hợp dữ liệu theo kỹ thuật viên và chi nhánh
-        $stats = $query
+        // Lấy tỉ lệ quá hạn đã lưu, nhóm theo staff_received và branch
+        $overdueRatesData = $overdueRates
             ->select(
                 'staff_received',
                 'branch',
-                DB::raw('SUM(tong_tiep_nhan) as tong_tiep_nhan'),
-                DB::raw('SUM(dang_sua_chua) as dang_sua_chua'),
-                DB::raw('SUM(cho_khach_hang_phan_hoi) as cho_khach_hang_phan_hoi'),
-                DB::raw('SUM(da_hoan_tat) as da_hoan_tat'),
-                DB::raw('SUM(so_ca_qua_han) as qua_han')
+                DB::raw('AVG(ti_le_qua_han) as ti_le_qua_han') // Lấy trung bình nếu có nhiều bản ghi
             )
             ->groupBy('staff_received', 'branch')
-            ->orderBy('branch')
-            ->orderBy('staff_received')
-            ->get();
-
-        // Nếu không có dữ liệu từ history, fallback về tính toán real-time
-        // (Trường hợp này hiếm khi xảy ra vì command đã lưu history trước khi gửi email)
-        if ($stats->isEmpty()) {
-            return $this->getWorkProcessDataFallback($fromDate, $toDate, $branch);
-        }
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->staff_received . '|' . $item->branch;
+            });
 
         // Tính tổng số ca của từng chi nhánh
         $branchTotals = $stats->groupBy('branch')->map(function ($branchStats) {
             return $branchStats->sum('tong_tiep_nhan');
         });
 
-        // Thêm các phần trăm vào mỗi record
-        $stats = $stats->map(function ($item) use ($branchTotals) {
+        // Merge dữ liệu: số liệu real-time + tỉ lệ quá hạn từ history
+        $stats = $stats->map(function ($item) use ($branchTotals, $overdueRatesData) {
             $tongTiepNhan = $item->tong_tiep_nhan ?? 0;
             $branchTotal = $branchTotals->get($item->branch, 0);
             
@@ -173,6 +188,19 @@ class ReportEmailService
             $item->phan_tram_chi_nhanh = $branchTotal > 0 
                 ? ($tongTiepNhan / $branchTotal) * 100 
                 : 0;
+            
+            // Lấy tỉ lệ quá hạn từ history (nếu có), nếu không thì tính từ real-time
+            $key = ($item->staff_received ?? '') . '|' . ($item->branch ?? '');
+            $overdueRate = $overdueRatesData->get($key);
+            $item->ti_le_qua_han = $overdueRate ? $overdueRate->ti_le_qua_han : null;
+            
+            // Nếu không có tỉ lệ từ history, tính từ real-time
+            if ($item->ti_le_qua_han === null) {
+                $quaHan = $item->qua_han ?? 0;
+                $item->ti_le_qua_han = $tongTiepNhan > 0 
+                    ? ($quaHan / $tongTiepNhan) * 100 
+                    : 0;
+            }
             
             // Phần trăm các trạng thái (so với tổng tiếp nhận của nhân viên)
             $item->dang_sua_chua_percent = $tongTiepNhan > 0 
@@ -185,81 +213,6 @@ class ReportEmailService
             
             $item->da_hoan_tat_percent = $tongTiepNhan > 0 
                 ? (($item->da_hoan_tat ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->qua_han_percent = $tongTiepNhan > 0 
-                ? (($item->qua_han ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            return $item;
-        });
-
-        return $stats;
-    }
-
-    /**
-     * Fallback: Tính toán real-time từ warranty_requests nếu không có dữ liệu history
-     * (Chỉ dùng trong trường hợp khẩn cấp, không nên xảy ra trong thực tế)
-     */
-    private function getWorkProcessDataFallback($fromDate, $toDate, $branch = 'all')
-    {
-        $filterFromDate = Carbon::parse($fromDate)->startOfDay();
-        $filterToDate = Carbon::parse($toDate)->endOfDay();
-
-        $query = WarrantyRequest::query()
-            ->whereBetween('received_date', [$filterFromDate, $filterToDate])
-            ->whereNotNull('staff_received')
-            ->where('staff_received', '!=', '');
-
-        if ($branch && $branch !== 'all' && $branch !== '') {
-            $query->where('branch', 'LIKE', '%' . $branch . '%');
-        }
-
-        $stats = $query
-            ->select(
-                'staff_received',
-                'branch',
-                DB::raw('COUNT(*) as tong_tiep_nhan'),
-                DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
-                DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
-                DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
-                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as qua_han')
-            )
-            ->groupBy('staff_received', 'branch')
-            ->orderBy('branch')
-            ->orderBy('staff_received')
-            ->get();
-
-        // Tính tổng số ca của từng chi nhánh
-        $branchTotals = $stats->groupBy('branch')->map(function ($branchStats) {
-            return $branchStats->sum('tong_tiep_nhan');
-        });
-
-        // Thêm các phần trăm vào mỗi record
-        $stats = $stats->map(function ($item) use ($branchTotals) {
-            $tongTiepNhan = $item->tong_tiep_nhan ?? 0;
-            $branchTotal = $branchTotals->get($item->branch, 0);
-            
-            // Phần trăm so với chi nhánh
-            $item->phan_tram_chi_nhanh = $branchTotal > 0 
-                ? ($tongTiepNhan / $branchTotal) * 100 
-                : 0;
-            
-            // Phần trăm các trạng thái
-            $item->dang_sua_chua_percent = $tongTiepNhan > 0 
-                ? (($item->dang_sua_chua ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->cho_khach_hang_phan_hoi_percent = $tongTiepNhan > 0 
-                ? (($item->cho_khach_hang_phan_hoi ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->da_hoan_tat_percent = $tongTiepNhan > 0 
-                ? (($item->da_hoan_tat ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->qua_han_percent = $tongTiepNhan > 0 
-                ? (($item->qua_han ?? 0) / $tongTiepNhan) * 100 
                 : 0;
             
             return $item;

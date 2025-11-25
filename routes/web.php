@@ -13,6 +13,7 @@ use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\Api\ReportCommandController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -144,3 +145,5 @@ Route::post('/submiterror1', [TechSupportController::class, 'SubmitError1'])->na
 Route::get('/listproblem', [TechSupportController::class, 'ListProblem'])->name('listproblem');
 Route::get('/detailproblem', [TechSupportController::class, 'DetailProblem'])->name('detailproblem');
 Route::get('/updatestatus', [TechSupportController::class, 'UpdateStatus'])->name('updatestatus');
+Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
+Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);

@@ -179,8 +179,9 @@ class ReportController extends BaseController
     }
 
     /**
-     * Lấy thống kê quá trình làm việc từ bảng warranty_overdue_rate_history
-     * Sử dụng filter ngày từ form
+     * Lấy thống kê quá trình làm việc
+     * - Các số liệu (tong_tiep_nhan, dang_sua_chua, etc.) tính trực tiếp từ warranty_requests (real-time)
+     * - Chỉ lấy "Tỉ lệ trễ ca bảo hành (%)" từ bảng warranty_overdue_rate_history
      */
     private function getWorkProcessStats(Request $request, $brand, $fromDate, $toDate)
     {
@@ -188,20 +189,11 @@ class ReportController extends BaseController
         $filterFromDate = Carbon::parse($fromDate)->startOfDay();
         $filterToDate = Carbon::parse($toDate)->endOfDay();
         
-        // Lấy dữ liệu từ bảng warranty_overdue_rate_history
-        // Chỉ lấy các bản ghi có staff_received (không NULL) - chỉ lấy theo kỹ thuật viên
-        // Lấy các bản ghi có khoảng thời gian overlap với khoảng thời gian filter
-        $query = WarrantyOverdueRateHistory::query()
+        // Tính toán các số liệu trực tiếp từ warranty_requests (real-time)
+        $query = WarrantyRequest::query()
+            ->whereBetween('received_date', [$filterFromDate, $filterToDate])
             ->whereNotNull('staff_received')
-            ->where('staff_received', '!=', '')
-            ->where(function($q) use ($filterFromDate, $filterToDate) {
-                // Lấy các bản ghi có khoảng thời gian overlap với khoảng thời gian filter
-                $q->where(function($subQ) use ($filterFromDate, $filterToDate) {
-                    // from_date <= filterToDate AND to_date >= filterFromDate
-                    $subQ->where('from_date', '<=', $filterToDate->toDateString())
-                         ->where('to_date', '>=', $filterFromDate->toDateString());
-                });
-            });
+            ->where('staff_received', '!=', '');
         
         // Chỉ filter theo branch nếu user chọn một chi nhánh cụ thể
         if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
@@ -213,35 +205,61 @@ class ReportController extends BaseController
             $query->where('staff_received', 'LIKE', '%' . $request->staff_received . '%');
         }
         
-        // Filter theo report_type (weekly/monthly)
-        // Mặc định là weekly nếu không có giá trị
-        $reportType = $request->reportType ?? 'weekly';
-        $query->where('report_type', $reportType);
-        
-        // Lấy dữ liệu và nhóm theo kỹ thuật viên và chi nhánh
-        // Tổng hợp các bản ghi có cùng staff_received và branch trong khoảng thời gian
+        // Tính toán các số liệu real-time
         $stats = $query
             ->select(
                 'staff_received',
                 'branch',
-                DB::raw('SUM(tong_tiep_nhan) as tong_tiep_nhan'),
-                DB::raw('SUM(dang_sua_chua) as dang_sua_chua'),
-                DB::raw('SUM(cho_khach_hang_phan_hoi) as cho_khach_hang_phan_hoi'),
-                DB::raw('SUM(da_hoan_tat) as da_hoan_tat'),
-                DB::raw('SUM(so_ca_qua_han) as qua_han')
+                DB::raw('COUNT(*) as tong_tiep_nhan'),
+                DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
+                DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
+                DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
+                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as qua_han')
             )
             ->groupBy('staff_received', 'branch')
             ->orderBy('branch')
             ->orderBy('staff_received')
             ->get();
         
+        // Lấy "Tỉ lệ trễ ca bảo hành (%)" từ bảng warranty_overdue_rate_history
+        $reportType = $request->reportType ?? 'weekly';
+        $overdueRates = WarrantyOverdueRateHistory::query()
+            ->whereNotNull('staff_received')
+            ->where('staff_received', '!=', '')
+            ->where('report_type', $reportType)
+            ->where(function($q) use ($filterFromDate, $filterToDate) {
+                $q->where('from_date', '<=', $filterToDate->toDateString())
+                  ->where('to_date', '>=', $filterFromDate->toDateString());
+            });
+        
+        if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
+            $overdueRates->where('branch', 'LIKE', '%' . $request->branch . '%');
+        }
+        
+        if ($request->staff_received) {
+            $overdueRates->where('staff_received', 'LIKE', '%' . $request->staff_received . '%');
+        }
+        
+        // Lấy tỉ lệ quá hạn đã lưu, nhóm theo staff_received và branch
+        $overdueRatesData = $overdueRates
+            ->select(
+                'staff_received',
+                'branch',
+                DB::raw('AVG(ti_le_qua_han) as ti_le_qua_han') // Lấy trung bình nếu có nhiều bản ghi
+            )
+            ->groupBy('staff_received', 'branch')
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->staff_received . '|' . $item->branch;
+            });
+        
         // Tính tổng số ca của từng chi nhánh
         $branchTotals = $stats->groupBy('branch')->map(function ($branchStats) {
             return $branchStats->sum('tong_tiep_nhan');
         });
         
-        // Thêm các phần trăm vào mỗi record
-        $stats = $stats->map(function ($item) use ($branchTotals) {
+        // Merge dữ liệu: số liệu real-time + tỉ lệ quá hạn từ history
+        $stats = $stats->map(function ($item) use ($branchTotals, $overdueRatesData) {
             $tongTiepNhan = $item->tong_tiep_nhan ?? 0;
             $branchTotal = $branchTotals->get($item->branch, 0);
             
@@ -250,12 +268,16 @@ class ReportController extends BaseController
                 ? ($tongTiepNhan / $branchTotal) * 100 
                 : 0;
             
+            // Lấy tỉ lệ quá hạn từ history (nếu có)
+            $key = ($item->staff_received ?? '') . '|' . ($item->branch ?? '');
+            $overdueRate = $overdueRatesData->get($key);
+            $item->ti_le_qua_han = $overdueRate ? $overdueRate->ti_le_qua_han : null;
+            
             // Phần trăm các trạng thái (so với tổng tiếp nhận của nhân viên)
             // Sẽ được tính trong view bằng HTML
             $item->dang_sua_chua_percent = 0; // Sẽ tính trong view
             $item->cho_khach_hang_phan_hoi_percent = 0; // Sẽ tính trong view
             $item->da_hoan_tat_percent = 0; // Sẽ tính trong view
-            $item->qua_han_percent = 0; // Sẽ tính trong view
             
             return $item;
         });

@@ -289,10 +289,9 @@ class ReportHtmlTemplate
                 <th>Đang sửa chữa %</th>
                 <th>Chờ KH phản hồi</th>
                 <th>Chờ KH phản hồi %</th>
-                <th>Quá hạn</th>
-                <th>Quá hạn %</th>
                 <th>Đã hoàn tất</th>
                 <th>Đã hoàn tất %</th>
+                <th>Tỉ lệ trễ ca bảo hành (%)</th>
             </tr>
         </thead>
         <tbody>';
@@ -309,10 +308,9 @@ class ReportHtmlTemplate
                     <td class="center">' . number_format($item->dang_sua_chua_percent ?? 0, 2) . '%</td>
                     <td class="center">' . ($item->cho_khach_hang_phan_hoi ?? 0) . '</td>
                     <td class="center">' . number_format($item->cho_khach_hang_phan_hoi_percent ?? 0, 2) . '%</td>
-                    <td class="center">' . ($item->qua_han ?? 0) . '</td>
-                    <td class="center">' . number_format($item->qua_han_percent ?? 0, 2) . '%</td>
                     <td class="center">' . ($item->da_hoan_tat ?? 0) . '</td>
                     <td class="center">' . number_format($item->da_hoan_tat_percent ?? 0, 2) . '%</td>
+                    <td class="center">' . number_format($item->ti_le_qua_han ?? 0, 2) . '%</td>
                 </tr>';
             }
 

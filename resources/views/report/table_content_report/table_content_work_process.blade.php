@@ -9,10 +9,10 @@
         <th class="align-middle" style="min-width: 100px;">Đang sửa chữa %</th>
         <th class="align-middle" style="min-width: 150px;">Chờ KH phản hồi</th>
         <th class="align-middle" style="min-width: 120px;">Chờ KH phản hồi %</th>
-        <th class="align-middle" style="min-width: 100px;">Quá hạn</th>
-        <th class="align-middle" style="min-width: 100px;">Quá hạn %</th>
         <th class="align-middle" style="min-width: 120px;">Đã hoàn tất</th>
         <th class="align-middle" style="min-width: 120px;">Đã hoàn tất %</th>
+        <th class="align-middle" style="min-width: 100px;">Tỉ lệ trễ ca bảo hành (%)</th>
+
     </tr>
 </thead>
 
@@ -25,10 +25,11 @@
             $choKhachHangPhanHoi = $item->cho_khach_hang_phan_hoi ?? 0;
             $quaHan = $item->qua_han ?? 0;
             $daHoanTat = $item->da_hoan_tat ?? 0;
-            
+
             // Tính tỉ lệ % cho từng trạng thái
             $dangSuaChuaPercent = $tongTiepNhan > 0 ? round(($dangSuaChua / $tongTiepNhan) * 100, 2) : 0;
-            $choKhachHangPhanHoiPercent = $tongTiepNhan > 0 ? round(($choKhachHangPhanHoi / $tongTiepNhan) * 100, 2) : 0;
+            $choKhachHangPhanHoiPercent =
+                $tongTiepNhan > 0 ? round(($choKhachHangPhanHoi / $tongTiepNhan) * 100, 2) : 0;
             $quaHanPercent = $tongTiepNhan > 0 ? round(($quaHan / $tongTiepNhan) * 100, 2) : 0;
             $daHoanTatPercent = $tongTiepNhan > 0 ? round(($daHoanTat / $tongTiepNhan) * 100, 2) : 0;
         @endphp
@@ -55,17 +56,21 @@
                 <span class="badge bg-info text-dark">{{ number_format($choKhachHangPhanHoiPercent, 2) }}%</span>
             </td>
             <td class="text-center">
-                <span class="badge bg-danger">{{ $quaHan }}</span>
-            </td>
-            <td class="text-center">
-                <span class="badge bg-danger">{{ number_format($quaHanPercent, 2) }}%</span>
-            </td>
-            <td class="text-center">
                 <span class="badge bg-success">{{ $daHoanTat }}</span>
             </td>
             <td class="text-center">
                 <span class="badge bg-success">{{ number_format($daHoanTatPercent, 2) }}%</span>
             </td>
+            <td class="text-center">
+                @php
+                    // Lấy tỉ lệ quá hạn từ history (nếu có), nếu không thì tính từ real-time
+                    $tiLeQuaHan = isset($item->ti_le_qua_han) && $item->ti_le_qua_han !== null 
+                        ? $item->ti_le_qua_han 
+                        : $quaHanPercent;
+                @endphp
+                <span class="badge bg-danger">{{ number_format($tiLeQuaHan, 2) }}%</span>
+            </td>
+
         </tr>
     @empty
         <tr>
@@ -73,4 +78,3 @@
         </tr>
     @endforelse
 </tbody>
-
