@@ -265,7 +265,7 @@
                                             <span style="cursor: pointer;"
                                                 class="p-1 @if ($data->status == 'Đã hoàn tất') bg-success @elseif($data->status == 'Chờ KH phản hồi') bg-secondary @elseif($data->status == 'Đã tiếp nhận') bg-primary @elseif($data->status == 'Đã gửi linh kiện') bg-info @else bg-warning @endif"
                                                 ?
-                                                @if (($data->status != 'Đã hoàn tất' && session('user') == $data->staff_received) || session('position') == 'admin') onclick="showStatusModal({{ $data->id }}, '{{ $data->status }}', '{{ $data->type }}', true)"
+                                                @if (($data->status != 'Đã hoàn tất' && session('user') == $data->staff_received) || session('position') == 'admin' || session('position') == 'quản trị viên') onclick="showStatusModal({{ $data->id }}, '{{ $data->status }}', '{{ $data->type }}', true)"
                                             @else
                                             onclick="showPermissionError()" @endif>
                                                 <strong>{{ $data->status }}</strong>
@@ -434,9 +434,25 @@
                         @foreach ($history as $item)
                             <div class="timeline-item">
                                 <div class="timeline-header d-flex justify-content-between align-items-center">
-                                    <p><strong>Ngày tiếp nhận:
-                                        </strong>{{ \Carbon\Carbon::parse($item->received_date)->format('d/m/Y') }}</p>
-                                    <button class="btn btn-link toggle-details">▼</button>
+                                    <div class="flex-grow-1">
+                                            <a href="{{ route('warranty.detail', ['id' => $item->id]) }}" 
+                                               title="Xem chi tiết tình trạng tiếp nhận và quá trình sửa chữa">
+                                            Xem chi tiết
+                                            </a>
+                                        <p class="mb-1">
+                                            <strong>Ngày tiếp nhận:</strong> 
+                                            {{ \Carbon\Carbon::parse($item->received_date)->format('d/m/Y') }}
+                                        </p>
+                                        <p class="mb-1">
+                                            <strong>Tên sản phẩm:</strong> {{ $item->product ?? 'N/A' }}
+                                        </p>
+                                        @if($item->serial_number)
+                                        <p class="mb-0">
+                                            <strong>Mã bảo hành:</strong> {{ $item->serial_number }}
+                                        </p>
+                                        @endif
+                                    </div>
+                                    <button class="btn btn-link toggle-details ms-2">▼</button>
                                 </div>
                                 <div class="timeline-details" style="overflow: hidden; height: 0;">
                                     @php
@@ -455,10 +471,36 @@
                                         <p><strong>Hình thức bảo hành: </strong>{{ $warrantyTypeText }}</p>
                                     @endif
 
-                                    @if ($item->type != 'agent_component')
+                                    @if ($item->type != 'agent_component' && $item->initial_fault_condition)
                                         <p><strong>Loại lỗi gặp phải: </strong>{{ $item->initial_fault_condition }}</p>
                                     @endif
-                                    <p><strong>Người tiếp nhận: </strong> {{ $item->staff_received }}</p>
+                                    
+                                    @if ($item->staff_received)
+                                        <p><strong>Người tiếp nhận: </strong>{{ $item->staff_received }}</p>
+                                    @endif
+                                    
+                                    <p class="mb-2"><strong>Tình trạng tiếp nhận:</strong></p>
+                                    
+                                    @if ($item->initial_fault_condition)
+                                        <p class="mb-1">
+                                            <strong>Lỗi khách hàng phản ánh khi bàn giao:</strong> 
+                                            {{ $item->initial_fault_condition }}
+                                        </p>
+                                    @endif
+                                    
+                                    @if ($item->product_fault_condition)
+                                        <p class="mb-1">
+                                            <strong>Tình trạng bên ngoài của sản phẩm khi bàn giao:</strong> 
+                                            {{ $item->product_fault_condition }}
+                                        </p>
+                                    @endif
+                                    
+                                    @if ($item->product_quantity_description)
+                                        <p class="mb-1">
+                                            <strong>Số linh kiện, sản phẩm khi nhận bàn giao:</strong> 
+                                            {{ $item->product_quantity_description }}
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach
@@ -471,9 +513,17 @@
                 </a>
                 <a id="printRequest" href="#" data-id="{{ $data->id }}" class="ms-5 my-1">Yêu cầu in
                     phiếu</a>
+                <a id="printQr" href="#" data-id="{{ $data->id }}" class="ms-5 my-1">Yêu cầu in QR</a>
                 <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
-                    <iframe id="pdfViewer" src="{{ route('warranty.pdf', ['id' => $data->id]) }}"
-                        style="width: 100%; height: 100%; border: none;"></iframe>
+                    <div id="pdfLoading" class="text-center" style="display: none;">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2">Đang tải phiếu bảo hành...</p>
+                    </div>
+                    <iframe id="pdfViewer" 
+                        data-src="{{ route('warranty.pdf', ['id' => $data->id]) }}"
+                        style="width: 100%; height: 100%; border: none; display: none;"></iframe>
                 </div>
             </div>
         </div>
@@ -677,6 +727,22 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrModalLabel">QR thanh toán</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="qrLoading" class="mb-2 d-none">Đang tải QR...</div>
+                    <img id="qrImage" src="" class="img-fluid mb-2 d-none" alt="QR thanh toán">
+                    <div id="qrInfo" class="small text-muted d-none"></div>
+                    <a id="qrDownloadLink" href="#" download class="btn btn-primary btn-sm d-none">Tải QR</a>
+                </div>
+            </div>
+        </div>
+    </div>
     @include('components.status_modal')
     <style>
         .timeline {
@@ -726,6 +792,32 @@
             LuuQuaTrinhSua();
             PrintRequest();
             setupComponentActions();
+            initQrModal();
+            
+            // Lazy load PDF iframe khi tab Phiếu in được click
+            let pdfLoaded = false;
+            const pdfViewer = document.getElementById('pdfViewer');
+            const pdfLoading = document.getElementById('pdfLoading');
+            
+            // Lắng nghe sự kiện khi tab "phieuin" được show
+            const phieuinTab = document.querySelector('#tab4');
+            if (phieuinTab) {
+                phieuinTab.addEventListener('shown.bs.tab', function() {
+                    if (!pdfLoaded && pdfViewer && pdfViewer.dataset.src) {
+                        pdfLoading.style.display = 'block';
+                        pdfViewer.style.display = 'none';
+                        
+                        pdfViewer.src = pdfViewer.dataset.src;
+                        pdfLoaded = true;
+                        
+                        pdfViewer.addEventListener('load', function() {
+                            pdfLoading.style.display = 'none';
+                            pdfViewer.style.display = 'block';
+                        }, { once: true });
+                    }
+                });
+            }
+            
         });
 
         function PrintRequest() {
@@ -753,6 +845,68 @@
                     }
                 });
             });
+        }
+
+        function initQrModal() {
+            const qrRouteTemplate = "{{ route('warranty.qr', ['id' => '__ID__']) }}";
+            $('#printQr').on('click', function(e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const url = qrRouteTemplate.replace('__ID__', id);
+                $('#qrLoading').removeClass('d-none');
+                $('#qrImage').addClass('d-none');
+                $('#qrInfo').addClass('d-none');
+                $('#qrModal').modal('show');
+                $.get(url).done(function(response) {
+                    if (response.success) {
+                        $('#qrImage').attr('src', response.data.image).removeClass('d-none');
+                        const infoHtml = [
+                            '<strong>NỘI DUNG:</strong>' + ((response.data.description || '').toUpperCase()) + '<br>',
+                            'Số tiền: ' + new Intl.NumberFormat('vi-VN').format(response.data.amount) + ' đ',
+                        ].join(' | ');
+                        $('#qrInfo').html(infoHtml).removeClass('d-none');
+                        buildQrDownload(response.data);
+                        $('#qrLoading').addClass('d-none');
+                    } else {
+                        $('#qrLoading').text(response.message || 'Không thể tải QR.');
+                    }
+                }).fail(function(xhr) {
+                    $('#qrLoading').text(xhr.responseJSON?.message || 'Lỗi khi tải QR.');
+                });
+                $('#qrModal').on('hidden.bs.modal', function() {
+                    $('#qrDownloadLink').addClass('d-none');
+                });
+            });
+        }
+
+        function buildQrDownload(data) {
+            const img = new Image();
+            img.onload = function() {
+                const padding = 20;
+                const infoLines = [
+                    'NỘI DUNG: ' + (data.description || '').toUpperCase(),
+                    'SỐ TIỀN: ' + new Intl.NumberFormat('vi-VN').format(data.amount) + ' Đ'
+                ].filter(Boolean);
+                const extraHeight = padding * (infoLines.length + 1);
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height + extraHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                infoLines.forEach((line, index) => {
+                    ctx.fillText(line, canvas.width / 2, img.height + padding * (index + 1));
+                });
+                $('#qrDownloadLink')
+                    .attr('href', canvas.toDataURL('image/png'))
+                    .attr('download', `QR-${data.title}.png`)
+                    .removeClass('d-none');
+            };
+            img.src = data.image;
         }
 
         function ChangeSelect() {
@@ -1804,14 +1958,20 @@
             }
         }
 
-        document.getElementById('pdfViewer').addEventListener('load', () => {
-            try {
-                const iframeWindow = document.getElementById('pdfViewer').contentWindow;
-                iframeWindow.document.addEventListener('keydown', handlePrintShortcut);
-            } catch (e) {
-                console.warn('Không thể gắn listener bên trong iframe (có thể do cross-origin)');
-            }
-        });
+        // Chỉ gắn listener khi iframe được load (lazy load)
+        const pdfViewer = document.getElementById('pdfViewer');
+        if (pdfViewer) {
+            pdfViewer.addEventListener('load', () => {
+                try {
+                    const iframeWindow = pdfViewer.contentWindow;
+                    if (iframeWindow && iframeWindow.document) {
+                        iframeWindow.document.addEventListener('keydown', handlePrintShortcut);
+                    }
+                } catch (e) {
+                    console.warn('Không thể gắn listener bên trong iframe (có thể do cross-origin)');
+                }
+            }, { once: true });
+        }
         $(document).ready(function() {
             let isLoaded = false;
             const pdfSupported = isPdfSupported();

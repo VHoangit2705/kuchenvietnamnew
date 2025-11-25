@@ -238,7 +238,7 @@
     <script>
         function goBackOrReload() {
             if (document.referrer) {
-                window.location.href = 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/baohanh/{{ session('brand') }}';
+                window.history.back();
             }
         }
 
