@@ -139,7 +139,8 @@ class SendReportEmail extends Command
                 $result = $service->generateReportPdf(
                     $fromDate->format('Y-m-d'),
                     $toDate->format('Y-m-d'),
-                    $zoneKey
+                    $zoneKey,
+                    $type
                 );
 
                 $this->info("Đã tạo PDF: {$result['file_name']} ({$zoneLabel})");

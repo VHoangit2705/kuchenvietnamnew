@@ -20,6 +20,14 @@ function loadReportData(tab, formData) {
                 // Update table content (replace thead and tbody inside table)
                 $('#reportTableContent').html(response.table);
                 
+                // Update reportType filter nếu có
+                if (response.filter) {
+                    $('#reportTypeFilterWrapper').html(response.filter);
+                } else {
+                    // Nếu không có filter (tab khác), xóa filter
+                    $('#reportTypeFilterWrapper').html('');
+                }
+                
                 // Highlight active tab
                 $('#warrantyTabs .nav-link').removeClass('active');
                 $('#warrantyTabs .nav-link[data-tab="' + tab + '"]').addClass('active');

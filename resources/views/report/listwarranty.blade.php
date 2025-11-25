@@ -100,6 +100,39 @@
 </div>
 
 <div class="container-fluid d-flex flex-column justify-content-start mt-3">
+    <div id="reportTypeFilterWrapper">
+        @if($activeTab == 'work_process')
+            @php
+                $reportType = request('reportType', 'weekly');
+                $toDateCarbon = \Carbon\Carbon::parse($toDate);
+                $fromDateCarbon = \Carbon\Carbon::parse($fromDate);
+                $weekNumber = $toDateCarbon->weekOfMonth;
+                $monthNumber = $toDateCarbon->month;
+                
+                // Lấy thông tin from_date và to_date từ bản ghi đầu tiên trong database (nếu có)
+                $firstRecord = \App\Models\KyThuat\WarrantyOverdueRateHistory::where('report_type', $reportType)
+                    ->whereNotNull('staff_received')
+                    ->where('staff_received', '!=', '')
+                    ->where(function($q) use ($fromDateCarbon, $toDateCarbon) {
+                        $q->where('from_date', '<=', $toDateCarbon->toDateString())
+                          ->where('to_date', '>=', $fromDateCarbon->toDateString());
+                    })
+                    ->orderBy('to_date', 'desc')
+                    ->first();
+                
+                $actualFromDate = $firstRecord ? $firstRecord->from_date : $fromDateCarbon->toDateString();
+                $actualToDate = $firstRecord ? $firstRecord->to_date : $toDateCarbon->toDateString();
+            @endphp
+            @include('report.partials.report_type_filter', [
+                'reportType' => $reportType,
+                'weekNumber' => $weekNumber,
+                'monthNumber' => $monthNumber,
+                'fromDate' => $actualFromDate,
+                'toDate' => $actualToDate,
+            ])
+        @endif
+    </div>
+    
     <div class="table-container" style="overflow-x: auto;">
         <table class="table table-striped table-hover" id="reportTableContent">
             @if($activeTab == 'work_process')

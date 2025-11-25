@@ -48,6 +48,40 @@ class Kernel extends ConsoleKernel
             ->onFailure(function () {
                 Log::channel('email_report')->error('[MONTHLY] Command report:send-email monthly thất bại');
             });
+
+        // LƯU LỊCH SỬ TỈ LỆ QUÁ HẠN
+        // Lưu lịch sử tỉ lệ quá hạn theo tuần: sau khi gửi email báo cáo tuần
+        $schedule->command('report:save-overdue-history weekly')
+            ->weeklyOn(6, '15:10') // Chạy sau 5 phút khi gửi email báo cáo tuần (15:00)
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->before(function () {
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu chạy command report:save-overdue-history weekly');
+            })
+            ->onSuccess(function () {
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất command report:save-overdue-history weekly');
+            })
+            ->onFailure(function () {
+                Log::channel('email_report')->error('[OVERDUE_HISTORY] Command report:save-overdue-history weekly thất bại');
+            });
+
+        // Lưu lịch sử tỉ lệ quá hạn theo tháng: sau khi gửi email báo cáo tháng
+        $schedule->command('report:save-overdue-history monthly')
+            ->dailyAt('23:59')
+            ->when(function () {
+                // Chạy vào ngày cuối tháng, sau khi gửi email báo cáo
+                $now = Carbon::now('Asia/Ho_Chi_Minh');
+                return $now->isLastOfMonth();
+            })
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->before(function () {
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu chạy command report:save-overdue-history monthly');
+            })
+            ->onSuccess(function () {
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất command report:save-overdue-history monthly');
+            })
+            ->onFailure(function () {
+                Log::channel('email_report')->error('[OVERDUE_HISTORY] Command report:save-overdue-history monthly thất bại');
+            });
     }
 
     protected function commands()

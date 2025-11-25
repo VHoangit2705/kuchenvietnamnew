@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use App\Models\KyThuat\WarrantyRequest;
+use App\Models\KyThuat\WarrantyOverdueRateHistory;
 use App\Models\Kho\Product;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -94,7 +95,7 @@ class ReportController extends BaseController
             session(['dataExport' => $data]);
             session(['workProcessDataExport' => $workProcessData]);
             
-            return response()->json([
+            $response = [
                 'tab' => view('components.tab_header_report_warranty', [
                     'activeTab' => $activeTab,
                     'counts' => $counts,
@@ -106,7 +107,40 @@ class ReportController extends BaseController
                     : view('report.table_content_report.table_content', [
                         'data' => $data
                     ])->render(),
-            ]);
+            ];
+            
+            // Thêm phần filter reportType nếu đang ở tab work_process
+            if ($activeTab == 'work_process') {
+                $reportType = $request->reportType ?? 'weekly';
+                $toDateCarbon = Carbon::parse($toDate);
+                $fromDateCarbon = Carbon::parse($fromDate);
+                $weekNumber = $toDateCarbon->weekOfMonth;
+                $monthNumber = $toDateCarbon->month;
+                
+                // Lấy thông tin from_date và to_date từ bản ghi đầu tiên trong database (nếu có)
+                $firstRecord = WarrantyOverdueRateHistory::where('report_type', $reportType)
+                    ->whereNotNull('staff_received')
+                    ->where('staff_received', '!=', '')
+                    ->where(function($q) use ($fromDateCarbon, $toDateCarbon) {
+                        $q->where('from_date', '<=', $toDateCarbon->toDateString())
+                          ->where('to_date', '>=', $fromDateCarbon->toDateString());
+                    })
+                    ->orderBy('to_date', 'desc')
+                    ->first();
+                
+                $actualFromDate = $firstRecord ? $firstRecord->from_date : $fromDateCarbon->toDateString();
+                $actualToDate = $firstRecord ? $firstRecord->to_date : $toDateCarbon->toDateString();
+                
+                $response['filter'] = view('report.partials.report_type_filter', [
+                    'reportType' => $reportType,
+                    'weekNumber' => $weekNumber,
+                    'monthNumber' => $monthNumber,
+                    'fromDate' => $actualFromDate,
+                    'toDate' => $actualToDate,
+                ])->render();
+            }
+            
+            return response()->json($response);
         }
         
         return view('report.listwarranty', [
@@ -145,7 +179,7 @@ class ReportController extends BaseController
     }
 
     /**
-     * Tính toán thống kê quá trình làm việc của nhân viên theo chi nhánh
+     * Lấy thống kê quá trình làm việc từ bảng warranty_overdue_rate_history
      * Sử dụng filter ngày từ form
      */
     private function getWorkProcessStats(Request $request, $brand, $fromDate, $toDate)
@@ -154,32 +188,47 @@ class ReportController extends BaseController
         $filterFromDate = Carbon::parse($fromDate)->startOfDay();
         $filterToDate = Carbon::parse($toDate)->endOfDay();
         
-        // Điều kiện cơ bản
-        $query = WarrantyRequest::query()
-            ->whereBetween('received_date', [$filterFromDate, $filterToDate]);
+        // Lấy dữ liệu từ bảng warranty_overdue_rate_history
+        // Chỉ lấy các bản ghi có staff_received (không NULL) - chỉ lấy theo kỹ thuật viên
+        // Lấy các bản ghi có khoảng thời gian overlap với khoảng thời gian filter
+        $query = WarrantyOverdueRateHistory::query()
+            ->whereNotNull('staff_received')
+            ->where('staff_received', '!=', '')
+            ->where(function($q) use ($filterFromDate, $filterToDate) {
+                // Lấy các bản ghi có khoảng thời gian overlap với khoảng thời gian filter
+                $q->where(function($subQ) use ($filterFromDate, $filterToDate) {
+                    // from_date <= filterToDate AND to_date >= filterFromDate
+                    $subQ->where('from_date', '<=', $filterToDate->toDateString())
+                         ->where('to_date', '>=', $filterFromDate->toDateString());
+                });
+            });
         
         // Chỉ filter theo branch nếu user chọn một chi nhánh cụ thể
-        // Nếu chọn "Tất cả chi nhánh" hoặc không chọn gì, hiển thị tất cả
         if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
             $query->where('branch', 'LIKE', '%' . $request->branch . '%');
         }
-        // Bỏ điều kiện else if để hiển thị tất cả chi nhánh khi không chọn
         
         // Filter theo kỹ thuật viên nếu có
         if ($request->staff_received) {
             $query->where('staff_received', 'LIKE', '%' . $request->staff_received . '%');
         }
         
-        // Nhóm theo kỹ thuật viên và chi nhánh, tính toán các số liệu
+        // Filter theo report_type (weekly/monthly)
+        // Mặc định là weekly nếu không có giá trị
+        $reportType = $request->reportType ?? 'weekly';
+        $query->where('report_type', $reportType);
+        
+        // Lấy dữ liệu và nhóm theo kỹ thuật viên và chi nhánh
+        // Tổng hợp các bản ghi có cùng staff_received và branch trong khoảng thời gian
         $stats = $query
             ->select(
                 'staff_received',
                 'branch',
-                DB::raw('COUNT(*) as tong_tiep_nhan'),
-                DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
-                DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
-                DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
-                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as qua_han')
+                DB::raw('SUM(tong_tiep_nhan) as tong_tiep_nhan'),
+                DB::raw('SUM(dang_sua_chua) as dang_sua_chua'),
+                DB::raw('SUM(cho_khach_hang_phan_hoi) as cho_khach_hang_phan_hoi'),
+                DB::raw('SUM(da_hoan_tat) as da_hoan_tat'),
+                DB::raw('SUM(so_ca_qua_han) as qua_han')
             )
             ->groupBy('staff_received', 'branch')
             ->orderBy('branch')
@@ -202,21 +251,11 @@ class ReportController extends BaseController
                 : 0;
             
             // Phần trăm các trạng thái (so với tổng tiếp nhận của nhân viên)
-            $item->dang_sua_chua_percent = $tongTiepNhan > 0 
-                ? (($item->dang_sua_chua ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->cho_khach_hang_phan_hoi_percent = $tongTiepNhan > 0 
-                ? (($item->cho_khach_hang_phan_hoi ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->da_hoan_tat_percent = $tongTiepNhan > 0 
-                ? (($item->da_hoan_tat ?? 0) / $tongTiepNhan) * 100 
-                : 0;
-            
-            $item->qua_han_percent = $tongTiepNhan > 0 
-                ? (($item->qua_han ?? 0) / $tongTiepNhan) * 100 
-                : 0;
+            // Sẽ được tính trong view bằng HTML
+            $item->dang_sua_chua_percent = 0; // Sẽ tính trong view
+            $item->cho_khach_hang_phan_hoi_percent = 0; // Sẽ tính trong view
+            $item->da_hoan_tat_percent = 0; // Sẽ tính trong view
+            $item->qua_han_percent = 0; // Sẽ tính trong view
             
             return $item;
         });
