@@ -14,6 +14,7 @@ use App\Models\KyThuat\WarrantyOverdueRateHistory;
 use App\Models\Kho\Product;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 
 class ReportController extends BaseController
@@ -214,7 +215,16 @@ class ReportController extends BaseController
                 DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
                 DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
                 DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
-                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as qua_han')
+                DB::raw('SUM(
+                    CASE 
+                        WHEN status != "Đã hoàn tất" 
+                            AND status != "Chờ KH phản hồi" 
+                            AND return_date IS NOT NULL 
+                            AND DATE(return_date) < CURDATE()
+                        THEN 1 
+                        ELSE 0 
+                    END
+                ) as qua_han')
             )
             ->groupBy('staff_received', 'branch')
             ->orderBy('branch')
@@ -414,31 +424,59 @@ class ReportController extends BaseController
         // Tạo sheet mới: Quá trình làm việc
         $workProcessData = session('workProcessDataExport');
         if ($workProcessData && $workProcessData->isNotEmpty()) {
+            // Đồng bộ dữ liệu với bản PDF (tính % theo chi nhánh và theo tổng tiếp nhận của nhân viên)
+            $workBranchTotals = $workProcessData->groupBy('branch')->map(function ($branchStats) {
+                return $branchStats->sum('tong_tiep_nhan');
+            });
+
+            $workProcessData = $workProcessData->map(function ($item) use ($workBranchTotals) {
+                $tongTiepNhan = $item->tong_tiep_nhan ?? 0;
+                $branchTotal = $workBranchTotals->get($item->branch, 0);
+
+                $item->phan_tram_chi_nhanh = $branchTotal > 0
+                    ? ($tongTiepNhan / $branchTotal) * 100
+                    : 0;
+
+                $item->dang_sua_chua_percent = $tongTiepNhan > 0
+                    ? (($item->dang_sua_chua ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+
+                $item->cho_khach_hang_phan_hoi_percent = $tongTiepNhan > 0
+                    ? (($item->cho_khach_hang_phan_hoi ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+
+                $item->da_hoan_tat_percent = $tongTiepNhan > 0
+                    ? (($item->da_hoan_tat ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+
+                return $item;
+            });
+
             $workProcessSheet = $spreadsheet->createSheet();
             $workProcessSheet->setTitle('Quá trình làm việc');
             
             // Tiêu đề chính
-            $workProcessSheet->mergeCells('A1:M1');
+            $workProcessSheet->mergeCells('A1:L1');
             $workProcessSheet->setCellValue('A1', 'BÁO CÁO TỔNG HỢP QUÁ TRÌNH LÀM VIỆC CỦA NHÂN VIÊN');
             $workProcessSheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
             $workProcessSheet->getStyle('A1')->getAlignment()->setHorizontal('center')->setVertical('center');
             $workProcessSheet->getRowDimension(1)->setRowHeight(25);
             
             // Thông tin filter
-            $workProcessSheet->mergeCells('A2:M2');
+            $workProcessSheet->mergeCells('A2:L2');
             $workProcessSheet->setCellValue('A2', 'Chi nhánh: ' . $branch . '     Từ ngày: ' . $fromDate . ' đến ngày: ' . $toDate);
             $workProcessSheet->getStyle('A2')->getAlignment()->setHorizontal('right');
             $workProcessSheet->getStyle('A2')->getFont()->setBold(true);
             $workProcessSheet->getRowDimension(2)->setRowHeight(20);
             
             // Ghi chú giải thích
-            $workProcessSheet->mergeCells('A3:M3');
+            $workProcessSheet->mergeCells('A3:L3');
             $workProcessSheet->setCellValue('A3', 'Ghi chú: - "% so với CN" = Phần trăm số ca nhân viên tiếp nhận so với tổng số ca của chi nhánh');
             $workProcessSheet->getStyle('A3')->getFont()->setItalic(true)->setSize(10);
             $workProcessSheet->getStyle('A3')->getAlignment()->setHorizontal('left')->setVertical('center');
             $workProcessSheet->getRowDimension(3)->setRowHeight(18);
             
-            $workProcessSheet->mergeCells('A4:M4');
+            $workProcessSheet->mergeCells('A4:L4');
             $workProcessSheet->setCellValue('A4', '        - Các phần trăm khác (%) = Phần trăm số ca của từng trạng thái so với tổng số ca nhân viên đó tiếp nhận');
             $workProcessSheet->getStyle('A4')->getFont()->setItalic(true)->setSize(10);
             $workProcessSheet->getStyle('A4')->getAlignment()->setHorizontal('left')->setVertical('center');
@@ -446,13 +484,13 @@ class ReportController extends BaseController
             
             // Bảng header
             $workProcessSheet->fromArray([
-                ['STT', 'Chi nhánh', 'Tên kỹ thuật viên', 'Tổng tiếp nhận', '% so với CN', 'Đang sửa chữa', 'Đang sửa chữa %', 'Chờ KH phản hồi', 'Chờ KH phản hồi %', 'Quá hạn', 'Quá hạn %', 'Đã hoàn tất', 'Đã hoàn tất %']
+                ['STT', 'Chi nhánh', 'Tên kỹ thuật viên', 'Tổng tiếp nhận', '% so với CN', 'Đang sửa chữa', 'Đang sửa chữa %', 'Chờ KH phản hồi', 'Chờ KH phản hồi %', 'Đã hoàn tất', 'Đã hoàn tất %', 'Tỉ lệ trễ ca bảo hành (%)']
             ], NULL, 'A5');
-            $workProcessSheet->getStyle('A5:M5')->getFont()->setBold(true);
-            $workProcessSheet->getStyle('A5:M5')->getAlignment()->setVertical('center')->setHorizontal('center');
-            $workProcessSheet->getStyle('A5:M5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            $workProcessSheet->getStyle('A5:L5')->getFont()->setBold(true);
+            $workProcessSheet->getStyle('A5:L5')->getAlignment()->setVertical('center')->setHorizontal('center');
+            $workProcessSheet->getStyle('A5:L5')->getFill()->setFillType(Fill::FILL_SOLID) 
                 ->getStartColor()->setARGB('FFD3D3D3');
-            $workProcessSheet->getStyle('A5:M5')->getBorders()->getAllBorders()->setBorderStyle('thin');
+            $workProcessSheet->getStyle('A5:L5')->getBorders()->getAllBorders()->setBorderStyle('thin');
             $workProcessSheet->getRowDimension(5)->setRowHeight(25);
             
             // Ghi dữ liệu
@@ -482,26 +520,24 @@ class ReportController extends BaseController
                 $workProcessSheet->getStyle('I' . $workRow)->getNumberFormat()->setFormatCode('0.00%');
                 $workProcessSheet->getStyle('I' . $workRow)->getAlignment()->setHorizontal('center');
                 
-                $workProcessSheet->setCellValue('J' . $workRow, $item->qua_han ?? 0);
+                $workProcessSheet->setCellValue('J' . $workRow, $item->da_hoan_tat ?? 0);
                 $workProcessSheet->getStyle('J' . $workRow)->getAlignment()->setHorizontal('center');
-                $workProcessSheet->setCellValue('K' . $workRow, ($item->qua_han_percent ?? 0) / 100);
+                $workProcessSheet->setCellValue('K' . $workRow, ($item->da_hoan_tat_percent ?? 0) / 100);
                 $workProcessSheet->getStyle('K' . $workRow)->getNumberFormat()->setFormatCode('0.00%');
                 $workProcessSheet->getStyle('K' . $workRow)->getAlignment()->setHorizontal('center');
-                
-                $workProcessSheet->setCellValue('L' . $workRow, $item->da_hoan_tat ?? 0);
+
+                $workProcessSheet->setCellValue('L' . $workRow, ($item->ti_le_qua_han ?? 0) / 100);
+                $workProcessSheet->getStyle('L' . $workRow)->getNumberFormat()->setFormatCode('0.00%');
                 $workProcessSheet->getStyle('L' . $workRow)->getAlignment()->setHorizontal('center');
-                $workProcessSheet->setCellValue('M' . $workRow, ($item->da_hoan_tat_percent ?? 0) / 100);
-                $workProcessSheet->getStyle('M' . $workRow)->getNumberFormat()->setFormatCode('0.00%');
-                $workProcessSheet->getStyle('M' . $workRow)->getAlignment()->setHorizontal('center');
                 
                 // Thêm border cho từng dòng
-                $workProcessSheet->getStyle('A' . $workRow . ':M' . $workRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
+                $workProcessSheet->getStyle('A' . $workRow . ':L' . $workRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
                 
                 $workRow++;
             }
             
             // Auto column width và format
-            foreach (range('A', 'M') as $col) {
+            foreach (range('A', 'L') as $col) {
                 $workProcessSheet->getColumnDimension($col)->setAutoSize(true);
             }
             

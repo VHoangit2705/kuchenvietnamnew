@@ -26,9 +26,20 @@ $(document).on('click', '#exportExcel', function(e) {
             Swal.showLoading();
         }
     });
-    var params = (window.reportParams || {});
     const exportUrl = (window.exportReportRoute || '');
-    fetch(exportUrl + "?" + new URLSearchParams(params))
+
+    // Lấy dữ liệu bộ lọc hiện tại từ form (bao gồm từ ngày - đến ngày)
+    const form = document.getElementById('reportFilterForm');
+    const params = Object.assign({}, (window.reportParams || {}));
+    if (form) {
+        const formData = new FormData(form);
+        formData.forEach((value, key) => {
+            params[key] = value;
+        });
+    }
+
+    const queryString = new URLSearchParams(params).toString();
+    fetch(exportUrl + (queryString ? `?${queryString}` : ''))
         .then(response => {
             Swal.close();
             const contentType = response.headers.get("Content-Type");

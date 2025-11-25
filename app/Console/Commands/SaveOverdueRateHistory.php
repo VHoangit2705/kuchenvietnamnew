@@ -86,20 +86,24 @@ class SaveOverdueRateHistory extends Command
         foreach ($staffList as $staff) {
             $stats = $this->calculateStats($staff->branch, $staff->staff_received, $fromDate, $toDate);
 
-            WarrantyOverdueRateHistory::create([
-                'report_date' => $reportDate,
-                'report_type' => $type,
-                'from_date' => $fromDate->toDateString(),
-                'to_date' => $toDate->toDateString(),
-                'branch' => $staff->branch,
-                'staff_received' => $staff->staff_received,
-                'tong_tiep_nhan' => $stats['tong_tiep_nhan'],
-                'so_ca_qua_han' => $stats['so_ca_qua_han'],
-                'ti_le_qua_han' => $stats['ti_le_qua_han'],
-                'dang_sua_chua' => $stats['dang_sua_chua'],
-                'cho_khach_hang_phan_hoi' => $stats['cho_khach_hang_phan_hoi'],
-                'da_hoan_tat' => $stats['da_hoan_tat'],
-            ]);
+            WarrantyOverdueRateHistory::updateOrCreate(
+                [
+                    'report_type' => $type,
+                    'from_date' => $fromDate->toDateString(),
+                    'to_date' => $toDate->toDateString(),
+                    'branch' => $staff->branch,
+                    'staff_received' => $staff->staff_received,
+                ],
+                [
+                    'report_date' => $reportDate,
+                    'tong_tiep_nhan' => $stats['tong_tiep_nhan'],
+                    'so_ca_qua_han' => $stats['so_ca_qua_han'],
+                    'ti_le_qua_han' => $stats['ti_le_qua_han'],
+                    'dang_sua_chua' => $stats['dang_sua_chua'],
+                    'cho_khach_hang_phan_hoi' => $stats['cho_khach_hang_phan_hoi'],
+                    'da_hoan_tat' => $stats['da_hoan_tat'],
+                ]
+            );
         }
 
         $this->info("Đã lưu thống kê cho {$staffList->count()} kỹ thuật viên");
@@ -129,7 +133,16 @@ class SaveOverdueRateHistory extends Command
                 DB::raw('SUM(CASE WHEN status = "Đang sửa chữa" THEN 1 ELSE 0 END) as dang_sua_chua'),
                 DB::raw('SUM(CASE WHEN status = "Chờ KH phản hồi" THEN 1 ELSE 0 END) as cho_khach_hang_phan_hoi'),
                 DB::raw('SUM(CASE WHEN status = "Đã hoàn tất" THEN 1 ELSE 0 END) as da_hoan_tat'),
-                DB::raw('SUM(CASE WHEN status != "Đã hoàn tất" AND status != "Chờ KH phản hồi" AND return_date IS NOT NULL AND return_date < NOW() THEN 1 ELSE 0 END) as so_ca_qua_han')
+                DB::raw('SUM(
+                    CASE 
+                        WHEN status != "Đã hoàn tất" 
+                            AND status != "Chờ KH phản hồi" 
+                            AND return_date IS NOT NULL 
+                            AND DATE(return_date) < CURDATE()
+                        THEN 1 
+                        ELSE 0 
+                    END
+                ) as so_ca_qua_han')
             )
             ->first();
 
