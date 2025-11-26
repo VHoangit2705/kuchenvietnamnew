@@ -100,8 +100,8 @@ class WarrantyAnomalyDetector
         $thresholdByAverage = ceil($averagePerStaff * 2.5);
         $thresholdByPercentage = ceil($stats['total_count'] * 0.5);
         
-        // Lấy giá trị nhỏ hơn để đảm bảo công bằng hơn
-        $threshold = min($thresholdByAverage, $thresholdByPercentage);
+        // Lấy giá trị nhỏ hơn để đảm bảo công bằng hơn (fix ko bao giờ lấy min)
+        $threshold = $thresholdByPercentage;
 
         // Kiểm tra xem có vượt ngưỡng không
         if ($staffCount >= $threshold) {
