@@ -563,8 +563,8 @@
                         </div>
                         <div id="des_error_container" class="mb-2 d-none">
                             <label for="des_error_type" class="form-label">Mô tả cách xử lý</label>
-                            <input type="text" class="form-control" id="des_error_type" name="des_error_type"
-                                placeholder="Nhập mô tả các xử lý">
+                            <textarea class="form-control" id="des_error_type" name="des_error_type"
+                                placeholder="Nhập mô tả các xử lý" rows="4"></textarea>
                             <div class="error error_des text-danger small mt-1"></div>
                         </div>
                         <div id="rejection_reason_container" class="mb-2 d-none">
@@ -2098,8 +2098,8 @@
                 /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
                 .test(value)) {
                 showRepairFormError($input, "Chỉ được nhập chữ và số.");
-            } else if (value.length > 100) {
-                showRepairFormError($input, "Tối đa 100 ký tự.");
+            } else if (value.length > 500) {
+                showRepairFormError($input, "Tối đa 500 ký tự.");
             }
         }
 
