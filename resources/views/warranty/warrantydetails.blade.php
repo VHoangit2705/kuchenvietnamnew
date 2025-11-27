@@ -2092,16 +2092,20 @@
 
         // Mô tả cách xử lý: chữ và số, max 100
         function validateDescription($input) {
-            const value = $input.val().trim();
-            hideRepairFormError($input);
-            if (value && !
-                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
-                .test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ và số.");
-            } else if (value.length > 500) {
-                showRepairFormError($input, "Tối đa 500 ký tự.");
-            }
-        }
+    const value = ($input.val() || "").trim();
+    hideRepairFormError($input);
+
+    const regex = /^[\p{L}\p{N}\s,.\-]+$/u;
+
+    if (value && !regex.test(value)) {
+        return showRepairFormError($input, "Chỉ được nhập chữ và số.");
+    }
+
+    if (value.length > 500) {
+        return showRepairFormError($input, "Tối đa 500 ký tự.");
+    }
+}
+
 
         // Lý do từ chối: chữ và số, max 100
         function validateRejectionReason($input) {
