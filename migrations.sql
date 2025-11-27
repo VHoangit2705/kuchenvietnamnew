@@ -98,3 +98,31 @@ COLLATE = utf8mb4_unicode_ci;
 -- Rollback tương đương hàm down()
 DROP TABLE IF EXISTS `warranty_anomaly_blocks`;
 
+-- Tạo bảng warranty_overdue_rate_history
+CREATE TABLE `warranty_overdue_rate_history` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `report_date` DATE NOT NULL,
+    `report_type` ENUM('weekly','monthly') NOT NULL,
+    `from_date` DATE NOT NULL,
+    `to_date` DATE NOT NULL,
+    `branch` VARCHAR(255) NULL,
+    `staff_received` VARCHAR(255) NULL,
+    `tong_tiep_nhan` INT NOT NULL DEFAULT 0,
+    `so_ca_qua_han` INT NOT NULL DEFAULT 0,
+    `ti_le_qua_han` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    `dang_sua_chua` INT NOT NULL DEFAULT 0,
+    `cho_khach_hang_phan_hoi` INT NOT NULL DEFAULT 0,
+    `da_hoan_tat` INT NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP NULL DEFAULT NULL,
+    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `warranty_overdue_rate_history_report_date_type_index` (`report_date`, `report_type`),
+    KEY `warranty_overdue_rate_history_branch_date_index` (`branch`, `report_date`),
+    KEY `warranty_overdue_rate_history_staff_date_index` (`staff_received`, `report_date`)
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+-- DOWN
+DROP TABLE IF EXISTS `warranty_overdue_rate_history`;
