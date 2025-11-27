@@ -34,11 +34,15 @@ class ReportController extends BaseController
             $brand = '';
         }
 
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+
         // Tạo điều kiện mặc định
         $conditions = [
             'warranty_requests.status' => 'Đã hoàn tất',
             ['warranty_requests.received_date', '>=', $fromDate],
             ['warranty_requests.received_date', '<=', $toDate],
+            ['warranty_requests.view', '=', $view],
         ];
 
         // Bổ sung điều kiện nếu có filter
@@ -159,8 +163,24 @@ class ReportController extends BaseController
     public function RecommentProduct(Request $request)
     {
         $search = $request->query('query');
-        $products = DB::table('warranty_requests')->select('product')->distinct()->where('product', 'LIKE', "%{$search}%")->pluck('product')->toArray();
-        $serials = DB::table('warranty_requests')->select('serial_number')->distinct()->where('serial_number', 'LIKE', "%{$search}%")->pluck('serial_number')->toArray();
+        
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        $productsQuery = DB::table('warranty_requests')
+            ->select('product')
+            ->distinct()
+            ->where('product', 'LIKE', "%{$search}%")
+            ->where('view', '=', $view);
+        
+        $serialsQuery = DB::table('warranty_requests')
+            ->select('serial_number')
+            ->distinct()
+            ->where('serial_number', 'LIKE', "%{$search}%")
+            ->where('view', '=', $view);
+        
+        $products = $productsQuery->pluck('product')->toArray();
+        $serials = $serialsQuery->pluck('serial_number')->toArray();
         $recomments = array_merge($products, $serials);
         return response()->json($recomments);
     }
@@ -168,14 +188,35 @@ class ReportController extends BaseController
     public function RecommentProductPart(Request $request)
     {
         $search = $request->query('query');
-        $productParts = DB::table('warranty_request_details')->select('replacement')->distinct()->where('replacement', 'LIKE', "%{$search}%")->pluck('replacement')->toArray();
+        
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        $productPartsQuery = DB::table('warranty_request_details')
+            ->join('warranty_requests', 'warranty_request_details.warranty_request_id', '=', 'warranty_requests.id')
+            ->select('warranty_request_details.replacement')
+            ->distinct()
+            ->where('warranty_request_details.replacement', 'LIKE', "%{$search}%")
+            ->where('warranty_requests.view', '=', $view);
+        
+        $productParts = $productPartsQuery->pluck('replacement')->toArray();
         return response()->json($productParts);
     }
 
     public function RecommentStaff(Request $request)
     {
         $search = $request->query('query');
-        $staffName = DB::table('warranty_requests')->select('staff_received')->distinct()->where('staff_received', 'LIKE', "%{$search}%")->pluck('staff_received')->toArray();
+        
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        $staffNameQuery = DB::table('warranty_requests')
+            ->select('staff_received')
+            ->distinct()
+            ->where('staff_received', 'LIKE', "%{$search}%")
+            ->where('view', '=', $view);
+        
+        $staffName = $staffNameQuery->pluck('staff_received')->toArray();
         return response()->json($staffName);
     }
 
@@ -190,11 +231,15 @@ class ReportController extends BaseController
         $filterFromDate = Carbon::parse($fromDate)->startOfDay();
         $filterToDate = Carbon::parse($toDate)->endOfDay();
         
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
         // Tính toán các số liệu trực tiếp từ warranty_requests (real-time)
         $query = WarrantyRequest::query()
             ->whereBetween('received_date', [$filterFromDate, $filterToDate])
             ->whereNotNull('staff_received')
-            ->where('staff_received', '!=', '');
+            ->where('staff_received', '!=', '')
+            ->where('view', '=', $view);
         
         // Chỉ filter theo branch nếu user chọn một chi nhánh cụ thể
         if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
@@ -241,6 +286,10 @@ class ReportController extends BaseController
                 $q->where('from_date', '<=', $filterToDate->toDateString())
                   ->where('to_date', '>=', $filterFromDate->toDateString());
             });
+        
+        // Filter theo branch pattern để phân biệt kuchen và hurom
+        $branchPattern = $view === 3 ? 'hurom%' : 'kuchen%';
+        $overdueRates->whereRaw('LOWER(branch) LIKE ?', [strtolower($branchPattern)]);
         
         if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
             $overdueRates->where('branch', 'LIKE', '%' . $request->branch . '%');
