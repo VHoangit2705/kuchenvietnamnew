@@ -112,16 +112,63 @@ class PermissionController extends Controller
     public function CreateUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:users,username',
+                'regex:/^[a-zA-Z0-9_-]+$/'
+            ],
+            'email' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:users,email',
+                'regex:/^[^\s@]+@[^\s@]+\.[^\s@]+$/'
+            ],
             'full_name' => 'required|string|max:255',
-            'password' => 'required|string',
+            'password' => 'required|string|min:6',
             'zone' => 'required|string'
+        ], [
+            'username.required' => 'Tên đăng nhập là bắt buộc.',
+            'username.unique' => 'Tên đăng nhập này đã được sử dụng.',
+            'username.regex' => 'Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).',
+            'email.required' => 'Email là bắt buộc.',
+            'email.email' => 'Email không đúng định dạng.',
+            'email.regex' => 'Email không đúng định dạng.',
+            'email.unique' => 'Email này đã được sử dụng.',
+            'full_name.required' => 'Tên đầy đủ là bắt buộc.',
+            'password.required' => 'Mật khẩu là bắt buộc.',
+            'password.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'zone.required' => 'Chi nhánh là bắt buộc.'
         ]);
 
         if ($validator->fails()) {
+            $errors = $validator->errors();
+            $firstError = $errors->first();
             return response()->json([
                 'success' => false,
-                'message' => $validator->errors(),
-            ]);
+                'message' => $firstError,
+                'errors' => $errors
+            ], 422);
+        }
+
+        // Kiểm tra username trùng lặp
+        $existingUsername = User::where('username', $request->username)->first();
+        if ($existingUsername) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác.',
+            ], 422);
+        }
+
+        // Kiểm tra email trùng lặp
+        $existingEmail = User::where('email', $request->email)->first();
+        if ($existingEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email này đã được sử dụng. Vui lòng chọn email khác.',
+            ], 422);
         }
 
         // Kiểm tra mật khẩu trùng lặp
@@ -132,13 +179,15 @@ class PermissionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Mật khẩu này đã được sử dụng bởi tài khoản khác. Vui lòng chọn mật khẩu khác.',
-            ]);
+            ], 422);
         }
 
         try {
             DB::beginTransaction();
 
             User::create([
+                'username' => $request->username,
+                'email' => $request->email,
                 'full_name' => $request->full_name,
                 'password' => $hashedPassword,
                 'zone' => $request->zone,
@@ -147,15 +196,33 @@ class PermissionController extends Controller
 
             DB::commit();
 
-            return response()->json(['success' => true]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Tài khoản đã được tạo thành công.'
+            ]);
             
         } catch (\Exception $e) {
             DB::rollBack();
             
+            // Xử lý lỗi database cụ thể
+            if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                if (strpos($e->getMessage(), 'username') !== false) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Tên đăng nhập này đã được sử dụng.',
+                    ], 422);
+                } elseif (strpos($e->getMessage(), 'email') !== false) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Email này đã được sử dụng.',
+                    ], 422);
+                }
+            }
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Có lỗi xảy ra khi tạo tài khoản: ' . $e->getMessage(),
-            ]);
+            ], 500);
         }
     }
     public function CreateRole(Request $request)
@@ -190,27 +257,76 @@ class PermissionController extends Controller
     public function StoreRole(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'role_id' => 'required|exists:roles,id',
             'role_name' => 'required|string|max:255',
             'role_description' => 'required|string',
             'permissions' => 'array',
+            'permissions.*' => 'exists:permissions,id'
+        ], [
+            'role_id.required' => 'ID nhóm quyền là bắt buộc.',
+            'role_id.exists' => 'Nhóm quyền không tồn tại.',
+            'role_name.required' => 'Tên nhóm quyền là bắt buộc.',
+            'role_name.max' => 'Tên nhóm quyền không được vượt quá 255 ký tự.',
+            'role_description.required' => 'Mô tả nhóm quyền là bắt buộc.',
+            'permissions.array' => 'Danh sách quyền không hợp lệ.',
+            'permissions.*.exists' => 'Một hoặc nhiều quyền không tồn tại.'
         ]);
 
         if ($validator->fails()) {
+            $errors = $validator->errors();
+            $firstError = $errors->first();
             return response()->json([
                 'success' => false,
-                'message' => $validator->errors(),
-            ],);
+                'message' => $firstError,
+                'errors' => $errors
+            ], 422);
         }
 
-        $role = Role::find($request->role_id);
+        try {
+            DB::beginTransaction();
 
-        if ($role) {
+            $role = Role::findOrFail($request->role_id);
+
+            // Kiểm tra tên nhóm quyền trùng lặp (trừ chính nó)
+            $existingRole = Role::where('name', $request->role_name)
+                                ->where('id', '!=', $request->role_id)
+                                ->first();
+
+            if ($existingRole) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tên nhóm quyền này đã được sử dụng. Vui lòng chọn tên khác.',
+                ], 422);
+            }
+
             $role->name = $request->role_name;
             $role->description = $request->role_description;
             $role->save();
 
             $role->permissions()->sync($request->permissions ?? []);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật nhóm quyền thành công.'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            // Xử lý lỗi database cụ thể
+            if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tên nhóm quyền này đã được sử dụng.',
+                ], 422);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi cập nhật nhóm quyền: ' . $e->getMessage(),
+            ], 500);
         }
-        return response()->json(['success' => true]);
     }
 }

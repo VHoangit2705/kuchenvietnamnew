@@ -27,7 +27,7 @@ class ReportController extends BaseController
         $parts = explode(' ', session('zone'));
         $zoneWithoutFirst = implode(' ', array_slice($parts, 1));
         $brand = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
-        if(session('position') == 'admin'){
+        if(session('position') == 'admin' || session('position') == 'quản trị viên'){
             $brand = '';
         }
 
@@ -70,12 +70,16 @@ class ReportController extends BaseController
         // Lấy dữ liệu
         $data = WarrantyRequest::getListWarranty($conditions, $productInput);
 
+        //Lấy linh kiện
+        $linhkien = Product::where('view', '2')->select('product_name')->get();
+
         session(['dataExport' => $data]);
         return view('report.listwarranty', [
             'data' => $data,
             'fromDate' => Carbon::parse($fromDate),
             'toDate' => Carbon::parse($toDate),
             'userBranch' => $brand,
+            'linhkien' => $linhkien,
         ]);
     }
 

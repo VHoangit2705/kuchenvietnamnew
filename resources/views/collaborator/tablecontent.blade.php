@@ -25,8 +25,10 @@
                 <td>{{ $item->province }}</td>
                 <td>{{ $item->address }}</td>
                 <td>
+                    @if ($item->id != 1)
                     <button class="btn btn-warning btn-sm edit-row" data-bs-toggle="modal" data-id="{{ $item->id }}" data-bs-target="#addCollaboratorModal">Sửa</button>
                     <button class="btn btn-danger btn-sm delete-row" onclick="Delete({{ $item->id }})">Xóa</button>
+                    @endif
                 </td>
             </tr>
             @empty

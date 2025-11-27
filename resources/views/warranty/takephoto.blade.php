@@ -79,7 +79,7 @@
 <script>
 
     const maxPhotos = 4;
-    const maxPhotoSize = 1024 * 1024;
+    const maxPhotoSize = 5 * 1024 * 1024;
     const maxVideoSize = 10 * 1024 * 1024;
     const maxVideoDuration = 30;
 

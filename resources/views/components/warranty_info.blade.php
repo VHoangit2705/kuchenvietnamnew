@@ -21,7 +21,7 @@
                         </tr>
                         <tr>
                             <th>4. Tên đại lý:</th>
-                            <td>{{ $warranty->order_product?->order?->agency_name ?? 'N/A' }}</t>
+                            <td>{{ $warranty->order_product?->order?->agency_name ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>5. SĐT đại lý:</th>
@@ -29,7 +29,14 @@
                         </tr>
                         <tr>
                             <th>6. Ngày mua hàng:</th>
-                            <td>{{ $warranty->order_product?->order?->created_at ? \Carbon\Carbon::parse($warranty->order_product->order->created_at)->format('d/m/Y') : $warranty->shipment_date->format('d/m/Y') }}
+                            <td>
+                                @if($warranty->order_product?->order?->created_at)
+                                    {{ \Carbon\Carbon::parse($warranty->order_product->order->created_at)->format('d/m/Y') }}
+                                @elseif($warranty->shipment_date)
+                                    {{ \Carbon\Carbon::parse($warranty->shipment_date)->format('d/m/Y') }}
+                                @else
+                                    N/A
+                                @endif
                             </td>
                         </tr>
                         <tr>
@@ -71,8 +78,19 @@
                 @foreach($history as $item)
                 <div class="timeline-item">
                     <div class="timeline-header d-flex justify-content-between align-items-center">
-                        <p><strong>Ngày tiếp nhận:</strong> {{ \Carbon\Carbon::parse($received_date)->format('d/m/Y') ?? 'N/A' }}
-                            - <strong>Tên sản phẩm:</strong> {{ $warranty->order_product->product_name ?? 'N/A' }}
+                        <p>
+                            <strong>Ngày tiếp nhận:</strong> 
+                            @if(isset($item->warrantyRequest->received_date))
+                                {{ \Carbon\Carbon::parse($item->warrantyRequest->received_date)->format('d/m/Y') }}
+                            @elseif($received_date)
+                                {{ \Carbon\Carbon::parse($received_date)->format('d/m/Y') }}
+                            @else
+                                N/A
+                            @endif
+                            - <strong>Tên sản phẩm:</strong> {{ $item->product_name ?? ($warranty->order_product->product_name ?? 'N/A') }}
+                            @if(isset($item->serial_number))
+                                - <strong>Mã bảo hành:</strong> {{ $item->serial_number }}
+                            @endif
                         </p>
                         <button class="btn btn-link toggle-details">▼</button>
                     </div>
@@ -80,7 +98,7 @@
                         <p><strong>Loại lỗi gặp phải:</strong> {{ $item->error_type ?? 'N/A' }}</p>
                         <p><strong>Phương án xử lý:</strong> {{ $item->solution ?? 'N/A' }}</p>
                         <p><strong>Linh kiên thay thế:</strong> {{ $item->replacement ?? 'N/A' }}</p>
-                        <p><strong>Người tiếp nhận:</strong> {{ $received_warranty ?? 'N/A' }}</p>
+                        <p><strong>Người tiếp nhận:</strong> {{ $item->staff_received ?? ($received_warranty ?? 'N/A') }}</p>
                     </div>
                 </div>
                 @endforeach
@@ -130,30 +148,4 @@
             timelineItem.find('.toggle-details').text('▲');
         }
     }
-
-    // function createWarrantyForm() {
-    //     // Dữ liệu truyền từ Blade vào JavaScript
-    //     const warranty = JSON.parse('{!! json_encode($warranty) !!}');
-    //     const lstproduct = JSON.parse('{!! json_encode($lstproduct) !!}');
-    //     console.log(warranty);
-    //     console.log(lstproduct);
-    //     debugger;
-
-    //     $.ajax({
-    //         url: "{{ route('warranty.formcard') }}",
-    //         type: "POST",
-    //         data: {
-    //             _token: "{{ csrf_token() }}",
-    //             warranty: warranty,
-    //             lstproduct: lstproduct
-    //         },
-    //         success: function(response) {
-    //             $('#warranty-form-container').html(response.view);
-    //         },
-    //         error: function(xhr) {
-    //             console.error(xhr.responseText);
-    //             alert('Có lỗi xảy ra. Vui lòng thử lại.');
-    //         }
-    //     });
-    // }
 </script>

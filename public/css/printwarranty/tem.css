@@ -1,0 +1,68 @@
+@page {
+    size: A3 portrait;
+    margin: 10mm;
+}
+
+@font-face {
+    font-family: 'DejaVu Sans';
+    src: url("../fonts/DejaVuSans.ttf") format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'DejaVu Sans', sans-serif;
+    font-size: 8px;
+}
+
+.tem-table {
+    width: 100%;
+    border-collapse: collapse;
+    padding: 0;
+    margin: 0;
+    border: 1px solid black;
+}
+
+.tem-cell {
+    height: 2.4cm;
+    width: 16.66%;
+    box-sizing: border-box;
+    /* vertical-align: center; */
+}
+
+.tem-inner {
+    width: 100%;
+    height: auto;
+}
+
+.logo-left img {
+    width: 1.8cm;
+    height: 1.8cm;
+    display: block;
+}
+
+.logo-small img {
+    width: 0.5cm;
+    height: 0.5cm;
+}
+
+.tem-title {
+    font-weight: bold;
+    font-size: 8px;
+    margin-bottom: -6px;
+    text-align: center;
+}
+
+.text {
+    font-size: 8px;
+}
+
+.inner-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+}
+
