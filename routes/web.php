@@ -45,6 +45,9 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/chitiet/{id}', [WarrantyController::class, 'Details'])->name("warranty.detail");
     Route::post('/baohanh/chitiet/capnhat', [WarrantyController::class, 'UpdateDetail'])->name("warranty.updatedetail");
     Route::post('/baohanh/chitiet/xoa', [WarrantyController::class, 'DeleteDetail'])->name("warranty.delete");
+    Route::post('/baohanh/congsuachua', [WarrantyController::class, 'saveRepairJob'])->name('warranty.repairjobs.save');
+    Route::get('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'showRepairJob'])->name('warranty.repairjobs.show');
+    Route::delete('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'deleteRepairJob'])->name('warranty.repairjobs.delete');
     Route::post('/baohanh/chitiet/capnhatseri', [WarrantyController::class, 'UpdateSerial'])->name("warranty.updateserial");
     Route::post('/baohanh/chitiet/uploadphoto', [WarrantyController::class, 'UploadPhoto'])->name('photo.upload');  // tải ảnh lên
     Route::post('/baohanh/chitiet/uploadvideo', [WarrantyController::class, 'UploadVideo'])->name('video.upload');  // tải video lên

@@ -179,25 +179,42 @@
                 <thead>
                     <tr>
                         <th style="width: 12px;">STT</th>
-                        <th style="width: 250px;">Lỗi</th>
-                        <th>Linh kiện thay thế</th>
+                        <th style="width: 250px;">Lỗi/Nội dung</th>
+                        <th>Linh kiện/Sản phẩm</th>
                         <th>SL</th>
                         <th>Đơn giá</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($items as $index => $item)
+                    @php
+                        $stt = 1;
+                    @endphp
+                    @foreach ($items as $item)
                         <tr>
-                            <td style="text-align: center;">{{ $index + 1 }}</td>
+                            <td style="text-align: center;">{{ $stt++ }}</td>
                             <td>{{ $item->error_type }}</td>
                             <td>{{ $item->replacement }}</td>
                             <td style="text-align: center;">{{ $item->quantity }}</td>
                             <td style="text-align: center;">{{ number_format($item->unit_price, 0) }}</td>
                         </tr>
                     @endforeach
+                    @if($repairJobs && $repairJobs->count() > 0)
+                        @foreach ($repairJobs as $job)
+                            @php
+                                $displayQty = rtrim(rtrim(number_format($job->quantity, 2, ',', '.'), '0'), ',');
+                            @endphp
+                            <tr>
+                                <td style="text-align: center;">{{ $stt++ }}</td>
+                                <td>{{ $job->description }}</td>
+                                <td>{{ $job->component ?? '-' }}</td>
+                                <td style="text-align: center;">{{ $displayQty }}</td>
+                                <td style="text-align: center;">{{ number_format($job->unit_price, 0) }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
                     @for ($i = 1; $i <= 2; $i++)
                         <tr>
-                            <td style="text-align: center;">{{ $items->count() + $i }}</td>
+                            <td style="text-align: center;">{{ $stt++ }}</td>
                             <td></td>
                             <td></td>
                             <td></td>
@@ -208,12 +225,12 @@
                 <tfoot>
                     <tr>
                         <td colspan="4" style="text-align: center;"><strong>TỔNG TIỀN</strong></td>
-                        <td style="text-align: center;"><strong>{{ number_format($total, 0) }}</strong></td>
+                        <td style="text-align: center;"><strong>{{ number_format($grandTotal, 0) }}</strong></td>
                     </tr>
                 </tfoot>
             </table>
 
-            <div><strong>Ghi chú:</strong></div>
+            <div style="margin-top: 10px;"><strong>Ghi chú:</strong></div>
 
             <table class="chuky" width="100%">
                 <tr>
