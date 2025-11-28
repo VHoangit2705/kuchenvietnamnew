@@ -48,32 +48,23 @@ class User extends Authenticatable  implements OAuthenticatable
 		'cookie_value',
 		'password_changed_at'
 	];
-	
+
 	/**
-	 * Cache roles và permissions để tránh query lặp lại
+	 * Cache permissions để tránh query lặp lại
 	 */
-	protected $cachedRoles = null;
 	protected $cachedPermissions = null;
 	
 	public function roles()
 	{
 		return $this->belongsToMany(Role::class, 'user_role', 'user_id', 'role_id');
 	}
-	
-	/**
-	 * Lấy danh sách roles của user với cache và eager load permissions
-	 */
-	protected function getCachedRoles()
-	{
-		if ($this->cachedRoles === null) {
-			// Eager load roles cùng với permissions để tránh N+1 query
-			$this->cachedRoles = $this->roles()->with('permissions')->get();
-		}
-		return $this->cachedRoles;
-	}
-	
     public function hasAnyRole($roles)
     {
+        // Eager load roles nếu chưa có
+        if (!$this->relationLoaded('roles')) {
+            $this->load('roles');
+        }
+        
         if (is_array($roles)) {
             foreach ($roles as $role) {
                 if ($this->hasRole($role)) {
@@ -90,32 +81,56 @@ class User extends Authenticatable  implements OAuthenticatable
 
     public function hasRole($roleName)
     {
-        // so sánh không phân biệt hoa thường, sử dụng cache để tránh query lặp lại
-        return $this->getCachedRoles()
-            ->contains(fn($role) => strcasecmp($role->name, $roleName) === 0);
+        // Eager load roles nếu chưa có
+        if (!$this->relationLoaded('roles')) {
+            $this->load('roles');
+        }
+        
+        // so sánh không phân biệt hoa thường
+        return $this->roles->contains(function ($role) use ($roleName) {
+            return strcasecmp($role->name, $roleName) === 0;
+        });
     }
     
     /**
-     * Lấy danh sách permissions của user
-     * Sử dụng cache để tránh query lặp lại trong cùng một request
+     * Lấy danh sách permissions với cache
      */
     public function permissions()
     {
-        if ($this->cachedPermissions === null) {
-            // Sử dụng cached roles đã có permissions được eager load
-            $this->cachedPermissions = $this->getCachedRoles()
-                ->pluck('permissions')
-                ->flatten()
-                ->unique('id');
+        // Nếu đã cache thì trả về cache
+        if ($this->cachedPermissions !== null) {
+            return $this->cachedPermissions;
         }
+        
+        // Eager load roles với permissions nếu chưa có
+        if (!$this->relationLoaded('roles')) {
+            $this->load(['roles.permissions']);
+        } else {
+            // Nếu roles đã load nhưng chưa có permissions thì load thêm
+            $this->loadMissing('roles.permissions');
+        }
+        
+        // Lấy permissions từ roles đã load
+        $this->cachedPermissions = $this->roles
+            ->pluck('permissions')
+            ->flatten()
+            ->unique('id');
         
         return $this->cachedPermissions;
     }
 
     public function hasPermission($permissionName)
     {
-        // return  $this->permissions()->contains('name', $permissionName);
-		return $this->permissions()->contains(fn($p) => strcasecmp($p->name, $permissionName) === 0);
+        // Sử dụng permissions() đã được cache
+        return $this->permissions()->contains(fn($p) => strcasecmp($p->name, $permissionName) === 0);
+    }
+    
+    /**
+     * Reset cache permissions khi cần (ví dụ sau khi update roles)
+     */
+    public function clearPermissionCache()
+    {
+        $this->cachedPermissions = null;
     }
     
     public function findForPassport($username)
@@ -123,3 +138,4 @@ class User extends Authenticatable  implements OAuthenticatable
 		return $this->where('username', $username)->first();
 	}
 }
+
