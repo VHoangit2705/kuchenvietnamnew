@@ -1244,6 +1244,101 @@ class WarrantyController extends Controller
         }
     }
 
+    public function FindWarrantyByPhone(Request $request)
+    {
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        try {
+            $rawPhone = trim((string) $request->input('phone_number'));
+            $normalizedPhone = preg_replace('/\D+/', '', $rawPhone);
+
+            if (!$normalizedPhone) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng nhập số điện thoại hợp lệ.'
+                ]);
+            }
+
+            if (strlen($normalizedPhone) < 8) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số điện thoại phải có ít nhất 8 chữ số.'
+                ]);
+            }
+
+            $normalizedPattern = '%' . $normalizedPhone . '%';
+            $phoneNormalizer = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(%s, ' ', ''), '.', ''), '-', ''), '(', ''), ')', ''), '+', '')";
+            $warrantyPhoneColumn = sprintf($phoneNormalizer, 'phone_number');
+            $orderPhoneColumn = sprintf($phoneNormalizer, 'o.customer_phone');
+
+            $warrantyRequests = WarrantyRequest::with(['details'])
+                ->where('view', $view)
+                ->whereRaw($warrantyPhoneColumn . ' LIKE ?', [$normalizedPattern])
+                ->orderByDesc('received_date')
+                ->orderByDesc('id')
+                ->get();
+
+            $warrantyIds = $warrantyRequests->pluck('id')->filter()->toArray();
+
+            $repairHistory = collect();
+            if (!empty($warrantyIds)) {
+                $repairHistory = WarrantyRequestDetail::with([
+                    'warrantyRequest' => function ($relation) {
+                        $relation->select('id', 'product', 'serial_number', 'staff_received', 'received_date');
+                    }
+                ])
+                    ->whereIn('warranty_request_id', $warrantyIds)
+                    ->orderByDesc('Ngaytao')
+                    ->get();
+            }
+
+            $purchasedProducts = OrderProduct::query()
+                ->leftJoin('orders as o', 'order_products.order_id', '=', 'o.id')
+                ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
+                ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
+                ->whereNotNull('o.id')
+                ->whereRaw($orderPhoneColumn . ' LIKE ?', [$normalizedPattern])
+                ->where('p.view', $view)
+                ->select(
+                    'o.order_code1',
+                    'o.order_code2',
+                    'o.customer_name',
+                    'o.customer_phone',
+                    'o.created_at as order_created_at',
+                    'order_products.product_name',
+                    'p.month',
+                    'pw.warranty_code'
+                )
+                ->orderByDesc('o.created_at')
+                ->get();
+
+            if ($warrantyRequests->isEmpty() && $purchasedProducts->isEmpty() && $repairHistory->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy dữ liệu cho số điện thoại đã nhập.'
+                ]);
+            }
+
+            $viewHtml = view('components.warranty_phone_result', [
+                'warrantyRequests' => $warrantyRequests,
+                'purchasedProducts' => $purchasedProducts,
+                'repairHistory' => $repairHistory,
+                'phoneDisplay' => $rawPhone ?: $normalizedPhone
+            ])->render();
+
+            return response()->json([
+                'success' => true,
+                'view' => $viewHtml,
+                'message' => 'Thông tin tra cứu theo số điện thoại'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi FindWarrantyByPhone: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Đã xảy ra lỗi trong quá trình xử lý: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function findWarantyOld(Request $request)
     {
         $serial = $request->serial;
