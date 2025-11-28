@@ -20,9 +20,22 @@ class CheckRole
         /** @var \App\Models\KyThuat\User $user */
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->view(
+                'errors.forbidden',
+                ['message' => 'Bạn không có quyền truy cập chức năng này. Liên Hệ bộ phận kỹ thuật để được cấp quyền'],
+                403
+            );
+        }
+
+        // Eager load roles để tránh N+1 queries
+        if (!$user->relationLoaded('roles')) {
+            $user->load('roles');
+        }
+
         // Kiểm tra xem user có tồn tại và có bất kỳ role nào trong danh sách $roles không
         // (Sử dụng hàm hasAnyRole chúng ta vừa tạo ở Bước 1)
-        if (!$user || !$user->hasAnyRole($roles)) {
+        if (!$user->hasAnyRole($roles)) {
 
             // Nếu không có quyền, quay về trang chủ với thông báo lỗi
            return response()->view(

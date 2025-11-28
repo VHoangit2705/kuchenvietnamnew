@@ -19,7 +19,23 @@ class CheckPermission
     {
         /** @var \App\Models\KyThuat\User $user */
         $user = Auth::user();
-        if (!$user || !$user->hasPermission($permission)) {
+        
+        if (!$user) {
+            return response()->view(
+                'errors.forbidden',
+                ['message' => 'Bạn không có quyền truy cập chức năng này. Liên Hệ bộ phận kỹ thuật để được cấp quyền'],
+                403
+            );
+        }
+        
+        // Eager load roles và permissions để tránh N+1 queries
+        if (!$user->relationLoaded('roles')) {
+            $user->load(['roles.permissions']);
+        } else {
+            $user->loadMissing('roles.permissions');
+        }
+        
+        if (!$user->hasPermission($permission)) {
             // abort(403, 'Bạn không có quyền truy cập chức năng này. Liên Hệ bộ phận kỹ thuật để được cấp quyền');
             return response()->view(
                 'errors.forbidden',

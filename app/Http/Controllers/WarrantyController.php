@@ -389,8 +389,20 @@ class WarrantyController extends Controller
             abort(404, 'Không tìm thấy phiếu bảo hành');
         }
         
+        // Lấy details đã eager load và lưu vào biến để tránh query lại
+        // Sử dụng getRelation() để đảm bảo lấy từ cache, không query lại
+        // Nếu chưa có trong relation, sẽ lấy từ relationship (đã eager load)
+        $detailsCollection = $data->relationLoaded('details') 
+            ? $data->getRelation('details')
+            : $data->details;
+        
+        // Đảm bảo relationship được set để tránh query lại khi truy cập trong view
+        if (!$data->relationLoaded('details')) {
+            $data->setRelation('details', $detailsCollection);
+        }
+        
         // Sử dụng relationship đã eager load và sort trong memory (không query lại)
-        $quatrinhsuaRaw = $data->details
+        $quatrinhsuaRaw = $detailsCollection
             ->sortBy([
                 ['Ngaytao', 'asc'],
                 ['id', 'asc']
@@ -443,12 +455,19 @@ class WarrantyController extends Controller
         }
         
         // Eager load details cho history để tránh N+1 queries
+        // Loại trừ warranty request hiện tại để tránh query lại details đã load
         $history = WarrantyRequest::with('details')
             ->where('serial_number', $data->serial_number)
             ->where('phone_number', $data->phone_number)
             ->where('product', $data->product)
+            ->where('id', '!=', $data->id) // Loại trừ warranty request hiện tại
             ->orderBy('received_date', 'desc')
             ->get();
+        
+        // Thêm warranty request hiện tại vào history và sắp xếp lại theo received_date
+        // Sử dụng details đã eager load sẵn, không query lại
+        $history->push($data);
+        $history = $history->sortByDesc('received_date')->values();
         
         // Lấy danh sách linh kiện
         $linhkien = Product::where('view', '2')->select('product_name')->get();
