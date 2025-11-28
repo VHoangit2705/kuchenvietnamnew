@@ -33,6 +33,7 @@ use App\Services\WarrantyAnomalyDetector;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use App\Models\KyThuat\WarrantyRepairJob;
 
 Paginator::useBootstrap();
 
@@ -381,7 +382,7 @@ class WarrantyController extends Controller
     public function Details($id)
     {
         // Eager load relationships để tránh N+1 queries
-        $data = WarrantyRequest::with('details')
+        $data = WarrantyRequest::with(['details', 'repairJobs'])
             ->where('id', $id)
             ->first();
         
@@ -451,14 +452,30 @@ class WarrantyController extends Controller
             ->get();
         
         // Lấy danh sách linh kiện
-        $linhkien = Product::where('view', '2')->select('product_name')->get();
+        $linhkien = Product::where('view', '2')
+            ->select('product_name', 'view')
+            ->get();
         
         // Lấy danh sách sản phẩm dựa trên brand
         $view = session('brand') === 'hurom' ? 3 : 1;
-        $sanpham = Product::where('view', $view)->select('product_name')->get();
+        $sanpham = Product::where('view', $view)
+            ->select('product_name', 'view')
+            ->get();
+        
+        $repairJobs = $data->repairJobs->sortBy('created_at')->values();
+        $repairJobsTotal = $repairJobs->sum('total_price');
         
         // Truyền cả dữ liệu để có thể sử dụng khi edit
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'quatrinhsuaRaw', 'history', 'linhkien', 'sanpham'));
+        return view('warranty.warrantydetails', compact(
+            'data',
+            'quatrinhsua',
+            'quatrinhsuaRaw',
+            'history',
+            'linhkien',
+            'sanpham',
+            'repairJobs',
+            'repairJobsTotal'
+        ));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
@@ -667,6 +684,79 @@ class WarrantyController extends Controller
             'message' => 'ID không hợp lệ.'
         ], 400);
     }
+
+    public function saveRepairJob(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => 'nullable|exists:warranty_repair_jobs,id',
+            'warranty_request_id' => 'required|exists:warranty_requests,id',
+            'description' => 'required|string|max:1000',
+            'component' => 'nullable|string|max:500',
+            'quantity' => 'required|numeric|min:0.1|max:1000',
+            'unit_price' => 'required|integer|min:0|max:2000000000',
+        ]);
+
+        $quantity = round((float) $validated['quantity'], 2);
+        $unitPrice = (int) $validated['unit_price'];
+        $totalPrice = (int) round($quantity * $unitPrice);
+
+        if ($validated['id'] ?? null) {
+            $job = WarrantyRepairJob::findOrFail($validated['id']);
+            if ((int) $job->warranty_request_id !== (int) $validated['warranty_request_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phiếu công sửa chữa không thuộc ca bảo hành này.'
+                ], 422);
+            }
+
+            $job->update([
+                'description' => $validated['description'],
+                'component' => $validated['component'] ?? null,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total_price' => $totalPrice,
+                'created_by' => session('user'),
+            ]);
+
+            $message = 'Cập nhật công sửa chữa thành công.';
+        } else {
+            $job = WarrantyRepairJob::create([
+                'warranty_request_id' => $validated['warranty_request_id'],
+                'description' => $validated['description'],
+                'component' => $validated['component'] ?? null,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total_price' => $totalPrice,
+                'created_by' => session('user'),
+            ]);
+
+            $message = 'Thêm công sửa chữa thành công.';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => $job
+        ]);
+    }
+
+    public function showRepairJob(WarrantyRepairJob $repairJob)
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $repairJob
+        ]);
+    }
+
+    public function deleteRepairJob(WarrantyRepairJob $repairJob)
+    {
+        $repairJob->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xoá công sửa chữa.'
+        ]);
+    }
     // Cập nhật serial
     public function UpdateSerial(Request $request)
     {
@@ -779,13 +869,21 @@ class WarrantyController extends Controller
 
     public function GeneratePdf($id)
     {
-        // Eager load details để tránh N+1 queries
-        $data = WarrantyRequest::with('details')->findOrFail($id);
+        // Eager load details và repairJobs để tránh N+1 queries
+        $data = WarrantyRequest::with(['details', 'repairJobs'])->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
+        
+        // Lấy công sửa chữa và tính tổng
+        $repairJobs = $data->repairJobs->sortBy('created_at')->values();
+        $repairJobsTotal = $repairJobs->sum('total_price');
+        
+        // Tổng tiền bao gồm cả linh kiện và công sửa chữa
+        $grandTotal = $total + $repairJobsTotal;
+        
         $ctv = null;
         if ($data->type == 'agent_component') {
             $ctv = [
@@ -819,23 +917,31 @@ class WarrantyController extends Controller
         
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
-        $paymentQr = $this->buildPaymentQr($data, $total);
+        $paymentQr = $this->buildPaymentQr($data, $grandTotal);
 
         // Tạo PDF
-        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'))
+        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'repairJobs', 'repairJobsTotal', 'grandTotal', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'))
             ->setPaper('A4')
             ->stream("phieu-bao-hanh-{$id}.pdf");
     }
 
     public function DowloadPdf($id)
     {
-        // Eager load details để tránh N+1 queries
-        $data = WarrantyRequest::with('details')->findOrFail($id);
+        // Eager load details và repairJobs để tránh N+1 queries
+        $data = WarrantyRequest::with(['details', 'repairJobs'])->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
+        
+        // Lấy công sửa chữa và tính tổng
+        $repairJobs = $data->repairJobs->sortBy('created_at')->values();
+        $repairJobsTotal = $repairJobs->sum('total_price');
+        
+        // Tổng tiền bao gồm cả linh kiện và công sửa chữa
+        $grandTotal = $total + $repairJobsTotal;
+        
         $ctv = null;
         if ($data->type == 'agent_component') {
             $ctv = WarrantyCollaborator::getById($data->collaborator_id);
@@ -865,11 +971,11 @@ class WarrantyController extends Controller
         
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
-        $paymentQr = $this->buildPaymentQr($data, $total);
+        $paymentQr = $this->buildPaymentQr($data, $grandTotal);
 
         // Tạo PDF
         $pdf = PDF::loadView('warranty.print', compact(
-            'data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'
+            'data', 'items', 'total', 'repairJobs', 'repairJobsTotal', 'grandTotal', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'
         ))->setPaper('A4');
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/octet-stream',
