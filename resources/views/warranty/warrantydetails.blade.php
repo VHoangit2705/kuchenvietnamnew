@@ -297,6 +297,13 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tabUploadImageErrorTab" data-bs-toggle="tab"
+                        data-bs-target="#tabUploadImageError" type="button" role="tab"
+                        aria-controls="tabUploadImageError">
+                        Hình ảnh lỗi gặp phải
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab3" data-bs-toggle="tab" data-bs-target="#lichsubaohanh"
                         type="button" role="tab">
                         Lịch sử bảo hành
@@ -419,6 +426,45 @@
                             </tr>
                             <tr>
                                 <td>5. Video</td>
+                                <td><button class="btn btn-primary btn-sm"
+                                        onclick="showVideo('{{ $data->video_upload }}')">Xem video</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="tabUploadImageError" role="tabpanel" tabindex="0"
+                aria-labelledby="tabUploadImageErrorTab">
+                <div class="p-3">
+                    <h5 class="fw-bold mb-3">Hình ảnh lỗi gặp phải</h5>
+                    @if (!empty($data->image_upload))
+                        <p class="mt-3 text-success small mb-0">
+                            Đã có hình ảnh được lưu cho mã phiếu này.
+                        </p>
+                    @else
+                        <p class="mt-3 text-muted fst-italic mb-0">
+                            Chưa có hình ảnh lỗi nào được tải lên cho mã phiếu này.
+                        </p>
+                    @endif
+                    <table class="table table-bordered table-striped">
+                        <thead class="table-dark text-center">
+                            <tr>
+                                <th class="w-50">Thông tin</th>
+                                <th class="w-50">Nội dung</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Hình ảnh lỗi trong quá trình sửa chữa</td>
+                                <td><button class="btn btn-primary btn-sm"
+                                    onclick="openErrorImageModal(this)"
+                                    data-images="{{ $data->image_upload }}">
+                                    Xem hình ảnh lỗi
+                                </button></td>
+                            </tr>
+                            <tr>
+                                <td>Video</td>
                                 <td><button class="btn btn-primary btn-sm"
                                         onclick="showVideo('{{ $data->video_upload }}')">Xem video</button></td>
                             </tr>
@@ -1665,11 +1711,13 @@
         });
     </script>
     <script>
+        // Lấy baseUrl từ config
+        const baseUrl = @json(config('services.warranty.image_base_url'));
+
         function showImages(imageString) {
             const carouselInner = document.getElementById("carouselInner");
             carouselInner.innerHTML = "";
 
-            const baseUrl = "https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public";
             const imageList = imageString.split(',');
 
             if (!imageString || imageList.length === 0) {
@@ -1683,6 +1731,9 @@
                             finalUrl = baseUrl + "/storage/" + finalUrl;
                         } else if (finalUrl.startsWith("/storage/")) {
                             finalUrl = baseUrl + finalUrl;
+                        } else if (finalUrl.startsWith("photos/")) {
+                            // Ảnh lưu trong public/storage/photos test thử trên local
+                            finalUrl = baseUrl + "/storage/" + finalUrl;
                         } else {
                             finalUrl = baseUrl + "/" + finalUrl;
                         }
@@ -1735,6 +1786,14 @@
             const modal = new bootstrap.Modal(document.getElementById("imageModal"));
             $('#savePhotoBtn').addClass('d-none');
             modal.show();
+        }
+
+        function openErrorImageModal(button) {
+            const imageString = button.getAttribute('data-images') || '';
+            // Mở modal hiển thị ảnh hiện có (nếu có)
+            showImages(imageString);
+            // Cho phép tải thêm ảnh lỗi và lưu lại
+            $('#savePhotoBtn').removeClass('d-none');
         }
 
         function showVideo(videoPath) {

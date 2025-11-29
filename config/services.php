@@ -45,4 +45,9 @@ return [
         'bank_name' => env('VIETQR_BANK_NAME', 'VietinBank'),
     ],
 
+    // Warranty Image Base URL configuration
+    'warranty' => [
+        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public'),
+    ],
+
 ];
