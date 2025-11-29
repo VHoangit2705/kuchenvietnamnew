@@ -8,6 +8,14 @@ $(document).ready(function () {
     ClickCheckBox();
     ValidateInputDate();
     ShowCTVFiles();
+    SetDefaultReturnDate();
+    
+    // Tự động tính lại ngày hẹn trả nếu người dùng xóa trường
+    $('#return_date').on('blur', function() {
+        if (!$(this).val() || $(this).val().trim() === '') {
+            SetDefaultReturnDate();
+        }
+    });
 
     $('#hoantat').on('click', function (e) {
         e.preventDefault();
@@ -361,6 +369,28 @@ function ValidateInputDate() {
 
         $(this).val(val);
     });
+}
+
+// Tự động set ngày hẹn trả = ngày tiếp nhận + 3 ngày
+function SetDefaultReturnDate() {
+    const receivedDateStr = $('#received_date').val()?.trim();
+    
+    if (receivedDateStr && isValidDate(receivedDateStr)) {
+        const receivedDate = parseDate(receivedDateStr);
+        // Cộng thêm 3 ngày
+        receivedDate.setDate(receivedDate.getDate() + 3);
+        
+        // Format lại thành dd/mm/yyyy
+        const day = ('0' + receivedDate.getDate()).slice(-2);
+        const month = ('0' + (receivedDate.getMonth() + 1)).slice(-2);
+        const year = receivedDate.getFullYear();
+        const returnDateStr = `${day}/${month}/${year}`;
+        
+        // Chỉ set nếu trường return_date đang trống
+        if (!$('#return_date').val() || $('#return_date').val().trim() === '') {
+            $('#return_date').val(returnDateStr);
+        }
+    }
 }
 
 function ShowCTVFiles() {
