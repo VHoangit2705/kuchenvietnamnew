@@ -1268,7 +1268,6 @@ class WarrantyController extends Controller
             $normalizedPattern = '%' . $normalizedPhone . '%';
             $phoneNormalizer = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(%s, ' ', ''), '.', ''), '-', ''), '(', ''), ')', ''), '+', '')";
             $warrantyPhoneColumn = sprintf($phoneNormalizer, 'phone_number');
-            $orderPhoneColumn = sprintf($phoneNormalizer, 'o.customer_phone');
 
             $warrantyRequests = WarrantyRequest::with(['details'])
                 ->where('view', $view)
@@ -1291,25 +1290,38 @@ class WarrantyController extends Controller
                     ->get();
             }
 
-            $purchasedProducts = OrderProduct::query()
-                ->leftJoin('orders as o', 'order_products.order_id', '=', 'o.id')
-                ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
-                ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
-                ->whereNotNull('o.id')
-                ->whereRaw($orderPhoneColumn . ' LIKE ?', [$normalizedPattern])
-                ->where('p.view', $view)
-                ->select(
-                    'o.order_code1',
-                    'o.order_code2',
-                    'o.customer_name',
-                    'o.customer_phone',
-                    'o.created_at as order_created_at',
-                    'order_products.product_name',
-                    'p.month',
-                    'pw.warranty_code'
-                )
-                ->orderByDesc('o.created_at')
+            // 1. Tìm tất cả đơn hàng theo SĐT trong bảng orders
+            $orderPhoneColumnRaw = sprintf($phoneNormalizer, 'customer_phone');
+            $orders = Order::query()
+                ->whereRaw($orderPhoneColumnRaw . ' LIKE ?', [$normalizedPattern])
+                ->select('id', 'order_code1', 'order_code2', 'customer_name', 'customer_phone', 'created_at')
                 ->get();
+
+            $orderIds = $orders->pluck('id')->filter()->toArray();
+
+            // 2. Lấy danh sách sản phẩm đã mua từ order_products cho các đơn hàng ở trên
+            $purchasedProducts = collect();
+            if (!empty($orderIds)) {
+                $purchasedProducts = OrderProduct::query()
+                    ->leftJoin('orders as o', 'order_products.order_id', '=', 'o.id')
+                    ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
+                    ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
+                    ->whereIn('o.id', $orderIds)
+                    ->where('p.view', $view)
+                    ->select(
+                        'o.order_code1',
+                        'o.order_code2',
+                        'o.customer_name',
+                        'o.customer_phone',
+                        'o.customer_address',
+                        'o.created_at as order_created_at',
+                        'order_products.product_name',
+                        'p.month',
+                        'pw.warranty_code'
+                    )
+                    ->orderByDesc('o.created_at')
+                    ->get();
+            }
 
             if ($warrantyRequests->isEmpty() && $purchasedProducts->isEmpty() && $repairHistory->isEmpty()) {
                 return response()->json([
