@@ -33,6 +33,7 @@ use App\Services\WarrantyAnomalyDetector;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use App\Models\KyThuat\WarrantyUploadError;
 
 Paginator::useBootstrap();
 
@@ -389,6 +390,45 @@ class WarrantyController extends Controller
             abort(404, 'Không tìm thấy phiếu bảo hành');
         }
         
+        // Lấy dữ liệu hình ảnh và video lỗi từ bảng warranty_upload_error
+        // Cho phép nhiều bản ghi cho cùng một warranty_request_id (mỗi lần upload là một bản ghi)
+        $errorRecords = WarrantyUploadError::where('warranty_request_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+        if ($errorRecords->isNotEmpty()) {
+            // Gom tất cả đường dẫn ảnh lỗi lại, phân tách bằng dấu phẩy
+            $allErrorImages = $errorRecords
+                ->pluck('image_upload_error')
+                ->filter()
+                ->implode(',');
+
+            // Với video lỗi: lấy bản ghi mới nhất có video_upload_error
+            $latestVideoError = $errorRecords
+                ->whereNotNull('video_upload_error')
+                ->sortByDesc('updated_at')
+                ->first();
+
+            // Ghi chú lỗi: nối tất cả note_error theo thứ tự thời gian
+            $allNotes = $errorRecords
+                ->pluck('note_error')
+                ->filter()
+                ->implode(PHP_EOL);
+
+            $data->image_upload_error = $allErrorImages;
+            $data->video_upload_error = $latestVideoError?->video_upload_error;
+            $data->note_error = $allNotes;
+
+            // Danh sách các lần upload lỗi riêng lẻ (để hiển thị theo từng ghi chú)
+            $data->error_image_batches = $errorRecords->map(function ($record) {
+                return (object) [
+                    'id' => $record->id,
+                    'images' => $record->image_upload_error,
+                    'note' => $record->note_error,
+                    'created_at' => $record->created_at,
+                ];
+            });
+        }
+        
         // Sử dụng relationship đã eager load và sort trong memory (không query lại)
         $quatrinhsuaRaw = $data->details
             ->sortBy([
@@ -474,6 +514,7 @@ class WarrantyController extends Controller
             'error_type' => 'required|string|max:255',
             'solution' => 'required|string|max:255',
             'des_error_type' => 'nullable',
+            'customer_refusal_reason' => 'nullable|string|max:255',
         ];
 
         if ($isMultipleComponents) {
@@ -521,6 +562,18 @@ class WarrantyController extends Controller
             }
         }
 
+        // Trường hợp khách hàng không muốn bảo hành -> bắt buộc nhập lý do
+        if ($request->solution === 'KH không muốn bảo hành') {
+            $validator->after(function ($validator) use ($request) {
+                $reason = trim((string) $request->customer_refusal_reason);
+                if ($reason === '') {
+                    $validator->errors()->add(
+                        'customer_refusal_reason',
+                        'Lý do khách hàng không muốn bảo hành là bắt buộc.'
+                    );
+                }
+            });
+        }
         if ($validator->fails()) {
             return response()->json([
                 'errors' => $validator->errors()
@@ -547,6 +600,20 @@ class WarrantyController extends Controller
             'Ngaytao' => Carbon::now(),
             'edit_by' => session('user'),
         ];
+
+        // Trường hợp khách hàng không muốn bảo hành:
+        // Lưu lý do khách từ chối vào cột `replacement` của bảng warranty_request_details
+        if ($request->solution === 'KH không muốn bảo hành') {
+            $commonData['replacement'] = $request->customer_refusal_reason;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+
+            WarrantyRequestDetail::create($commonData);
+
+            return response()->json(['success' => true, 'created' => true]);
+        }
 
         // Xử lý cho trường hợp "Sửa chữa tại chỗ (lỗi nhẹ)"
         if ($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
@@ -722,26 +789,51 @@ class WarrantyController extends Controller
         return response()->json(['success' => false, 'message' => "Không tìm thấy bản ghi"]);
     }
 
-    //thêm ảnh
-    public function UploadPhoto(Request $request)
+        //thêm ảnh
+        public function UploadPhoto(Request $request)
     {
         $photos = [];
         $warranty = WarrantyRequest::find($request->id);
+        
+        if (!$warranty) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy phiếu bảo hành']);
+        }
+        
+        // Ảnh lỗi hay ảnh tiếp nhận?
+        $isError = $request->boolean('is_error');
+
         // Xử lý ảnh
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
                 $path = $photo->store('photos', 'public');
                 $photos[] = $path;
             }
+            
             if (!empty($photos)) {
-                if (!empty($warranty->image_upload)) {
-                    $existingPhotos = explode(',', $warranty->image_upload);
-                    $photos = array_merge($existingPhotos, $photos);
+                if ($isError) {
+                    // Ảnh lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
+                    $uploadError = new WarrantyUploadError();
+                    $uploadError->warranty_request_id = $warranty->id;
+                    $uploadError->image_upload_error = implode(',', $photos);
+
+                    $noteContent = trim((string) $request->input('note_error'));
+                    if ($noteContent !== '') {
+                        $timestamp = now()->format('d/m/Y H:i');
+                        $uploadError->note_error = "{$timestamp} - {$noteContent}";
+                    }
+
+                    $uploadError->save();
+                } else {
+                    // Ảnh tiếp nhận: lưu vào cột image_upload của warranty_requests
+                    if (!empty($warranty->image_upload)) {
+                        $existingPhotos = explode(',', $warranty->image_upload);
+                        $photos = array_merge($existingPhotos, $photos);
+                    }
+                    $warranty->image_upload = implode(',', $photos);
+                    $warranty->save();
                 }
-    
-                $warranty->image_upload = implode(',', $photos);
             }
-            $warranty->save();
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Upload thành công',
@@ -749,16 +841,34 @@ class WarrantyController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'Upload thất bại']);
     }
-    //thêm video
-    public function UploadVideo(Request $request)
+        //thêm video
+        public function UploadVideo(Request $request)
     {
         $videoPath = null;
         $warranty = WarrantyRequest::find($request->id);
+        
+        if (!$warranty) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy phiếu bảo hành']);
+        }
+        
+        // Video lỗi hay video tiếp nhận?
+        $isError = $request->boolean('is_error');
+
         if ($request->hasFile('video')) {
             $videoPath = $request->file('video')->store('videos', 'public');
             if ($videoPath) {
-                $warranty->video_upload = $videoPath;
-                $warranty->save();
+                if ($isError) {
+                    // Video lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
+                    $uploadError = new WarrantyUploadError();
+                    $uploadError->warranty_request_id = $warranty->id;
+                    $uploadError->video_upload_error = $videoPath;
+                    $uploadError->save();
+                } else {
+                    // Video tiếp nhận: lưu vào cột video_upload của warranty_requests
+                    $warranty->video_upload = $videoPath;
+                    $warranty->save();
+                }
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Upload thành công',
@@ -1582,6 +1692,12 @@ class WarrantyController extends Controller
                 'success' => false
             ], 404);
         }
+        
+        // Lấy hoặc tạo bản ghi trong warranty_upload_error
+        $uploadError = WarrantyUploadError::firstOrNew([
+            'warranty_request_id' => $warranty->id
+        ]);
+        
         // Xử lý ảnh
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
@@ -1589,6 +1705,15 @@ class WarrantyController extends Controller
                 $photos[] = $path;
             }
             if (!empty($photos)) {
+                // Lưu vào warranty_upload_error
+                $newPhotos = $photos;
+                if (!empty($uploadError->image_upload_error)) {
+                    $existingPhotos = explode(',', $uploadError->image_upload_error);
+                    $newPhotos = array_merge($existingPhotos, $photos);
+                }
+                $uploadError->image_upload_error = implode(',', $newPhotos);
+                
+                // Vẫn lưu vào warranty_requests để tương thích ngược
                 $warranty->image_upload = implode(',', $photos);
             }
         }
@@ -1597,9 +1722,15 @@ class WarrantyController extends Controller
         if ($request->hasFile('video')) {
             $videoPath = $request->file('video')->store('videos', 'public');
             if ($videoPath) {
+                // Lưu vào warranty_upload_error
+                $uploadError->video_upload_error = $videoPath;
+                
+                // Vẫn lưu vào warranty_requests để tương thích ngược
                 $warranty->video_upload = $videoPath;
             }
         }
+        
+        $uploadError->save();
         $warranty->save();
 
         return response()->json([

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\APIController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\WarrantyRequestController;
+use App\Http\Controllers\Api\Warranty_Upload_Error_Controller;
 
 Route::post('/poserror', [APIController::class, 'PostError'])->name('poserror');
 
@@ -20,6 +21,12 @@ Route::get('/geturlvideos', [WarrantyRequestController::class, 'GetVideos']);
 Route::post('/updatevideo', [WarrantyRequestController::class, 'UpdateVideos']); // cập nhật trường video
 Route::get('/geturlimages', [WarrantyRequestController::class, 'GetImages']);
 Route::post('/updateimage', [WarrantyRequestController::class, 'UpdateImages']); // cập nhật trường ảnh
+
+//api backup ảnh và video cho hình ảnh lỗi (warranty_upload_error)
+Route::get('/geturlvideoserror', [Warranty_Upload_Error_Controller::class, 'GetVideosError']);
+Route::post('/updatevideoerror', [Warranty_Upload_Error_Controller::class, 'UpdateVideosError']);
+Route::get('/geturlimageserror', [Warranty_Upload_Error_Controller::class, 'GetImagesError']);
+Route::post('/updateimageerror', [Warranty_Upload_Error_Controller::class, 'UpdateImagesError']);
 
 Route::get('/gethuromproducts', [WarrantyRequestController::class, 'GetHuromPrducts']); // cập nhật trường ảnh
 
