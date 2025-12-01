@@ -1315,9 +1315,7 @@ class WarrantyController extends Controller
                     ->select('op.product_name', 'p.nhap_tay', 'product_warranties.warranty_code')->get();
             }
 
-            if($lstproduct->isNotEmpty() && $lstproduct->first()->nhap_tay == 1){
-                return response()->json(['success' => false, 'message' => 'Sản phẩm này không thể quét.']);
-            }
+            
 
             return response()->json([
                 'success' => true,
