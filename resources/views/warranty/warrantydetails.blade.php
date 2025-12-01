@@ -136,6 +136,31 @@
     .component-item-row:last-child {
         border-bottom: none;
     }
+
+    /* Responsive cho bảng Ghi chú hình ảnh lỗi */
+    @media (max-width: 575.98px) {
+        .error-note-table thead {
+            display: none;
+        }
+
+        .error-note-table tr {
+            display: block;
+            margin-bottom: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .error-note-table td {
+            display: block;
+            width: 100%;
+            padding: 0.35rem 0.6rem;
+        }
+
+        .error-note-time {
+            white-space: normal !important;
+        }
+    }
 </style>
 
 @section('content')
@@ -458,8 +483,8 @@
                     <table class="table table-bordered table-striped">
                         <thead class="table-dark text-center">
                             <tr>
-                                <th class="w-50">Thông tin</th>
-                                <th class="w-50">Nội dung</th>
+                                <th class="w-25">Thông tin</th>
+                                <th class="w-75">Nội dung</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -470,7 +495,7 @@
                                         onclick="openErrorImageModal(this)"
                                         data-images="{{ $data->image_upload_error ?? '' }}"
                                         data-is-error="true">
-                                        Xem hình ảnh lỗi
+                                        Upload ảnh
                                     </button>
                                 </td>
                             </tr>
@@ -483,27 +508,35 @@
 
                                     @if ($errorBatches->isNotEmpty())
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle mb-0">
-                                                <thead>
+                                            <table class="table table-striped table-sm mb-0 error-note-table">
+                                                <thead class="table-light">
                                                     <tr>
-                                                        <th style="width: 35%;">Thời gian</th>
-                                                        <th style="width: 45%;">Ghi chú</th>
-                                                        <th style="width: 20%;" class="text-center">Thao tác</th>
+                                                        <th class="text-start">Thời gian</th>
+                                                        <th class="text-start">Ghi chú</th>
+                                                        <th class="text-center">Thao tác</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     @foreach ($errorBatches as $batch)
-                                                        <tr>
-                                                            <td>
+                                                        <tr class="align-middle">
+                                                            <!-- Cột thời gian -->
+                                                            <td class="error-note-time text-start text-nowrap">
+                                                                <span class="d-sm-none d-block small text-muted">Thời gian</span>
                                                                 {{ optional($batch->created_at)->format('d/m/Y H:i') ?? 'N/A' }}
                                                             </td>
-                                                            <td style="white-space: pre-wrap;">
+
+                                                            <!-- Cột ghi chú -->
+                                                            <td class="text-start text-break">
+                                                                <span class="d-sm-none d-block small text-muted">Ghi chú</span>
                                                                 {{ $batch->note ?: '—' }}
                                                             </td>
+
+                                                            <!-- Cột thao tác -->
                                                             <td class="text-center">
+                                                                <span class="d-sm-none d-block small text-muted mb-1">Thao tác</span>
                                                                 @if (!empty($batch->images))
                                                                     <button type="button"
-                                                                        class="btn btn-outline-primary btn-sm"
+                                                                        class="btn btn-outline-primary btn-sm px-3"
                                                                         onclick="openErrorImageModal(this)"
                                                                         data-images="{{ $batch->images }}"
                                                                         data-is-error="true">
@@ -792,6 +825,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="errorNoteContainer" class="mb-3 d-none">
+                        <label class="form-label fw-semibold" for="photoNoteInput">Ghi chú ảnh lỗi</label>
+                        <textarea id="photoNoteInput" class="form-control" rows="2"
+                            placeholder="Nhập ghi chú cho đợt ảnh lỗi này"></textarea>
+                        <small class="text-muted">Ghi chú sẽ được lưu kèm theo lần upload ảnh lỗi hiện tại.</small>
+                    </div>
                     <div id="carouselImagePreview" class="carousel slide" data-bs-ride="carousel">
                         <div class="carousel-inner" id="carouselInner"></div>
                         <button class="carousel-control-prev" type="button" data-bs-target="#carouselImagePreview"
@@ -812,14 +851,6 @@
                             </span>
                             <span class="visually-hidden">Sau</span>
                         </button>
-                    </div>
-                    <div id="errorNoteContainer" class="mt-3 d-none">
-                        <label class="form-label fw-semibold" for="photoNoteInput">Ghi chú ảnh lỗi</label>
-                        <div id="errorNoteHistory" class="alert alert-info py-2 mb-2 d-none"
-                            style="white-space: pre-wrap;"></div>
-                        <textarea id="photoNoteInput" class="form-control" rows="2"
-                            placeholder="Nhập ghi chú cho đợt ảnh lỗi này"></textarea>
-                        <small class="text-muted">Ghi chú sẽ được lưu kèm theo lần upload ảnh lỗi hiện tại.</small>
                     </div>
                 </div>
             </div>
@@ -1977,6 +2008,10 @@
             const imageString = button.getAttribute('data-images') || '';
             const isError = button.getAttribute('data-is-error') === 'true';
             isErrorUpload = isError;
+
+            // reset danh sách ảnh được chọn mỗi lần mở modal lỗi
+            selectedPhotos = [];
+
             toggleErrorNoteUI(isError);
             showImages(imageString);
             $('#savePhotoBtn').removeClass('d-none');
@@ -2083,7 +2118,8 @@
             const files = input.files;
             if (!files || files.length === 0) return;
 
-            const maxSize = 15 * 1024 * 1024;
+            // giới hạn 3MB cho mỗi ảnh
+            const maxSize = 3 * 1024 * 1024;
             selectedPhotos = [];
 
             const $carouselInner = $('#carouselInner');
@@ -2095,7 +2131,7 @@
                 if (file.size > maxSize) {
                     Swal.fire(
                         'Cảnh báo',
-                        `Ảnh "${file.name}" vượt quá 5MB`,
+                        `Ảnh "${file.name}" vượt quá 3MB, vui lòng chọn ảnh khác.`,
                         'warning'
                     );
                     return;
@@ -2123,7 +2159,7 @@
                 $('#savePhotoBtn').addClass('d-none');
                 Swal.fire(
                     'Cảnh báo',
-                    'Không có ảnh nào hợp lệ (dưới 5MB) được chọn',
+                    'Không có ảnh nào hợp lệ (dưới 3MB) được chọn',
                     'warning',
                     false
                 );
@@ -2131,6 +2167,15 @@
         }
 
         function UdatePhotos() {
+            if (!selectedPhotos || selectedPhotos.length === 0) {
+                Swal.fire(
+                    'Thông báo',
+                    'Vui lòng chọn ít nhất một ảnh để tải lên.',
+                    'warning'
+                );
+                return;
+            }
+
             const formData = new FormData();
             const id = $('#savePhotoBtn').data('id');
 

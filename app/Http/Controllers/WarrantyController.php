@@ -396,6 +396,28 @@ class WarrantyController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
         if ($errorRecords->isNotEmpty()) {
+            // Chuẩn hoá ghi chú: bỏ tiền tố thời gian cũ nếu có (dd/mm/YYYY HH:ii - ...)
+            $normalizeNote = function (?string $note) {
+                if ($note === null) {
+                    return null;
+                }
+                $trimmed = trim($note);
+                if ($trimmed === '') {
+                    return null;
+                }
+
+                // Dạng cũ: "dd/mm/YYYY HH:ii - nội dung"
+                $parts = preg_split('/\s*-\s*/', $trimmed, 2);
+                if (
+                    count($parts) === 2 &&
+                    preg_match('/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}$/', $parts[0])
+                ) {
+                    return trim($parts[1]);
+                }
+
+                return $trimmed;
+            };
+
             // Gom tất cả đường dẫn ảnh lỗi lại, phân tách bằng dấu phẩy
             $allErrorImages = $errorRecords
                 ->pluck('image_upload_error')
@@ -411,6 +433,7 @@ class WarrantyController extends Controller
             // Ghi chú lỗi: nối tất cả note_error theo thứ tự thời gian
             $allNotes = $errorRecords
                 ->pluck('note_error')
+                ->map($normalizeNote)
                 ->filter()
                 ->implode(PHP_EOL);
 
@@ -419,11 +442,11 @@ class WarrantyController extends Controller
             $data->note_error = $allNotes;
 
             // Danh sách các lần upload lỗi riêng lẻ (để hiển thị theo từng ghi chú)
-            $data->error_image_batches = $errorRecords->map(function ($record) {
+            $data->error_image_batches = $errorRecords->map(function ($record) use ($normalizeNote) {
                 return (object) [
                     'id' => $record->id,
                     'images' => $record->image_upload_error,
-                    'note' => $record->note_error,
+                    'note' => $normalizeNote($record->note_error),
                     'created_at' => $record->created_at,
                 ];
             });
@@ -802,44 +825,57 @@ class WarrantyController extends Controller
         // Ảnh lỗi hay ảnh tiếp nhận?
         $isError = $request->boolean('is_error');
 
-        // Xử lý ảnh
-        if ($request->hasFile('photos')) {
-            foreach ($request->file('photos') as $photo) {
-                $path = $photo->store('photos', 'public');
-                $photos[] = $path;
-            }
-            
-            if (!empty($photos)) {
-                if ($isError) {
-                    // Ảnh lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
-                    $uploadError = new WarrantyUploadError();
-                    $uploadError->warranty_request_id = $warranty->id;
-                    $uploadError->image_upload_error = implode(',', $photos);
-
-                    $noteContent = trim((string) $request->input('note_error'));
-                    if ($noteContent !== '') {
-                        $timestamp = now()->format('d/m/Y H:i');
-                        $uploadError->note_error = "{$timestamp} - {$noteContent}";
-                    }
-
-                    $uploadError->save();
-                } else {
-                    // Ảnh tiếp nhận: lưu vào cột image_upload của warranty_requests
-                    if (!empty($warranty->image_upload)) {
-                        $existingPhotos = explode(',', $warranty->image_upload);
-                        $photos = array_merge($existingPhotos, $photos);
-                    }
-                    $warranty->image_upload = implode(',', $photos);
-                    $warranty->save();
-                }
-            }
-            
+        // Bắt buộc phải có ít nhất 1 file ảnh được chọn
+        if (!$request->hasFile('photos')) {
             return response()->json([
-                'success' => true,
-                'message' => 'Upload thành công',
+                'success' => false,
+                'message' => 'Vui lòng chọn ít nhất một ảnh để tải lên.'
             ]);
         }
-        return response()->json(['success' => false, 'message' => 'Upload thất bại']);
+
+        // Xử lý ảnh
+        foreach ($request->file('photos') as $photo) {
+            // Giới hạn 3MB mỗi ảnh (an toàn phía server)
+            if ($photo->getSize() > 3 * 1024 * 1024) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mỗi ảnh tải lên phải nhỏ hơn hoặc bằng 3MB.'
+                ]);
+            }
+
+            $path = $photo->store('photos', 'public');
+            $photos[] = $path;
+        }
+        
+        if (!empty($photos)) {
+            if ($isError) {
+                // Ảnh lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
+                $uploadError = new WarrantyUploadError();
+                $uploadError->warranty_request_id = $warranty->id;
+                $uploadError->image_upload_error = implode(',', $photos);
+
+                $noteContent = trim((string) $request->input('note_error'));
+                if ($noteContent !== '') {
+                    // Chỉ lưu nội dung ghi chú, KHÔNG kèm thời gian
+                    $uploadError->note_error = $noteContent;
+                }
+
+                $uploadError->save();
+            } else {
+                // Ảnh tiếp nhận: lưu vào cột image_upload của warranty_requests
+                if (!empty($warranty->image_upload)) {
+                    $existingPhotos = explode(',', $warranty->image_upload);
+                    $photos = array_merge($existingPhotos, $photos);
+                }
+                $warranty->image_upload = implode(',', $photos);
+                $warranty->save();
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Upload thành công',
+        ]);
     }
         //thêm video
         public function UploadVideo(Request $request)
