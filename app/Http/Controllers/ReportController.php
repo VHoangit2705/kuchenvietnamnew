@@ -668,12 +668,19 @@ class ReportController extends BaseController
 
     /**
      * View PDF report by filename
+     * Đọc từ storage/app/reports/ (private storage)
      */
     public function viewReportPdf($filename)
     {
         $filename = basename($filename);
+        
+        // Nếu filename không có extension .pdf, thêm vào
+        if (!str_ends_with($filename, '.pdf')) {
+            $filename .= '.pdf';
+        }
 
-        $filePath = public_path('storage/reports/' . $filename . '.pdf');
+        // Đọc từ storage/app/reports/ (private, không phải public)
+        $filePath = storage_path('app/reports/' . $filename);
 
         if (!file_exists($filePath)) {
             Log::error("PDF file not found", [
@@ -685,7 +692,7 @@ class ReportController extends BaseController
 
         return response()->file($filePath, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $filename . '.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 

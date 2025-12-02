@@ -14,6 +14,20 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('clear:oldpdfs')->daily();
         
+        // Xóa file báo cáo cũ (cũ hơn 60 ngày) - chạy hàng tuần vào chủ nhật lúc 2:00
+        $schedule->command('clear:old-reports --days=60')
+            ->weeklyOn(0, '02:00')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->before(function () {
+                Log::info('[CLEANUP] Bắt đầu xóa file báo cáo cũ');
+            })
+            ->onSuccess(function () {
+                Log::info('[CLEANUP] Hoàn tất xóa file báo cáo cũ');
+            })
+            ->onFailure(function () {
+                Log::error('[CLEANUP] Lỗi khi xóa file báo cáo cũ');
+            });
+        
         // LỊCH GỬI EMAIL BÁO CÁO TỰ ĐỘNG
         // Gửi báo cáo theo tuần: 15:00 thứ 7 (Saturday)
         $schedule->command('report:send-email weekly')

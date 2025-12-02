@@ -57,7 +57,8 @@ class ReportEmailService
         // Tạo tên tệp duy nhất
         $fileName = 'bao_cao_bao_hanh_' . Str::slug($fromDateFormatted . '_' . $toDateFormatted) . '_' . time() . '.pdf';
         $pdfPath = 'reports/' . $fileName;
-        $fullPath = storage_path('app/public/' . $pdfPath);
+        // Lưu vào storage/app/reports/ (private, không phải public)
+        $fullPath = storage_path('app/' . $pdfPath);
 
         // Đảm bảo thư mục tồn tại
         $directory = dirname($fullPath);
