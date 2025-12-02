@@ -442,14 +442,19 @@ class WarrantyController extends Controller
             $data->note_error = $allNotes;
 
             // Danh sách các lần upload lỗi riêng lẻ (để hiển thị theo từng ghi chú)
-            $data->error_image_batches = $errorRecords->map(function ($record) use ($normalizeNote) {
-                return (object) [
-                    'id' => $record->id,
-                    'images' => $record->image_upload_error,
-                    'note' => $normalizeNote($record->note_error),
-                    'created_at' => $record->created_at,
-                ];
-            });
+            // Chỉ lấy những record có ảnh lỗi (không lấy record chỉ có video)
+            $data->error_image_batches = $errorRecords
+                ->filter(function ($record) {
+                    return !empty($record->image_upload_error) && trim($record->image_upload_error) !== '';
+                })
+                ->map(function ($record) use ($normalizeNote) {
+                    return (object) [
+                        'id' => $record->id,
+                        'images' => $record->image_upload_error,
+                        'note' => $normalizeNote($record->note_error),
+                        'created_at' => $record->created_at,
+                    ];
+                });
         }
         
         // Sử dụng relationship đã eager load và sort trong memory (không query lại)

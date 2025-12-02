@@ -14,11 +14,13 @@ class Warranty_Upload_Error_Controller extends Controller
     public function GetVideosError()
     {
         $data = DB::table('warranty_upload_error')
-            ->select('id', 'warranty_request_id', 'video_upload_error')
+            ->select('id', 'warranty_request_id', 'video_upload_error', 'note_error')
             ->whereNotNull('video_upload_error')
             ->whereRaw('TRIM(video_upload_error) <> ""')
-            ->whereRaw("video_upload_error NOT LIKE 'https%'")
-            ->whereRaw("video_upload_error NOT LIKE 'lỗi%'")
+            ->where('video_upload_error', 'LIKE', '%videos/%')
+            ->where('video_upload_error', 'NOT LIKE', '%uploads%')
+            ->whereRaw("video_upload_error NOT LIKE 'https://%'")
+            ->whereRaw("video_upload_error NOT LIKE '%drive.google.com%'")
             ->limit(3)
             ->get();
         return response()->json([
