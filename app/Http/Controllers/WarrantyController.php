@@ -899,11 +899,27 @@ class WarrantyController extends Controller
             $videoPath = $request->file('video')->store('videos', 'public');
             if ($videoPath) {
                 if ($isError) {
-                    // Video lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
-                    $uploadError = new WarrantyUploadError();
-                    $uploadError->warranty_request_id = $warranty->id;
-                    $uploadError->video_upload_error = $videoPath;
-                    $uploadError->save();
+                    // Video lỗi: 
+                    // - Nếu đã có bản ghi với image_upload_error và video_upload_error = NULL, thì cập nhật bản ghi đó
+                    // - Nếu chưa có bản ghi nào hoặc bản ghi hiện tại đã có cả image và video, thì tạo bản ghi mới
+                    $existingRecord = WarrantyUploadError::where('warranty_request_id', $warranty->id)
+                        ->whereNotNull('image_upload_error')
+                        ->whereRaw('TRIM(image_upload_error) <> ""')
+                        ->whereNull('video_upload_error')
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                    
+                    if ($existingRecord) {
+                        // Cập nhật bản ghi hiện có
+                        $existingRecord->video_upload_error = $videoPath;
+                        $existingRecord->save();
+                    } else {
+                        // Tạo bản ghi mới
+                        $uploadError = new WarrantyUploadError();
+                        $uploadError->warranty_request_id = $warranty->id;
+                        $uploadError->video_upload_error = $videoPath;
+                        $uploadError->save();
+                    }
                 } else {
                     // Video tiếp nhận: lưu vào cột video_upload của warranty_requests
                     $warranty->video_upload = $videoPath;
@@ -1720,7 +1736,8 @@ class WarrantyController extends Controller
         $id = $request->query('sophieu');
         return view('warranty.takephoto', compact('id'));
     }
-    //Lưu hỉnh ảnh và video
+    //Lưu hỉnh ảnh và video (chỉ lưu vào warranty_requests, không lưu vào warranty_upload_error)
+    // Chỉ khi upload lỗi (is_error = true) mới tạo bản ghi trong warranty_upload_error
     public function StoreMedia(Request $request)
     {
         $photos = [];
@@ -1734,44 +1751,31 @@ class WarrantyController extends Controller
             ], 404);
         }
         
-        // Lấy hoặc tạo bản ghi trong warranty_upload_error
-        $uploadError = WarrantyUploadError::firstOrNew([
-            'warranty_request_id' => $warranty->id
-        ]);
-        
-        // Xử lý ảnh
+        // Xử lý ảnh - chỉ lưu vào warranty_requests (không phải lỗi)
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
                 $path = $photo->store('photos', 'public');
                 $photos[] = $path;
             }
             if (!empty($photos)) {
-                // Lưu vào warranty_upload_error
-                $newPhotos = $photos;
-                if (!empty($uploadError->image_upload_error)) {
-                    $existingPhotos = explode(',', $uploadError->image_upload_error);
-                    $newPhotos = array_merge($existingPhotos, $photos);
+                // Chỉ lưu vào warranty_requests (upload tiếp nhận, không phải lỗi)
+                if (!empty($warranty->image_upload)) {
+                    $existingPhotos = explode(',', $warranty->image_upload);
+                    $photos = array_merge($existingPhotos, $photos);
                 }
-                $uploadError->image_upload_error = implode(',', $newPhotos);
-                
-                // Vẫn lưu vào warranty_requests để tương thích ngược
                 $warranty->image_upload = implode(',', $photos);
             }
         }
 
-        // Xử lý video
+        // Xử lý video - chỉ lưu vào warranty_requests (không phải lỗi)
         if ($request->hasFile('video')) {
             $videoPath = $request->file('video')->store('videos', 'public');
             if ($videoPath) {
-                // Lưu vào warranty_upload_error
-                $uploadError->video_upload_error = $videoPath;
-                
-                // Vẫn lưu vào warranty_requests để tương thích ngược
+                // Chỉ lưu vào warranty_requests (upload tiếp nhận, không phải lỗi)
                 $warranty->video_upload = $videoPath;
             }
         }
         
-        $uploadError->save();
         $warranty->save();
 
         return response()->json([
