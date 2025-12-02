@@ -1370,47 +1370,43 @@ class WarrantyController extends Controller
             ], 403);
         }
         
-        //Kiểm tra trùng lặp trước khi tạo phiếu
-        $today = Carbon::today();
-        $zone = session('zone'); // Dữ liệu lấy từ session
+        //Kiểm tra trùng lặp trong 48 giờ (toàn hệ thống)
         $serialNumber = $request->serial_number;
         $serialThanMay = $request->serial_thanmay;
         $productName = $request->product;
         $customerPhone = $request->phone_number;
         
-        if ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
-            // 1. Không có cả serial_number và serial_thanmay
-            $existingWarranty = WarrantyRequest::where('product', $productName)
-                ->where('phone_number', $customerPhone)
-                ->where('branch', $zone) 
-                ->whereDate('received_date', $today)
-                ->first();
-        } elseif ($serialNumber === 'HÀNG KHÔNG CÓ MÃ SERI' && !empty($serialThanMay)) {
-            // 2. Không có serial_number nhưng có serial_thanmay
-            $existingWarranty = WarrantyRequest::where('serial_thanmay', $serialThanMay)
-                ->where('branch', $zone)
-                ->whereDate('received_date', $today)
-                ->first();
-        } elseif ($serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI' && empty($serialThanMay)) {
-            // 3. Có serial_number nhưng không có serial_thanmay
-            $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
-                ->where('branch', $zone)
-                ->whereDate('received_date', $today)
-                ->first();
-        } else {
-            // 4. Có cả serial_number và serial_thanmay
-            $existingWarranty = WarrantyRequest::where('serial_number', $serialNumber)
-                ->where('serial_thanmay', $serialThanMay)
-                ->where('branch', $zone)
-                ->whereDate('received_date', $today)
-                ->first();
-        }
+        // Kiểm tra trùng trong 48 giờ
+        $duplicateCheck = $this->checkDuplicateWarranty(
+            $serialNumber,
+            $serialThanMay,
+            $productName,
+            $customerPhone
+        );
         
-        if ($existingWarranty) {
+        if ($duplicateCheck['exists']) {
+            $existingWarranty = $duplicateCheck['warranty'];
+            $hoursAgo = Carbon::parse($existingWarranty->received_date)->diffInHours(now());
+            $daysAgo = Carbon::parse($existingWarranty->received_date)->diffInDays(now());
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Phiếu bảo hành đã được tạo hôm nay tại chi nhánh. Vui lòng kiểm tra lại.'
-            ]);
+                'message' => $duplicateCheck['message'],
+                'existing_warranty' => [
+                    'id' => $existingWarranty->id,
+                    'serial_number' => $existingWarranty->serial_number,
+                    'serial_thanmay' => $existingWarranty->serial_thanmay,
+                    'received_date' => $existingWarranty->received_date,
+                    'staff_received' => $existingWarranty->staff_received,
+                    'full_name' => $existingWarranty->full_name,
+                    'phone_number' => $existingWarranty->phone_number,
+                    'status' => $existingWarranty->status,
+                    'branch' => $existingWarranty->branch,
+                    'hours_ago' => $hoursAgo,
+                    'days_ago' => $daysAgo,
+                    'product' => $existingWarranty->product
+                ]
+            ], 409); // HTTP 409 Conflict
         }
         
         $pw = ProductWarranty::with('order_product.order')
@@ -1433,7 +1429,7 @@ class WarrantyController extends Controller
             'phone_number' => $request->phone_number,
             'address' => $request->address,
             'staff_received' => session('user'),
-            'received_date' => Carbon::today(),
+            'received_date' => Carbon::now(),
             'warranty_end' => $warrantyEnd->format('Y-m-d'),
             'branch' => $request->branch,
             'shipment_date' => Carbon::createFromFormat('d/m/Y', $request->shipment_date)->format('Y-m-d'),
@@ -1670,6 +1666,92 @@ class WarrantyController extends Controller
             'success' => true,
             'message' => 'Đã xóa cảnh báo thành công.'
         ]);
+    }
+
+    /**
+     * Kiểm tra phiếu bảo hành trùng trong 48 giờ (toàn hệ thống)
+     * 
+     * @param string|null $serialNumber
+     * @param string|null $serialThanMay
+     * @param string $productName
+     * @param string $customerPhone
+     * @return array ['exists' => bool, 'warranty' => WarrantyRequest|null, 'message' => string]
+     */
+    private function checkDuplicateWarranty(
+        $serialNumber, 
+        $serialThanMay, 
+        $productName, 
+        $customerPhone
+    ) {
+        $hoursAgo = Carbon::now()->subHours(48);
+        
+        // Normalize dữ liệu: trim và kiểm tra rỗng
+        $serialNumber = $serialNumber ? trim($serialNumber) : null;
+        $serialThanMay = $serialThanMay ? trim($serialThanMay) : null;
+        // Normalize số điện thoại: bỏ tất cả ký tự không phải số
+        $customerPhone = $customerPhone ? preg_replace('/[^0-9]/', '', trim($customerPhone)) : null;
+        
+        // Trường hợp 1: Có serial_number hợp lệ (ưu tiên cao nhất)
+        if ($serialNumber && $serialNumber !== '' && $serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI') {
+            $existing = WarrantyRequest::whereRaw('LOWER(serial_number) = ?', [strtolower($serialNumber)])
+                ->where('received_date', '>=', $hoursAgo)
+                ->orderBy('received_date', 'desc')
+                ->first();
+                
+            if ($existing) {
+                return [
+                    'exists' => true,
+                    'warranty' => $existing,
+                    'message' => 'Phiếu bảo hành cho Serial Number này đã tồn tại trong 2 ngày gần nhất.'
+                ];
+            }
+        }
+        
+        // Trường hợp 2: Không có serial_number hợp lệ nhưng có serial_thanmay
+        // Kiểm tra: serial_number rỗng/null/'HÀNG KHÔNG CÓ MÃ SERI' VÀ serial_thanmay có giá trị
+        $hasValidSerialNumber = $serialNumber && $serialNumber !== '' && $serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI';
+        $hasValidSerialThanMay = $serialThanMay && $serialThanMay !== '';
+        
+        if (!$hasValidSerialNumber && $hasValidSerialThanMay) {
+            $existing = WarrantyRequest::whereRaw('LOWER(serial_thanmay) = ?', [strtolower($serialThanMay)])
+                ->where('received_date', '>=', $hoursAgo)
+                ->orderBy('received_date', 'desc')
+                ->first();
+                
+            if ($existing) {
+                return [
+                    'exists' => true,
+                    'warranty' => $existing,
+                    'message' => 'Phiếu bảo hành cho Serial thân máy này đã tồn tại trong 2 ngày gần nhất.'
+                ];
+            }
+        }
+        
+        // Trường hợp 3: Không có cả serial_number và serial_thanmay hợp lệ
+        // Kiểm tra theo product + phone_number (lưu ý: phone có thể thay đổi)
+        if (!$hasValidSerialNumber && !$hasValidSerialThanMay) {
+            // Lấy tất cả records trong 48h với product match, sau đó normalize phone trong PHP
+            $candidates = WarrantyRequest::where('product', $productName)
+                ->where('received_date', '>=', $hoursAgo)
+                ->orderBy('received_date', 'desc')
+                ->get();
+            
+            // So sánh phone đã được normalize (chỉ số)
+            $existing = $candidates->first(function ($item) use ($customerPhone) {
+                $dbPhone = preg_replace('/[^0-9]/', '', $item->phone_number ?? '');
+                return $dbPhone === $customerPhone;
+            });
+                
+            if ($existing) {
+                return [
+                    'exists' => true,
+                    'warranty' => $existing,
+                    'message' => 'Phiếu bảo hành cho sản phẩm và số điện thoại này đã tồn tại trong 2 ngày gần nhất.'
+                ];
+            }
+        }
+        
+        return ['exists' => false, 'warranty' => null, 'message' => ''];
     }
 
 }
