@@ -72,7 +72,7 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getBaoHanhCount($view, $request)
     {
-        $query = WarrantyRequest::where('type', 'agent_home')
+        $query = WarrantyRequest::where('type', 'agent_component')
             ->where('view', $view);
 
         return $this->applyCommonFiltersToWarranty($query, $request)
@@ -189,9 +189,10 @@ class CollaboratorInstallCountsController extends Controller
 
         return $query->when($madon, fn($q) => $q->where('serial_number', 'like', "%$madon%"))
             ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
+            // Lọc theo received_date để trùng với "Ngày tạo" hiển thị ở bảng
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
             ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('Ngaytao', '<=', $denngay);
+                $q->whereDate('received_date', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
