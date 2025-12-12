@@ -285,7 +285,8 @@ class CollaboratorInstallController extends Controller
 
         // Phân trang + sắp xếp
         if ($tab === 'dieuphoibaohanh') {
-            $data = $mainQuery->orderByDesc('Ngaytao')->orderByDesc('id')->paginate(50)->withQueryString();
+            // Sắp xếp ca bảo hành theo ngày nhận phiếu (received_date) mới nhất
+            $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
         } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
             $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();
         } else {
@@ -352,7 +353,7 @@ class CollaboratorInstallController extends Controller
                     ->orderByDesc('orders.created_at');
             },
             'dieuphoibaohanh' => function () use ($view) {
-                return WarrantyRequest::where('type', 'agent_home')
+                return WarrantyRequest::where('type', 'agent_component')
                     ->where('view', $view);
             },
             'dadieuphoi' => function () use ($view) {
@@ -466,9 +467,10 @@ class CollaboratorInstallController extends Controller
         elseif ($tab === 'dieuphoibaohanh') {
             $query->when($madon, fn($q) => $q->where('serial_number', 'like', "%$madon%"))
                 ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-                ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
+                // Lọc theo ngày nhận phiếu (received_date) để đồng bộ với cột "Ngày tạo" hiển thị ngoài view
+                ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
                 ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                    $q->whereDate('Ngaytao', '<=', $denngay);
+                    $q->whereDate('received_date', '<=', $denngay);
                 })
                 ->when($trangthai, function ($q) use ($trangthai) {
                     if ($trangthai === '0') {
