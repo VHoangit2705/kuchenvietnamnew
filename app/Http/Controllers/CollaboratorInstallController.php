@@ -17,6 +17,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Kho\Agency;
 use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
+use App\Models\KyThuat\RequestAgency;
 use App\Enum;
 class CollaboratorInstallController extends Controller
 {
@@ -356,38 +357,48 @@ class CollaboratorInstallController extends Controller
                 return WarrantyRequest::where('type', 'agent_component')
                     ->where('view', $view);
             },
+            // Dùng leftJoin để không mất bản ghi khi product_name không khớp bảng products
+            // và vẫn ưu tiên lọc theo view nếu có.
             'dadieuphoi' => function () use ($view) {
-                return InstallationOrder::join('products as p', function($join){
+                return InstallationOrder::leftJoin('products as p', function($join){
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where('p.view', $view)
+                    ->where(function($q) use ($view) {
+                        $q->where('p.view', $view)->orWhereNull('p.view');
+                    })
                     ->select('installation_orders.*')
                     ->where('installation_orders.status_install', 1)
                     ->whereNotNull('installation_orders.collaborator_id')
                     ->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
             },
             'dailylapdat' => function () use ($view) {
-                return InstallationOrder::join('products as p', function($join){
+                return InstallationOrder::leftJoin('products as p', function($join){
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where('p.view', $view)
+                    ->where(function($q) use ($view) {
+                        $q->where('p.view', $view)->orWhereNull('p.view');
+                    })
                     ->select('installation_orders.*')
                     ->where('installation_orders.status_install', 1)
                     ->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
             },
             'dahoanthanh' => function () use ($view) {
-                return InstallationOrder::join('products as p', function($join){
+                return InstallationOrder::leftJoin('products as p', function($join){
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where('p.view', $view)
+                    ->where(function($q) use ($view) {
+                        $q->where('p.view', $view)->orWhereNull('p.view');
+                    })
                     ->select('installation_orders.*')
                     ->where('installation_orders.status_install', 2);
             },
             'dathanhtoan' => function () use ($view) {
-                return InstallationOrder::join('products as p', function($join){
+                return InstallationOrder::leftJoin('products as p', function($join){
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where('p.view', $view)
+                    ->where(function($q) use ($view) {
+                        $q->where('p.view', $view)->orWhereNull('p.view');
+                    })
                     ->select('installation_orders.*')
                     ->where('installation_orders.status_install', 3);
             },
@@ -611,6 +622,44 @@ class CollaboratorInstallController extends Controller
             $agency_phone = $installationOrder ? $installationOrder->agency_phone : ($order->agency_phone ?? null);
         }
         
+        // FLOW XỬ LÝ REQUEST_AGENCY:
+        // 1. Đại   lý gửi form → tạo request_agency với status = "chua_tiep_nhan"
+        // 2. User tiếp nhận → cập nhật status = "da_tiep_nhan"
+        // 3. User điều phối tra mã đơn hàng → kiểm tra có request_agency không
+        // 4. Nếu có và tích "Đại lý lắp đặt" → tự động điền thông tin và cập nhật status = "da_dieu_phoi"
+        
+        // Kiểm tra xem có yêu cầu đại lý (request_agency) với mã đơn hàng này không
+        $requestAgency = null;
+        $requestAgencyAgency = null; // Agency lấy theo agency_id trong request_agency
+        if ($orderCode) {
+            // Lấy request_agency với các trạng thái: chua_tiep_nhan, da_tiep_nhan (chưa điều phối)
+            $requestAgency = RequestAgency::where('order_code', $orderCode)
+                ->whereIn('status', [
+                    RequestAgency::STATUS_CHUA_TIEP_NHAN,
+                    RequestAgency::STATUS_DA_TIEP_NHAN
+                ])
+                ->orderByDesc('created_at') // Lấy bản ghi mới nhất nếu có nhiều
+                ->first();
+            
+            // Nếu có request_agency đã tiếp nhận, ưu tiên lấy thông tin từ đó
+            if ($requestAgency) {
+                // Lấy thông tin agency theo agency_id (database kho_kuchen - connection mysql3)
+                if (!empty($requestAgency->agency_id)) {
+                    $requestAgencyAgency = Agency::find($requestAgency->agency_id);
+                }
+
+                // Ưu tiên thông tin từ request_agency cho đại lý
+                if (empty($agency_phone) && $requestAgencyAgency?->phone) {
+                    $agency_phone = $requestAgencyAgency->phone;
+                }
+                
+                // Nếu chưa có địa chỉ lắp đặt chi tiết, lấy từ request_agency
+                if ($installationOrder && empty($installationOrder->address)) {
+                    $installationOrder->address = $requestAgency->installation_address;
+                }
+            }
+        }
+        
         $agency = Agency::where('phone', $agency_phone)->first();
         $provinces = Province::orderBy('name')->get();
         
@@ -634,7 +683,19 @@ class CollaboratorInstallController extends Controller
             ->limit(10)
             ->get();
 
-        return view('collaboratorinstall.details', compact('data', 'lstCollaborator', 'provinces', 'agency', 'fullAddress', 'installationOrder', 'order', 'orderCode', 'statusInstall'));
+        return view('collaboratorinstall.details', compact(
+            'data',
+            'lstCollaborator',
+            'provinces',
+            'agency',
+            'fullAddress',
+            'installationOrder',
+            'order',
+            'orderCode',
+            'statusInstall',
+            'requestAgency',
+            'requestAgencyAgency'
+        ));
     }
 
     public function Update(Request $request)
@@ -764,7 +825,8 @@ class CollaboratorInstallController extends Controller
             $model->save();
 
             // Ghi log thay đổi CTV nếu có thay đổi
-            $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code;
+            // Bổ sung fallback order_code1 để tránh mất bản ghi khi mã đơn nằm ở order_code1
+            $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code1 ?? $model->order_code;
             if (!empty($orderCode) && $oldCollaboratorId != $ctvId) {
                 $this->logCollaboratorChange($oldCollaboratorId, $ctvId, $orderCode);
             }
@@ -774,38 +836,86 @@ class CollaboratorInstallController extends Controller
                 $this->logStatusChange($orderCode, $oldStatus, $model->status_install, $action);
             }
 
+            // Cập nhật trạng thái request_agency nếu có
+            // LOGIC: Khi tích "Đại lý lắp đặt" (ctv_id = 1) và điều phối (status_install >= 1)
+            // → Cập nhật request_agency status từ "chua_tiep_nhan" hoặc "da_tiep_nhan" → "da_dieu_phoi"
+            if (!empty($orderCode)) {
+                $requestAgency = RequestAgency::where('order_code', $orderCode)
+                    ->whereIn('status', [
+                        RequestAgency::STATUS_CHUA_TIEP_NHAN,
+                        RequestAgency::STATUS_DA_TIEP_NHAN
+                    ])
+                    ->first();
+                    
+                if ($requestAgency) {
+                    // Nếu chọn "Đại lý lắp đặt" (ctv_id = 1) và đang điều phối (status_install >= 1)
+                    if ($ctvId == Enum::AGENCY_INSTALL_FLAG_ID && $model->status_install >= 1) {
+                        // Cập nhật status thành "Đã điều phối"
+                        $requestAgency->status = RequestAgency::STATUS_DA_DIEU_PHOI;
+                        $requestAgency->assigned_to = session('user', 'system');
+                        $requestAgency->save();
+                        
+                        Log::info('RequestAgency updated to da_dieu_phoi', [
+                            'order_code' => $orderCode,
+                            'request_agency_id' => $requestAgency->id,
+                            'assigned_to' => session('user', 'system')
+                        ]);
+                    }
+                }
+            }
+
             try {
+                // LOGIC: Đảm bảo tạo/update installation_order để đơn hàng hiển thị đúng tab
                 // Chỉ thực hiện updateOrCreate nếu có order_code
                 $orderCode = $model->order_code2 ?? $model->serial_number ?? $model->order_code;
                 if (!empty($orderCode)) {
-                    InstallationOrder::updateOrCreate(
+                    // Lấy thông tin từ request_agency nếu có (ưu tiên)
+                $requestAgency = RequestAgency::where('order_code', $orderCode)->first();
+                    $requestAgencyAgency = null;
+                    if ($requestAgency && $requestAgency->agency_id) {
+                        $requestAgencyAgency = Agency::find($requestAgency->agency_id);
+                    }
+                    
+                    $installationOrderData = [
+                        'full_name'        => $requestAgency->customer_name ?? $model->customer_name ?? $model->full_name,
+                        'phone_number'     => $requestAgency->customer_phone ?? $model->customer_phone ?? $model->phone_number,
+                        'address'          => $requestAgency->installation_address ?? $model->customer_address ?? $model->address,
+                        'product'          => $request->product ?? $requestAgency->product_name ?? $model->product_name ?? $model->product,
+                        'province_id'      => $model->province ?? $model->province_id,
+                        'district_id'      => $model->district ?? $model->district_id,
+                        'ward_id'          => $model->wards ?? $model->ward_id,
+                        'collaborator_id'  => $model->collaborator_id,
+                        'install_cost'     => $model->install_cost,
+                        'status_install'   => $model->status_install,
+                        'reviews_install'  => $model->reviews_install,
+                        // Lưu sẵn tên/điện thoại đại lý từ bảng agency (nếu có)
+                        'agency_name'      => $requestAgencyAgency->name ?? $model->agency_name ?? '',
+                        'agency_phone'     => $requestAgencyAgency->phone ?? $model->agency_phone ?? '',
+                        'type'             => $request->type ?? 'donhang',
+                        'zone'             => $model->zone ?? '',
+                        'created_at'       => $model->created_at ?? $model->Ngaytao ?? now(),
+                        'successed_at'     => $model->successed_at
+                    ];
+                    
+                    $installationOrder = InstallationOrder::updateOrCreate(
                         [
                             'order_code' => $orderCode,
                         ],
-                        [
-                            'full_name'        => $model->customer_name ?? $model->full_name,
-                            'phone_number'     => $model->customer_phone ?? $model->phone_number,
-                            'address'          => $model->customer_address ?? $model->address,
-                            'product'          => $request->product,
-                            'province_id'      => $model->province ?? $model->province_id,
-                            'district_id'      => $model->district ?? $model->district_id,
-                            'ward_id'          => $model->wards ?? $model->ward_id,
-                            'collaborator_id'  => $model->collaborator_id,
-                            'install_cost'     => $model->install_cost,
-                            'status_install'   => $model->status_install,
-                            'reviews_install'  => $model->reviews_install,
-                            'agency_name'      => $model->agency_name ?? '',
-                            'agency_phone'     => $model->agency_phone ?? '',
-                            'type'             => $request->type,
-                            'zone'             => $model->zone,
-                            'created_at'       => $model->created_at ?? $model->Ngaytao ?? null,
-                            'successed_at'     => $model->successed_at
-                        ]
+                        $installationOrderData
                     );
+                    
+                    // Log để debug
+                    Log::info('InstallationOrder updated/created', [
+                        'order_code' => $orderCode,
+                        'status_install' => $installationOrder->status_install,
+                        'collaborator_id' => $installationOrder->collaborator_id,
+                        'is_agency' => $installationOrder->collaborator_id == Enum::AGENCY_INSTALL_FLAG_ID
+                    ]);
                 }
             } catch (\Exception $e) {
                 Log::error("InstallationOrder updateOrCreate failed", [
                     'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                     'model_id' => $model->id,
                     'order_code' => $orderCode ?? 'empty'
                 ]);

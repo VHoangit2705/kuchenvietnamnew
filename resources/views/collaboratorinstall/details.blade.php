@@ -69,8 +69,8 @@
                                     <th>Tên sản phẩm:</th>
                                     <td colspan="3">
                                         @php
-                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ data gốc
-                                        $productName = $installationOrder->product ?? $data->product_name ?? $data->product ?? '';
+                                        // Ưu tiên từ request_agency (nếu có), sau đó installation_order, cuối cùng data gốc
+                                        $productName = $requestAgency->product_name ?? $installationOrder->product ?? $data->product_name ?? $data->product ?? '';
                                         @endphp
                                         <input type="text" id="product_name" hidden value="{{ $productName }}">
                                         {{ $productName }}
@@ -80,8 +80,8 @@
                                     <th>Khách hàng:</th>
                                     <td colspan="3">
                                         @php
-                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ order/warranty_request
-                                        $customerName = $installationOrder->full_name ?? $order->customer_name ?? $data->order->customer_name ?? $data->full_name ?? '';
+                                        // Ưu tiên từ request_agency (nếu có), sau đó installation_order, cuối cùng order/warranty_request
+                                        $customerName = $requestAgency->customer_name ?? $installationOrder->full_name ?? $order->customer_name ?? $data->order->customer_name ?? $data->full_name ?? '';
                                         @endphp
                                         {{ $customerName }}
                                     </td>
@@ -90,8 +90,8 @@
                                     <th>Số điện thoại:</th>
                                     <td colspan="3">
                                         @php
-                                        // Ưu tiên từ installation_order, nếu không có mới lấy từ order/warranty_request
-                                        $customerPhone = $installationOrder->phone_number ?? $order->customer_phone ?? $data->order->customer_phone ?? $data->phone_number ?? '';
+                                        // Ưu tiên từ request_agency (nếu có), sau đó installation_order, cuối cùng order/warranty_request
+                                        $customerPhone = $requestAgency->customer_phone ?? $installationOrder->phone_number ?? $order->customer_phone ?? $data->order->customer_phone ?? $data->phone_number ?? '';
                                         @endphp
                                         {{ $customerPhone }}
                                     </td>
@@ -245,23 +245,105 @@
 
         <div class="col-12 col-md-6">
             <div class="card h-100">
-                <div class="card-header bg-secondary text-white text-center">
+                @php
+                    $requestAgencyType = $requestAgency->type ?? null;
+                    $requestAgencyTypeLabelShort = match((string)$requestAgencyType) {
+                        '0' => 'Đại lý tự lắp đặt',
+                        '1' => 'Yêu cầu CTV',
+                        default => 'Yêu cầu đại lý',
+                    };
+                    $requestAgencyTypeLabelFull = match((string)$requestAgencyType) {
+                        '0' => 'Đại lý tự lắp đặt (đại lý tự thực hiện lắp đặt)',
+                        '1' => 'Yêu cầu Kuchen cử CTV lắp đặt tại nhà',
+                        default => 'Yêu cầu lắp đặt từ đại lý',
+                    };
+                    $requestAgencyTypeBadge = match((string)$requestAgencyType) {
+                        '0' => 'info',
+                        '1' => 'warning',
+                        default => 'secondary',
+                    };
+                @endphp
+                <div class="card-header bg-secondary text-white text-center position-relative">
                     <h5 class="mb-0">Thông tin đại lý</h5>
+                    @if($requestAgency)
+                    <span class="badge bg-{{ $requestAgencyTypeBadge }} position-absolute top-0 end-0 m-2" style="font-size: 0.7rem;" title="{{ $requestAgencyTypeLabelFull }}">
+                        <i class="bi bi-info-circle me-1"></i>{{ $requestAgencyTypeLabelShort }}
+                    </span>
+                    @endif
                 </div>
                 <div class="card-body">
+                    @if($requestAgency)
+                    {{-- Hidden input để JavaScript sử dụng dữ liệu request_agency --}}
+                    <div id="request_agency_data" 
+                        data-agency-id="{{ $requestAgency->agency_id ?? '' }}"
+                        data-agency-name="{{ $requestAgencyAgency->name ?? '' }}"
+                        data-agency-phone="{{ $requestAgencyAgency->phone ?? '' }}"
+                        data-agency-address="{{ $requestAgencyAgency->address ?? '' }}"
+                        data-agency-bank="{{ $requestAgencyAgency->bank_name_agency ?? '' }}"
+                        data-agency-paynumber="{{ $requestAgencyAgency->sotaikhoan ?? '' }}"
+                        data-agency-branch="{{ $requestAgencyAgency->chinhanh ?? '' }}"
+                        data-agency-cccd="{{ $requestAgencyAgency->cccd ?? '' }}"
+                        data-agency-release-date="{{ $requestAgencyAgency->ngaycap ?? '' }}"
+                        data-agency-type="{{ $requestAgencyType ?? '' }}"
+                        data-installation-address="{{ $requestAgency->installation_address ?? '' }}"
+                        data-product-name="{{ $requestAgency->product_name ?? '' }}"
+                        data-customer-name="{{ $requestAgency->customer_name ?? '' }}"
+                        data-customer-phone="{{ $requestAgency->customer_phone ?? '' }}"
+                        data-notes="{{ $requestAgency->notes ?? '' }}"
+                        data-status="{{ $requestAgency->status ?? '' }}"
+                        style="display: none;">
+                    </div>
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Thông báo:</strong>
+                        <p class="mb-1"><strong>Loại yêu cầu:</strong> <span class="badge bg-{{ $requestAgencyTypeBadge }}">{{ $requestAgencyTypeLabelFull }}</span></p>
+                        @if((string)$requestAgencyType === '0')
+                            <p class="mb-1">Hệ thống ghi nhận đại lý tự thực hiện lắp đặt. Khi tích "Đại lý lắp đặt", thông tin sẽ được tự động điền từ yêu cầu.</p>
+                        @elseif((string)$requestAgencyType === '1')
+                            <p class="mb-1">Hệ thống ghi nhận đại lý yêu cầu Kuchen cử cộng tác viên đến lắp đặt tại nhà khách hàng. Vui lòng điều phối/ chọn CTV phù hợp (không cần bật "Đại lý lắp đặt" nếu CTV thực hiện).</p>
+                        @else
+                            <p class="mb-1">Hệ thống ghi nhận yêu cầu lắp đặt từ đại lý.</p>
+                        @endif
+                        <br><small class="text-muted">
+                            <strong>Trạng thái:</strong> 
+                            @if($requestAgency->status == 'chua_tiep_nhan')
+                                <span class="badge bg-warning">Chưa tiếp nhận</span>
+                            @elseif($requestAgency->status == 'da_tiep_nhan')
+                                <span class="badge bg-info">Đã tiếp nhận</span>
+                            @elseif($requestAgency->status == 'da_dieu_phoi')
+                                <span class="badge bg-success">Đã điều phối</span>
+                            @endif
+                            @if($requestAgency->notes)
+                            <br><strong>Ghi chú:</strong> {{ $requestAgency->notes }}
+                            @endif
+                        </small>
+                    </div>
+                    @endif
                     <div class="table-responsive col-12">
                         <table class="table table-striped">
                             <tbody>
                                 <tr>
                                     <th class="w-50">Tên đại lý:</th>
                                     <td class="w-50" data-agency="agency_name">
-                                        <span class="text-value">{{ $data->order->agency_name ?? $data->agency_name}}</span>
+                                        {{-- Ưu tiên: agency từ request_agency (agency_id) > installation_order > order > data gốc --}}
+                                        <span class="text-value">{{ $requestAgencyAgency->name ?? $installationOrder->agency_name ?? $data->order->agency_name ?? $data->agency_name ?? ''}}</span>
+                                        @if($requestAgencyAgency && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @elseif (!empty($data->order->agency_name ?? $data->agency_name) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Số điện thoại đại lý:</th>
                                     <td data-agency="agency_phone">
-                                        <span class="text-value">{{ $data->order->agency_phone ?? $data->agency_phone }}</span>
+                                        {{-- Ưu tiên: agency từ request_agency (agency_id) > installation_order > order > data gốc --}}
+                                        <span class="text-value">{{ $requestAgencyAgency->phone ?? $installationOrder->agency_phone ?? $data->order->agency_phone ?? $data->agency_phone ?? '' }}</span>
+                                        @if($requestAgencyAgency && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @elseif (!empty($data->order->agency_phone ?? $data->agency_phone) && ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr>
@@ -846,6 +928,131 @@
                 // Clear các trường CTV (không lưu giá trị hiện tại)
                 clearCtvData();
                 
+                // LOGIC: Nếu có request_agency, tự động điền thông tin từ yêu cầu đại lý
+                // Ưu tiên: request_agency > dữ liệu hiện có
+                let $requestAgencyData = $("#request_agency_data");
+                if ($requestAgencyData.length) {
+                    let agencyId = $requestAgencyData.data('agency-id') || '';
+                    let agencyName = $requestAgencyData.data('agency-name') || '';
+                    let agencyPhone = $requestAgencyData.data('agency-phone') || '';
+                    let agencyAddress = $requestAgencyData.data('agency-address') || '';
+                    let agencyBank = $requestAgencyData.data('agency-bank') || '';
+                    let agencyPayNumber = $requestAgencyData.data('agency-paynumber') || '';
+                    let agencyBranch = $requestAgencyData.data('agency-branch') || '';
+                    let agencyCccd = $requestAgencyData.data('agency-cccd') || '';
+                    let agencyReleaseDate = $requestAgencyData.data('agency-release-date') || '';
+                    let installationAddress = $requestAgencyData.data('installation-address') || '';
+                    let productName = $requestAgencyData.data('product-name') || '';
+                    let customerName = $requestAgencyData.data('customer-name') || '';
+                    let customerPhone = $requestAgencyData.data('customer-phone') || '';
+                    let notes = $requestAgencyData.data('notes') || '';
+                    
+                    let hasChanges = false;
+                    
+                    // Cập nhật thông tin đại lý (ưu tiên từ request_agency)
+                    if (agencyName) {
+                        let currentAgencyName = $("td[data-agency='agency_name'] .text-value").text().trim();
+                        if (agencyName !== currentAgencyName) {
+                            $("td[data-agency='agency_name'] .text-value").text(agencyName);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyPhone) {
+                        let currentAgencyPhone = $("td[data-agency='agency_phone'] .text-value").text().trim();
+                        if (agencyPhone !== currentAgencyPhone) {
+                            $("td[data-agency='agency_phone'] .text-value").text(agencyPhone);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyAddress) {
+                        let currentAgencyAddress = $("td[data-agency='agency_address'] .text-value").text().trim();
+                        if (agencyAddress !== currentAgencyAddress) {
+                            $("td[data-agency='agency_address'] .text-value").text(agencyAddress);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyBank) {
+                        let currentAgencyBank = $("td[data-agency='agency_bank'] .text-value").text().trim();
+                        if (agencyBank !== currentAgencyBank) {
+                            $("td[data-agency='agency_bank'] .text-value").text(agencyBank);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyPayNumber) {
+                        let currentAgencyPay = $("td[data-agency='agency_paynumber'] .text-value").text().trim();
+                        if (agencyPayNumber !== currentAgencyPay) {
+                            $("td[data-agency='agency_paynumber'] .text-value").text(agencyPayNumber);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyBranch) {
+                        let currentAgencyBranch = $("td[data-agency='agency_branch'] .text-value").text().trim();
+                        if (agencyBranch !== currentAgencyBranch) {
+                            $("td[data-agency='agency_branch'] .text-value").text(agencyBranch);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyCccd) {
+                        let currentAgencyCccd = $("td[data-agency='agency_cccd'] .text-value").text().trim();
+                        if (agencyCccd !== currentAgencyCccd) {
+                            $("td[data-agency='agency_cccd'] .text-value").text(agencyCccd);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyReleaseDate) {
+                        let currentAgencyReleaseDate = $("td[data-agency='agency_release_date'] .text-value").text().trim();
+                        let formattedReleaseDate = agencyReleaseDate;
+                        // Nếu ngày dạng YYYY-MM-DD, đổi sang dd/mm/YYYY cho đồng nhất
+                        if (agencyReleaseDate.match(/^\\d{4}-\\d{2}-\\d{2}$/)) {
+                            let parts = agencyReleaseDate.split('-');
+                            formattedReleaseDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        }
+                        if (formattedReleaseDate !== currentAgencyReleaseDate) {
+                            $("td[data-agency='agency_release_date'] .text-value").text(formattedReleaseDate);
+                            hasChanges = true;
+                        }
+                    }
+                    
+                    // Cập nhật địa chỉ lắp đặt khách hàng (ưu tiên từ request_agency)
+                    if (installationAddress) {
+                        let fullAddress = "{{ $fullAddress }}";
+                        let fullAddressText = installationAddress;
+                        if (fullAddress) {
+                            fullAddressText = installationAddress + ", " + fullAddress;
+                        }
+                        let currentAddress = $("td[data-field='customer_address'] .text-value").text().trim();
+                        if (fullAddressText !== currentAddress) {
+                            $("td[data-field='customer_address'] .text-value").text(fullAddressText);
+                            $("#customer_address_full").val(fullAddressText);
+                            hasChanges = true;
+                        }
+                    }
+                    
+                    // Cập nhật tên sản phẩm nếu có
+                    if (productName && $("#product_name").length) {
+                        let currentProduct = $("#product_name").val();
+                        if (productName !== currentProduct) {
+                            $("#product_name").val(productName);
+                            hasChanges = true;
+                        }
+                    }
+                    
+                    // Hiển thị thông báo nếu có thay đổi
+                    if (hasChanges && !Swal.isVisible()) {
+                        let message = 'Thông tin đã được tự động điền từ yêu cầu lắp đặt của đại lý.';
+                        if (notes) {
+                            message += '\n\nGhi chú: ' + notes;
+                        }
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Đã điền thông tin từ yêu cầu đại lý',
+                            text: message,
+                            timer: 3000,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+                
                 $(".installCostRow").show();
                 $(".ctv_row").hide();
                 $("#install_cost_row").hide();
@@ -867,7 +1074,41 @@
             runAllInitialValidations();
         });
 
+        // Khi trang load, nếu đã tích "Đại lý lắp đặt" và có request_agency, điền thông tin
+        // LOGIC: Tự động điền thông tin từ request_agency khi đã tích checkbox
         if ($("#isInstallAgency").is(":checked")) {
+            let $requestAgencyData = $("#request_agency_data");
+            if ($requestAgencyData.length) {
+                let agencyName = $requestAgencyData.data('agency-name') || '';
+                let agencyPhone = $requestAgencyData.data('agency-phone') || '';
+                let installationAddress = $requestAgencyData.data('installation-address') || '';
+                let productName = $requestAgencyData.data('product-name') || '';
+                
+                // Cập nhật thông tin đại lý (ưu tiên từ request_agency)
+                if (agencyName) {
+                    $("td[data-agency='agency_name'] .text-value").text(agencyName);
+                }
+                if (agencyPhone) {
+                    $("td[data-agency='agency_phone'] .text-value").text(agencyPhone);
+                }
+                
+                // Cập nhật địa chỉ lắp đặt
+                if (installationAddress) {
+                    let fullAddress = "{{ $fullAddress }}";
+                    let fullAddressText = installationAddress;
+                    if (fullAddress) {
+                        fullAddressText = installationAddress + ", " + fullAddress;
+                    }
+                    $("td[data-field='customer_address'] .text-value").text(fullAddressText);
+                    $("#customer_address_full").val(fullAddressText);
+                }
+                
+                // Cập nhật tên sản phẩm
+                if (productName && $("#product_name").length) {
+                    $("#product_name").val(productName);
+                }
+            }
+            
             $(".installCostRow").show();
             $(".ctv_row").hide();
             $("#install_cost_row").hide();

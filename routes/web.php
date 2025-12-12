@@ -13,6 +13,7 @@ use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\RequestAgencyController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -133,6 +134,12 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/phanquyennhom', [PermissionController::class, 'IndexRole'])->name('permission.roles');
     Route::get('/admin/phanquyennhom/chinhsua/{manhom}', [PermissionController::class, 'Detail'])->name('permission.detail');
     Route::delete('/admin/phanquyennhom/xoa/{id}', [PermissionController::class, 'Delete'])->name('permission.delete');
+});
+
+// Request Agency (Yêu cầu lắp đặt đại lý)
+Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+    Route::resource('requestagency', RequestAgencyController::class);
+    Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
 });
 
 // hỗ trợ

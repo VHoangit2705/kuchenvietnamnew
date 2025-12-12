@@ -81,10 +81,12 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getDaDieuPhoiCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
             ->where('installation_orders.status_install', 1)
             ->whereNotNull('installation_orders.collaborator_id')
             ->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
@@ -95,10 +97,12 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getAgencyInstallCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
             ->where('installation_orders.status_install', 1)
             ->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
     
@@ -108,10 +112,12 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getDaHoanThanhCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
             ->where('installation_orders.status_install', 2);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
@@ -120,10 +126,12 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getDaThanhToanCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
             ->where('installation_orders.status_install', 3);
     
         return $this->applyCommonFiltersToInstallation($query, $request)

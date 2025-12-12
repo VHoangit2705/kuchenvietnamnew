@@ -33,42 +33,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-size: 14px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #f8f9fa;
-            overflow-x: hidden;
-        }
-
-        .full-height {
-            min-height: 100vh;
-        }
-
-        .content {
-            flex: 1 0 auto;
-        }
-        
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.3);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            pointer-events: all;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/menu.css') }}">
 </head>
 
 <body class="bg-gray text-gray-800">
@@ -109,6 +74,9 @@
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                @endif
+                @if (Auth::user()->hasPermission('Quản lý CTV'))
+                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
@@ -164,6 +132,9 @@
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                @endif
+                @if (Auth::user()->hasPermission('Quản lý CTV'))
+                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
@@ -261,6 +232,10 @@
         $(document).ready(function() {
             ThongBao();
             CheckPasswordExpiry();
+            
+            // Set active menu item based on current URL
+            setActiveMenuItem();
+            
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
@@ -650,6 +625,26 @@
             } else {
                 return uri + separator + key + "=" + encodeURIComponent(value);
             }
+        }
+
+        // Set active menu item based on current URL
+        function setActiveMenuItem() {
+            const currentUrl = window.location.href;
+            const currentPath = window.location.pathname;
+            
+            // Remove active class from all menu items
+            $('.nav-link').removeClass('active');
+            
+            // Check each menu link
+            $('.nav-link').each(function() {
+                const linkHref = $(this).attr('href');
+                if (linkHref) {
+                    // Check if current URL matches the link
+                    if (currentUrl.includes(linkHref) || currentPath === linkHref) {
+                        $(this).addClass('active');
+                    }
+                }
+            });
         }
 
         // Gửi request mỗi 5 phút để giữ session sống

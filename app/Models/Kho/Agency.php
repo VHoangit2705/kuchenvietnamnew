@@ -52,4 +52,13 @@ class Agency extends Model
 	{
 		return $this->hasMany(InstallationOrder::class, 'agency_phone', 'phone');
 	}
+
+	/**
+	 * Quan hệ: Agency hasMany UserAgency
+	 * Một đại lý có nhiều user đại lý
+	 */
+	public function userAgencies()
+	{
+		return $this->hasMany(UserAgency::class, 'agency_id', 'id');
+	}
 }
