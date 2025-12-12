@@ -229,10 +229,10 @@
                                         <th>Kỹ thuật viên tiếp nhận:</th>
                                         <td>{{ $data->staff_received }}</td>
                                     </tr>
-                                    <tr>
-                                        <th>Ngày tiếp nhận:</th>
-                                        <td>{{ \Carbon\Carbon::parse($data->Ngaytao)->format('d/m/Y') }}</td>
-                                    </tr>
+                                   <tr>
+                                       <th>Ngày tiếp nhận:</th>
+                                       <td>{{ $data->received_date ? \Carbon\Carbon::parse($data->received_date)->format('d/m/Y') : '-' }}</td>
+                                   </tr>
                                     <tr>
                                         <th>Ngày hẹn trả:</th>
                                         <td data-type="return_date" data-id="{{ $data->id }}">
