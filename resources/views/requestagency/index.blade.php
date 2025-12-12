@@ -90,31 +90,31 @@
     <ul class="nav nav-tabs" id="statusTabs">
         <li class="nav-item">
             <a class="nav-link {{ !request('status') ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except('status'), ['status' => ''])) }}">
+                href="{{ route('requestagency.index') }}">
                 Tất cả <span class="badge bg-secondary">({{ $counts['all'] }})</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link {{ request('status') == 'chua_xac_nhan_daily' ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except('status'), ['status' => 'chua_xac_nhan_daily'])) }}">
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'chua_xac_nhan_daily'])) }}">
                 Chưa xác nhận đại lý <span class="badge bg-danger">({{ $counts['chua_xac_nhan_agency'] }})</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link {{ request('status') == 'chua_tiep_nhan' ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except('status'), ['status' => 'chua_tiep_nhan'])) }}">
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'chua_tiep_nhan'])) }}">
                 Chưa tiếp nhận <span class="badge bg-warning">({{ $counts['chua_tiep_nhan'] }})</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link {{ request('status') == 'da_tiep_nhan' ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except('status'), ['status' => 'da_tiep_nhan'])) }}">
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'da_tiep_nhan'])) }}">
                 Đã tiếp nhận <span class="badge bg-info">({{ $counts['da_tiep_nhan'] }})</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link {{ request('status') == 'da_dieu_phoi' ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except('status'), ['status' => 'da_dieu_phoi'])) }}">
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'da_dieu_phoi'])) }}">
                 Đã điều phối <span class="badge bg-success">({{ $counts['da_dieu_phoi'] }})</span>
             </a>
         </li>
