@@ -152,7 +152,7 @@
                 <table class="table table-hover table-bordered mb-0">
                     <thead class="table-dark">
                         <tr>
-                            <th style="min-width: 80px;">STT</th>
+                            <th style="min-width: 20px;">STT</th>
                             <th style="min-width: 120px;">Mã đơn hàng</th>
                             <th style="min-width: 200px;">Tên sản phẩm</th>
                             <th style="min-width: 150px;">Khách hàng</th>
@@ -171,7 +171,9 @@
                         <tr>
                             <td>{{ $requests->firstItem() + $index }}</td>
                             <td>
-                                <strong>{{ $request->order_code }}</strong>
+                                <strong style="{{ isset($hasOtherAgencyFlags[$request->id]) && $hasOtherAgencyFlags[$request->id] ? 'background-color: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px;' : '' }}">
+                                    {{ $request->order_code }}
+                                </strong>
                             </td>
                             <td>{{ $request->product_name }}</td>
                             <td>{{ $request->customer_name }}</td>

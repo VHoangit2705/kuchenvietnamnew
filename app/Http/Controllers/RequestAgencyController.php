@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KyThuat\RequestAgency;
 use App\Models\Kho\InstallationOrder;
+use App\Models\Kho\Agency;
 use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -130,6 +131,26 @@ class RequestAgencyController extends Controller
         // Phân trang
         $requests = $query->paginate(self::$pageSize)->withQueryString();
 
+        // Kiểm tra và đánh dấu các request có đại lý khác đã dùng mã đơn hàng
+        // CHỈ đánh dấu mã đơn hàng gốc (không có số thứ tự) và CHỈ đánh dấu đơn hàng được gửi sau (mới nhất)
+        $hasOtherAgencyFlags = [];
+        foreach ($requests as $req) {
+            // Chỉ đánh dấu nếu order_code là mã gốc (không có số thứ tự)
+            $isOriginalOrderCode = !preg_match('/\s*\(\d+\)$/', $req->order_code);
+            
+            if ($isOriginalOrderCode && $req->agency_id) {
+                // Chỉ đánh dấu nếu request này là request mới nhất trong số các request có cùng mã đơn hàng gốc
+                $hasOtherAgencyFlags[$req->id] = $this->isLatestRequestWithOtherAgency(
+                    $req->order_code, 
+                    $req->agency_id, 
+                    $req->id, 
+                    $req->created_at
+                );
+            } else {
+                $hasOtherAgencyFlags[$req->id] = false;
+            }
+        }
+
         // Đếm số lượng theo trạng thái
         $counts = [
             'all' => RequestAgency::count(),
@@ -140,7 +161,7 @@ class RequestAgencyController extends Controller
             'da_thanh_toan' => RequestAgency::where('status', RequestAgency::STATUS_DA_THANH_TOAN)->count(),
         ];
 
-        return view('requestagency.index', compact('requests', 'counts'));
+        return view('requestagency.index', compact('requests', 'counts', 'hasOtherAgencyFlags'));
     }
 
     /**
@@ -149,6 +170,83 @@ class RequestAgencyController extends Controller
     public function create()
     {
         return view('requestagency.create');
+    }
+
+    /**
+     * Tạo order_code với số thứ tự nếu cùng đại lý và cùng mã đơn hàng gốc
+     */
+    private function generateOrderCodeWithSequence($originalOrderCode, $agencyId)
+    {
+        if (!$agencyId) {
+            return $originalOrderCode;
+        }
+
+        // Tìm tất cả request của cùng đại lý với mã đơn hàng gốc
+        // Tìm cả mã gốc và các mã có số thứ tự
+        $existingRequests = RequestAgency::where('agency_id', $agencyId)
+            ->where(function($query) use ($originalOrderCode) {
+                $query->where('order_code', $originalOrderCode)
+                      ->orWhere('order_code', 'like', $originalOrderCode . ' (%)');
+            })
+            ->get();
+
+        // Nếu chưa có request nào, trả về mã gốc
+        if ($existingRequests->isEmpty()) {
+            return $originalOrderCode;
+        }
+
+        // Tìm số thứ tự lớn nhất
+        $maxSequence = 0; // Bắt đầu từ 0
+        foreach ($existingRequests as $req) {
+            // Nếu order_code chính xác là mã gốc, đó là request đầu tiên (sequence = 1)
+            if ($req->order_code === $originalOrderCode) {
+                $maxSequence = max($maxSequence, 1);
+            } else {
+                // Kiểm tra pattern: "MÃ (số)"
+                if (preg_match('/^' . preg_quote($originalOrderCode, '/') . '\s*\((\d+)\)$/', $req->order_code, $matches)) {
+                    $maxSequence = max($maxSequence, (int)$matches[1]);
+                }
+            }
+        }
+
+        // Nếu đã có request với mã gốc, request tiếp theo sẽ là (2)
+        // Nếu chưa có request với mã gốc nhưng có request với số thứ tự, tăng lên 1
+        if ($maxSequence > 0) {
+            $nextSequence = $maxSequence + 1;
+            return $originalOrderCode . ' (' . $nextSequence . ')';
+        }
+
+        return $originalOrderCode;
+    }
+
+    /**
+     * Kiểm tra xem request này có phải là request mới nhất trong số các request có cùng mã đơn hàng gốc nhưng khác đại lý
+     * Chỉ đánh dấu request được gửi sau (mới hơn), không đánh dấu request đã có trước đó
+     */
+    private function isLatestRequestWithOtherAgency($orderCode, $currentAgencyId, $currentRequestId, $currentCreatedAt)
+    {
+        // Lấy mã đơn hàng gốc (bỏ số thứ tự nếu có)
+        $originalOrderCode = preg_replace('/\s*\(\d+\)$/', '', $orderCode);
+
+        // Tìm tất cả request có mã đơn hàng gốc (chỉ mã gốc, không có số thứ tự) và khác đại lý
+        $otherAgencyRequests = RequestAgency::where('order_code', $originalOrderCode)
+            ->where('agency_id', '!=', $currentAgencyId)
+            ->whereNotNull('agency_id')
+            ->get();
+
+        // Nếu không có đại lý khác dùng mã này, không đánh dấu
+        if ($otherAgencyRequests->isEmpty()) {
+            return false;
+        }
+
+        // Tìm request mới nhất trong số các request có cùng mã đơn hàng gốc (bao gồm cả request hiện tại)
+        $allRequestsWithSameCode = RequestAgency::where('order_code', $originalOrderCode)
+            ->whereNotNull('agency_id')
+            ->orderByDesc('created_at')
+            ->first();
+
+        // Chỉ đánh dấu nếu request hiện tại là request mới nhất
+        return $allRequestsWithSameCode && $allRequestsWithSameCode->id == $currentRequestId;
     }
 
     /**
@@ -171,8 +269,23 @@ class RequestAgencyController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        // Tìm agency_id từ agency_phone
+        $agencyId = null;
+        if ($request->agency_phone) {
+            $agency = Agency::where('phone', $request->agency_phone)->first();
+            if ($agency) {
+                $agencyId = $agency->id;
+            }
+        }
+
+        // Lấy mã đơn hàng gốc (bỏ số thứ tự nếu có)
+        $originalOrderCode = preg_replace('/\s*\(\d+\)$/', '', $request->order_code);
+
+        // Tạo order_code với số thứ tự nếu cùng đại lý
+        $finalOrderCode = $this->generateOrderCodeWithSequence($originalOrderCode, $agencyId);
+
         RequestAgency::create([
-            'order_code' => $request->order_code,
+            'order_code' => $finalOrderCode,
             'product_name' => $request->product_name,
             'customer_name' => $request->customer_name,
             'customer_phone' => $request->customer_phone,
@@ -180,6 +293,7 @@ class RequestAgencyController extends Controller
             'notes' => $request->notes,
             'agency_name' => $request->agency_name,
             'agency_phone' => $request->agency_phone,
+            'agency_id' => $agencyId,
             'status' => RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY,
         ]);
 
