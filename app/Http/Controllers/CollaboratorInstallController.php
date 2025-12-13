@@ -623,20 +623,20 @@ class CollaboratorInstallController extends Controller
         }
         
         // FLOW XỬ LÝ REQUEST_AGENCY:
-        // 1. Đại   lý gửi form → tạo request_agency với status = "chua_tiep_nhan"
-        // 2. User tiếp nhận → cập nhật status = "da_tiep_nhan"
+        // 1. Đại lý gửi form → tạo request_agency với status = "chua_xac_nhan_daily"
+        // 2. User xác nhận đại lý → cập nhật status = "da_xac_nhan_daily"
         // 3. User điều phối tra mã đơn hàng → kiểm tra có request_agency không
-        // 4. Nếu có và tích "Đại lý lắp đặt" → tự động điền thông tin và cập nhật status = "da_dieu_phoi"
+        // 4. Nếu có và tích "Đại lý lắp đặt" → tự động điền thông tin và đồng bộ status với status_install
         
         // Kiểm tra xem có yêu cầu đại lý (request_agency) với mã đơn hàng này không
         $requestAgency = null;
         $requestAgencyAgency = null; // Agency lấy theo agency_id trong request_agency
         if ($orderCode) {
-            // Lấy request_agency với các trạng thái: chua_tiep_nhan, da_tiep_nhan (chưa điều phối)
+            // Lấy request_agency với các trạng thái: chua_xac_nhan_daily, da_xac_nhan_daily (chưa điều phối)
             $requestAgency = RequestAgency::where('order_code', $orderCode)
                 ->whereIn('status', [
-                    RequestAgency::STATUS_CHUA_TIEP_NHAN,
-                    RequestAgency::STATUS_DA_TIEP_NHAN
+                    RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY,
+                    RequestAgency::STATUS_DA_XAC_NHAN_AGENCY
                 ])
                 ->orderByDesc('created_at') // Lấy bản ghi mới nhất nếu có nhiều
                 ->first();
@@ -837,29 +837,39 @@ class CollaboratorInstallController extends Controller
             }
 
             // Cập nhật trạng thái request_agency nếu có
-            // LOGIC: Khi tích "Đại lý lắp đặt" (ctv_id = 1) và điều phối (status_install >= 1)
-            // → Cập nhật request_agency status từ "chua_tiep_nhan" hoặc "da_tiep_nhan" → "da_dieu_phoi"
+            // LOGIC: Đồng bộ trạng thái request_agency với status_install khi điều phối
+            // status_install = 1 → "da_dieu_phoi"
+            // status_install = 2 → "hoan_thanh"
+            // status_install = 3 → "da_thanh_toan"
             if (!empty($orderCode)) {
-                $requestAgency = RequestAgency::where('order_code', $orderCode)
-                    ->whereIn('status', [
-                        RequestAgency::STATUS_CHUA_TIEP_NHAN,
-                        RequestAgency::STATUS_DA_TIEP_NHAN
-                    ])
-                    ->first();
+                $requestAgency = RequestAgency::where('order_code', $orderCode)->first();
                     
                 if ($requestAgency) {
-                    // Nếu chọn "Đại lý lắp đặt" (ctv_id = 1) và đang điều phối (status_install >= 1)
+                    // Nếu chọn "Đại lý lắp đặt" (ctv_id = 1) và đang điều phối
                     if ($ctvId == Enum::AGENCY_INSTALL_FLAG_ID && $model->status_install >= 1) {
-                        // Cập nhật status thành "Đã điều phối"
-                        $requestAgency->status = RequestAgency::STATUS_DA_DIEU_PHOI;
-                        $requestAgency->assigned_to = session('user', 'system');
-                        $requestAgency->save();
+                        // Đồng bộ trạng thái với status_install
+                        $oldStatus = $requestAgency->status;
+                        $newStatus = match($model->status_install) {
+                            1 => RequestAgency::STATUS_DA_DIEU_PHOI,
+                            2 => RequestAgency::STATUS_HOAN_THANH,
+                            3 => RequestAgency::STATUS_DA_THANH_TOAN,
+                            default => $requestAgency->status
+                        };
                         
-                        Log::info('RequestAgency updated to da_dieu_phoi', [
-                            'order_code' => $orderCode,
-                            'request_agency_id' => $requestAgency->id,
-                            'assigned_to' => session('user', 'system')
-                        ]);
+                        if ($newStatus != $oldStatus) {
+                            $requestAgency->status = $newStatus;
+                            $requestAgency->assigned_to = session('user', 'system');
+                            $requestAgency->save();
+                            
+                            Log::info('RequestAgency status synced with status_install', [
+                                'order_code' => $orderCode,
+                                'request_agency_id' => $requestAgency->id,
+                                'old_status' => $oldStatus,
+                                'new_status' => $newStatus,
+                                'status_install' => $model->status_install,
+                                'assigned_to' => session('user', 'system')
+                            ]);
+                        }
                     }
                 }
             }

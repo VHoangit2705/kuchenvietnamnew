@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\KyThuat\RequestAgency;
+use App\Models\Kho\InstallationOrder;
+use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Pagination\Paginator;
@@ -14,10 +16,60 @@ class RequestAgencyController extends Controller
     static $pageSize = 50;
 
     /**
+     * Đồng bộ trạng thái từ InstallationOrder sang RequestAgency
+     * Chỉ đồng bộ các trạng thái đã được điều phối (Đã điều phối, Hoàn thành, Đã thanh toán)
+     * KHÔNG đồng bộ trạng thái "Đã xác nhận đại lý" để người dùng có thể thao tác xác thực đại lý
+     */
+    private function syncStatusFromInstallationOrder()
+    {
+        // Chỉ đồng bộ các trạng thái đã được điều phối
+        // KHÔNG đồng bộ "Đã xác nhận đại lý" - trạng thái này phải được giữ nguyên
+        $requestAgencies = RequestAgency::whereNotNull('order_code')
+            ->whereIn('status', [
+                RequestAgency::STATUS_DA_XAC_NHAN_AGENCY,
+                RequestAgency::STATUS_DA_DIEU_PHOI,
+                RequestAgency::STATUS_HOAN_THANH,
+                RequestAgency::STATUS_DA_THANH_TOAN
+            ])
+            ->get();
+
+        foreach ($requestAgencies as $requestAgency) {
+            // Tìm InstallationOrder theo order_code
+            $installationOrder = InstallationOrder::where('order_code', $requestAgency->order_code)
+                ->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID) // Chỉ đồng bộ với đại lý lắp đặt
+                ->whereNotNull('status_install')
+                ->where('status_install', '>=', 1)
+                ->first();
+
+            if ($installationOrder) {
+                // Đồng bộ trạng thái với status_install
+                $newStatus = match($installationOrder->status_install) {
+                    1 => RequestAgency::STATUS_DA_DIEU_PHOI,
+                    2 => RequestAgency::STATUS_HOAN_THANH,
+                    3 => RequestAgency::STATUS_DA_THANH_TOAN,
+                    default => $requestAgency->status
+                };
+
+                // Chỉ cập nhật nếu trạng thái khác nhau
+                if ($newStatus != $requestAgency->status) {
+                    $requestAgency->status = $newStatus;
+                    if (!$requestAgency->assigned_to) {
+                        $requestAgency->assigned_to = session('user', 'system');
+                    }
+                    $requestAgency->save();
+                }
+            }
+        }
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
+        // Đồng bộ trạng thái từ InstallationOrder trước khi hiển thị
+        $this->syncStatusFromInstallationOrder();
+
         $query = RequestAgency::query();
 
         // Filter theo trạng thái
@@ -61,9 +113,10 @@ class RequestAgencyController extends Controller
         $counts = [
             'all' => RequestAgency::count(),
             'chua_xac_nhan_agency' => RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)->count(),
-            'chua_tiep_nhan' => RequestAgency::where('status', RequestAgency::STATUS_CHUA_TIEP_NHAN)->count(),
-            'da_tiep_nhan' => RequestAgency::where('status', RequestAgency::STATUS_DA_TIEP_NHAN)->count(),
+            'da_xac_nhan_agency' => RequestAgency::where('status', RequestAgency::STATUS_DA_XAC_NHAN_AGENCY)->count(),
             'da_dieu_phoi' => RequestAgency::where('status', RequestAgency::STATUS_DA_DIEU_PHOI)->count(),
+            'hoan_thanh' => RequestAgency::where('status', RequestAgency::STATUS_HOAN_THANH)->count(),
+            'da_thanh_toan' => RequestAgency::where('status', RequestAgency::STATUS_DA_THANH_TOAN)->count(),
         ];
 
         return view('requestagency.index', compact('requests', 'counts'));
@@ -106,7 +159,7 @@ class RequestAgencyController extends Controller
             'notes' => $request->notes,
             'agency_name' => $request->agency_name,
             'agency_phone' => $request->agency_phone,
-            'status' => RequestAgency::STATUS_CHUA_TIEP_NHAN,
+            'status' => RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY,
         ]);
 
         return redirect()->route('requestagency.index')
@@ -156,8 +209,8 @@ class RequestAgencyController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        // Nếu chuyển sang trạng thái "đã tiếp nhận", tự động set received_at và received_by
-        if ($request->status === RequestAgency::STATUS_DA_TIEP_NHAN && !$requestAgency->received_at) {
+        // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
+        if ($request->status === RequestAgency::STATUS_DA_XAC_NHAN_AGENCY && !$requestAgency->received_at) {
             $requestAgency->received_at = now();
             $requestAgency->received_by = $request->received_by ?? session('user', 'system');
         }
@@ -210,8 +263,8 @@ class RequestAgencyController extends Controller
             ], 422);
         }
 
-        // Nếu chuyển sang trạng thái "đã tiếp nhận", tự động set received_at và received_by
-        if ($request->status === RequestAgency::STATUS_DA_TIEP_NHAN && !$requestAgency->received_at) {
+        // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
+        if ($request->status === RequestAgency::STATUS_DA_XAC_NHAN_AGENCY && !$requestAgency->received_at) {
             $requestAgency->received_at = now();
             $requestAgency->received_by = session('user', 'system');
         }

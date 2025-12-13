@@ -141,16 +141,24 @@
         font-size: 12px;
         font-weight: 500;
     }
-    .status-chua_tiep_nhan {
-        background-color: #ffc107;
-        color: #000;
+    .status-chua_xac_nhan_daily {
+        background-color: #ff0000;
+        color: #fff;
     }
-    .status-da_tiep_nhan {
-        background-color: #17a2b8;
+    .status-da_xac_nhan_daily {
+        background-color: #ff9800;
         color: #fff;
     }
     .status-da_dieu_phoi {
-        background-color: #28a745;
+        background-color: #ffc107;
+        color: #000;
+    }
+    .status-hoan_thanh {
+        background-color: #198754;
+        color: #fff;
+    }
+    .status-da_thanh_toan {
+        background-color: #0DCAEF;
         color: #fff;
     }
     .form-control-plaintext {

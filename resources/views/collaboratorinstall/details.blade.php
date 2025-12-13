@@ -306,12 +306,18 @@
                         @endif
                         <br><small class="text-muted">
                             <strong>Trạng thái:</strong> 
-                            @if($requestAgency->status == 'chua_tiep_nhan')
-                                <span class="badge bg-warning">Chưa tiếp nhận</span>
-                            @elseif($requestAgency->status == 'da_tiep_nhan')
-                                <span class="badge bg-info">Đã tiếp nhận</span>
+                            @if($requestAgency->status == 'chua_xac_nhan_daily')
+                                <span class="badge bg-danger">Chưa xác nhận đại lý</span>
+                            @elseif($requestAgency->status == 'da_xac_nhan_daily')
+                                <span class="badge bg-warning">Đã xác nhận đại lý</span>
                             @elseif($requestAgency->status == 'da_dieu_phoi')
-                                <span class="badge bg-success">Đã điều phối</span>
+                                <span class="badge bg-info">Đã điều phối</span>
+                            @elseif($requestAgency->status == 'hoan_thanh')
+                                <span class="badge bg-success">Hoàn thành</span>
+                            @elseif($requestAgency->status == 'da_thanh_toan')
+                                <span class="badge bg-secondary">Đã thanh toán</span>
+                            @else
+                                <span class="badge bg-secondary">{{ $requestAgency->status_name }}</span>
                             @endif
                             @if($requestAgency->notes)
                             <br><strong>Ghi chú:</strong> {{ $requestAgency->notes }}

@@ -33,9 +33,10 @@ class RequestAgency extends Model
 
     // Constants cho status
     const STATUS_CHUA_XAC_NHAN_AGENCY = 'chua_xac_nhan_daily';
-    const STATUS_CHUA_TIEP_NHAN = 'chua_tiep_nhan';
-    const STATUS_DA_TIEP_NHAN = 'da_tiep_nhan';
+    const STATUS_DA_XAC_NHAN_AGENCY = 'da_xac_nhan_daily';
     const STATUS_DA_DIEU_PHOI = 'da_dieu_phoi';
+    const STATUS_HOAN_THANH = 'hoan_thanh';
+    const STATUS_DA_THANH_TOAN = 'da_thanh_toan';
 
     /**
      * Quan hệ: RequestAgency belongsTo Agency
@@ -53,9 +54,10 @@ class RequestAgency extends Model
     {
         return [
             self::STATUS_CHUA_XAC_NHAN_AGENCY => 'Chưa xác nhận đại lý',
-            self::STATUS_CHUA_TIEP_NHAN => 'Chưa tiếp nhận',
-            self::STATUS_DA_TIEP_NHAN => 'Đã tiếp nhận',
+            self::STATUS_DA_XAC_NHAN_AGENCY => 'Đã xác nhận đại lý',
             self::STATUS_DA_DIEU_PHOI => 'Đã điều phối',
+            self::STATUS_HOAN_THANH => 'Hoàn thành',
+            self::STATUS_DA_THANH_TOAN => 'Đã thanh toán',
         ];
     }
 
