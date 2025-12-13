@@ -38,9 +38,9 @@
 
 <body class="bg-gray text-gray-800">
     <header class="bg-dark py-2 position-relative" style="height: 60px; z-index: 1050;">
-        <div class="container d-flex justify-content-between align-items-center" style="height: 100%;">
+        <div class="container-fluid d-flex align-items-center" style="height: 100%; gap: 20px; padding-left: 15;">
             <!-- Logo (Hidden on Small Screens) -->
-            <div class="header-logo d-flex align-items-center d-none d-lg-flex">
+            <div class="header-logo d-flex align-items-center d-none d-lg-flex" style="flex-shrink: 0;">
                 <a href="{{ route('home') }}">
                     @if (session()->has('brand') && session('brand') == 'kuchen')
                         <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
@@ -53,7 +53,7 @@
             <!-- Toggle Menu for Small Screens -->
             <button class="navbar-toggler d-lg-none text-white border-0" type="button" data-bs-toggle="collapse"
                 data-bs-target="#navbarMenu" aria-controls="navbarMenu" aria-expanded="false"
-                aria-label="Toggle navigation" style="z-index: 1060;">
+                aria-label="Toggle navigation" style="z-index: 1060; flex-shrink: 0; padding-left: 15px;">
                 @if (session()->has('brand'))
                 <img src="{{ asset('icons/menu.png') }}" alt="Menu"
                     style="height: 25px; filter: invert(100%) sepia(100%) saturate(2) hue-rotate(180deg);">
@@ -61,7 +61,7 @@
             </button>
 
             <!-- Full Menu (Hidden on small screens) -->
-            <nav class="nav d-none d-lg-flex">
+            <nav class="nav d-none d-lg-flex" style="flex: 1 1 auto; justify-content: center; gap: 10px; padding-left: 15px;">
                 @if (session()->has('brand'))
                 @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo hành</a>
@@ -87,7 +87,7 @@
                 @endif
             </nav>
             <!-- Account Section -->
-            <div class="d-flex align-items-center text-white">
+            <div class="d-flex align-items-center text-white" style="flex-shrink: 0; margin-left: auto; padding-right: 15px;">
                 <div class="dropdown">
                     <button class="btn btn-link text-white text-decoration-none dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-2" style="font-size: 1.5rem;"></i>

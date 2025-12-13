@@ -68,6 +68,21 @@
                             placeholder="Nhập số điện thoại" value="{{ request('customer_phone') }}">
                     </div>
                     <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Tên đại lý</label>
+                        <input type="text" name="agency_name" class="form-control" 
+                            placeholder="Nhập tên đại lý" value="{{ request('agency_name') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">Số điện thoại đại lý</label>
+                        <input type="text" name="agency_phone" class="form-control" 
+                            placeholder="Nhập số điện thoại đại lý" value="{{ request('agency_phone') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small text-muted">CCCD đại lý</label>
+                        <input type="text" name="agency_cccd" class="form-control" 
+                            placeholder="Nhập CCCD đại lý" value="{{ request('agency_cccd') }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
                         <label class="form-label small text-muted">Từ ngày</label>
                         <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
                     </div>

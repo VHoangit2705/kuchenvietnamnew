@@ -92,6 +92,27 @@ class RequestAgencyController extends Controller
             $query->where('customer_phone', 'like', '%' . $request->customer_phone . '%');
         }
 
+        // Filter theo tên đại lý (tìm trong bảng agency qua quan hệ)
+        if ($request->has('agency_name') && $request->agency_name) {
+            $query->whereHas('agency', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->agency_name . '%');
+            });
+        }
+
+        // Filter theo số điện thoại đại lý (tìm trong bảng agency qua quan hệ)
+        if ($request->has('agency_phone') && $request->agency_phone) {
+            $query->whereHas('agency', function($q) use ($request) {
+                $q->where('phone', 'like', '%' . $request->agency_phone . '%');
+            });
+        }
+
+        // Filter theo CCCD đại lý (tìm trong bảng agency qua quan hệ)
+        if ($request->has('agency_cccd') && $request->agency_cccd) {
+            $query->whereHas('agency', function($q) use ($request) {
+                $q->where('cccd', 'like', '%' . $request->agency_cccd . '%');
+            });
+        }
+
         // Filter theo ngày tạo
         if ($request->has('from_date') && $request->from_date) {
             $query->whereDate('created_at', '>=', $request->from_date);
