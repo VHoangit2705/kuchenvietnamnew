@@ -156,14 +156,14 @@
                             <th style="min-width: 120px;">Mã đơn hàng</th>
                             <th style="min-width: 200px;">Tên sản phẩm</th>
                             <th style="min-width: 150px;">Khách hàng</th>
-                            <th style="min-width: 120px;">SĐT</th>
+                            <th style="min-width: 100px;">SĐT</th>
                             <th style="min-width: 200px;">Đại lý</th>
                             <th style="min-width: 120px;">SĐT đại lý</th>
                             <th style="min-width: 120px;">CCCD đại lý</th>
                             <th style="min-width: 250px;">Địa chỉ lắp đặt</th>
                             <th style="min-width: 120px;">Trạng thái</th>
-                            <th style="min-width: 150px;">Ngày tạo</th>
-                            <th style="min-width: 150px;">Thao tác</th>
+                            <th style="min-width: 100px;">Ngày tạo</th>
+                            <th style="min-width: 50px;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>

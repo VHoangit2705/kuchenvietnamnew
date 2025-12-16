@@ -43,7 +43,7 @@
                 <th style="min-width: 150px;">Khách hàng</th>
                 <th style="min-width: 90px;">SĐT KH</th>
                 <th style="min-width: 200px;">Sản phẩm mua</th>
-                <th style="min-width: 150px;">CTV lắp đặt</th>
+                <th style="min-width: 150px;">Đại lý / CTV lắp đặt</th>
                 <th style="min-width: 150px;">Chi phí lắp đặt</th>
                 <th style="min-width: 150px;">Trạng thái</th>
                 <th></th>
@@ -57,6 +57,9 @@
             $created_at = $item->order->created_at ?? $item->received_date ?? $item->created_at;
             $statusInstall = $item->order->status_install ?? $item->status_install;
             $type = $item->VAT ? 'donhang' : ($item->warranty_end ? 'baohanh' : 'danhsach');
+            $rawInstallCost = $item->order->install_cost ?? $item->install_cost ?? 0;
+            // Chỉ xem là đã có đơn lắp đặt (Đại lý/CTV) khi đã điều phối và có chi phí > 0
+            $hasInstaller = !is_null($statusInstall) && $statusInstall != 0 && $rawInstallCost > 0;
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
@@ -71,8 +74,21 @@
                 <td>{{ $item->order->customer_name ?? $item->full_name }}</td>
                 <td>{{ $item->order->customer_phone ?? $item->phone_number }}</td>
                 <td>{{ $item->product_name ?? $item->product ?? 'Không xác định' }}</td>
-                <td>{{ $item->order->collaborator->full_name ?? $item->collaborator->full_name ?? '' }}</td>
-                <td class="text-center">{{ number_format($item->order->install_cost ?? $item->install_cost, 0, ',', '.') }}</td>
+                {{-- Đại lý / CTV lắp đặt: chỉ hiển thị khi đã điều phối và có chi phí lắp đặt > 0 --}}
+                <td>
+                    @if ($hasInstaller)
+                        @php
+                            $agencyName = $item->order->agency_name ?? $item->agency_name ?? null;
+                            $collaboratorName = $item->order->collaborator->full_name ?? $item->collaborator->full_name ?? null;
+                        @endphp
+                        @if(!empty($agencyName))
+                            {{ $agencyName }}
+                        @elseif(!empty($collaboratorName))
+                            {{ $collaboratorName }}
+                        @endif
+                    @endif
+                </td>
+                <td class="text-center">{{ number_format($rawInstallCost, 0, ',', '.') }}</td>
                 <td class="text-center">
                     @if($statusInstall == null || $statusInstall == 0)
                     <span style="font-size: 13px;" class=" badge bg-secondary">Chưa điều phối</span>

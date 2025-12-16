@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Kho\OrderProduct;
 use App\Models\Kho\InstallationOrder;
 use App\Models\KyThuat\WarrantyRequest;
-use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -88,8 +87,8 @@ class CollaboratorInstallCountsController extends Controller
                 $q->where('p.view', $view)->orWhereNull('p.view');
             })
             ->where('installation_orders.status_install', 1)
-            ->whereNotNull('installation_orders.collaborator_id')
-            ->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+            // Đã điều phối cho CTV: có collaborator_id (nếu có collaborator_id thì là CTV, không phải đại lý)
+            ->whereNotNull('installation_orders.collaborator_id');
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -104,7 +103,12 @@ class CollaboratorInstallCountsController extends Controller
                 $q->where('p.view', $view)->orWhereNull('p.view');
             })
             ->where('installation_orders.status_install', 1)
-            ->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+            // Chỉ đếm đơn đã được tích checkbox "Đại lý lắp đặt" khi điều phối
+            // (có agency_name trong installation_orders và KHÔNG có collaborator_id)
+            ->whereNotNull('installation_orders.agency_name')
+            ->where('installation_orders.agency_name', '!=', '')
+            // Loại trừ đơn có CTV (nếu có collaborator_id thì không phải đại lý lắp đặt)
+            ->whereNull('installation_orders.collaborator_id');
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -171,9 +175,15 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Đơn do CTV lắp đặt (không có thông tin đại lý)
+                    $q->where(function ($sub) {
+                        $sub->whereNull('orders.agency_name')
+                            ->orWhere('orders.agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Đơn do đại lý lắp đặt (có thông tin đại lý)
+                    $q->whereNotNull('orders.agency_name')
+                      ->where('orders.agency_name', '!=', '');
                 }
             })
             ->when($customer_name, fn($q) => $q->where('orders.customer_name', 'like', "%$customer_name%"))
@@ -218,9 +228,15 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Ca bảo hành do CTV phụ trách: không có thông tin đại lý
+                    $q->where(function ($sub) {
+                        $sub->whereNull('agency_name')
+                            ->orWhere('agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Ca bảo hành do đại lý phụ trách: có thông tin đại lý
+                    $q->whereNotNull('agency_name')
+                      ->where('agency_name', '!=', '');
                 }
             })
             ->when($customer_name, fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -264,9 +280,15 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Lắp đặt do CTV phụ trách: không có thông tin đại lý
+                    $q->where(function ($sub) {
+                        $sub->whereNull('installation_orders.agency_name')
+                            ->orWhere('installation_orders.agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Lắp đặt do đại lý phụ trách: có thông tin đại lý
+                    $q->whereNotNull('installation_orders.agency_name')
+                      ->where('installation_orders.agency_name', '!=', '');
                 }
             })
             ->when($customer_name, fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))

@@ -544,9 +544,8 @@ class SaveLogController extends Controller
             $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
             
             if ($existingHistory) {
-                // Kiểm tra xem dữ liệu hiện tại có phải là CTV thật không (không phải flag "Đại lý lắp đặt")
+                // Kiểm tra xem dữ liệu hiện tại có phải là CTV thật không (không phải "Đại lý lắp đặt")
                 $isRealCtv = $existingHistory->new_collaborator_id && 
-                            !Enum::isAgencyInstallFlag($existingHistory->new_collaborator_id) && 
                             $existingHistory->new_full_name != Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
                 
                 if ($isRealCtv) {
@@ -584,8 +583,7 @@ class SaveLogController extends Controller
                     $existingHistory->old_ngaycap = $existingHistory->new_ngaycap;
                 }
                 
-                // Set new_* về flag "Đại lý lắp đặt"
-                $existingHistory->new_collaborator_id = Enum::AGENCY_INSTALL_FLAG_ID; // Set flag khi chọn đại lý
+                $existingHistory->new_collaborator_id = null; // Đại lý lắp đặt không có collaborator_id
                 $existingHistory->new_full_name = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
                 $existingHistory->new_phone = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
                 $existingHistory->new_province = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
@@ -636,9 +634,9 @@ class SaveLogController extends Controller
             $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
             
             if ($existingHistory) {
-                // Kiểm tra xem dữ liệu hiện tại có phải là flag "Đại lý lắp đặt" không
+                // Kiểm tra xem dữ liệu hiện tại có phải là "Đại lý lắp đặt" không
                 $isAgency = $existingHistory->new_full_name == Enum::AGENCY_INSTALL_CHECKBOX_LABEL && 
-                           $existingHistory->new_collaborator_id == Enum::AGENCY_INSTALL_FLAG_ID;
+                           empty($existingHistory->new_collaborator_id);
                 
                 if ($isAgency) {
                     // Nếu đang là "Đại lý lắp đặt", đẩy dữ liệu "Đại lý lắp đặt" vào old_*

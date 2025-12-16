@@ -37,7 +37,7 @@ class RequestAgencyController extends Controller
         foreach ($requestAgencies as $requestAgency) {
             // Tìm InstallationOrder theo order_code
             $installationOrder = InstallationOrder::where('order_code', $requestAgency->order_code)
-                ->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID) // Chỉ đồng bộ với đại lý lắp đặt
+                ->where('collaborator_id') // Chỉ đồng bộ với đại lý lắp đặt
                 ->whereNotNull('status_install')
                 ->where('status_install', '>=', 1)
                 ->first();

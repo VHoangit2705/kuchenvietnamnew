@@ -103,14 +103,23 @@
                                         @php
                                         // Ưu tiên địa chỉ từ installation_orders (nếu đã cập nhật), sau đó mới lấy từ orders/warranty_requests
                                         $customerAddress = $installationOrder->address ?? $data->order->customer_address ?? $data->address ?? '';
+                                        // Nếu địa chỉ đã được nhập chi tiết trong installation_orders (thường đã bao gồm Tỉnh/TP, Quận/Huyện, Xã/Phường)
+                                        // thì KHÔNG nối thêm $fullAddress để tránh hiển thị trùng lặp.
+                                        $appendRegionAddress = empty($installationOrder?->address);
                                         @endphp
-                                        <span class="text-value">{{ $customerAddress }}</span>, {{ $fullAddress }}
+
+                                        @if($appendRegionAddress)
+                                            <span class="text-value">{{ $customerAddress }}</span>@if(!empty($fullAddress)), {{ $fullAddress }}@endif
+                                        @else
+                                            <span class="text-value">{{ $customerAddress }}</span>
+                                        @endif
+
                                         {{-- Icon chỉnh sửa - chỉ hiển thị khi status_install != 0 và != null --}}
                                         @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
                                         @endif
                                         {{-- Input ẩn để lưu giá trị gốc --}}
-                                        <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}, {{ $fullAddress }}">
+                                        <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}@if($appendRegionAddress && !empty($fullAddress)), {{ $fullAddress }}@endif">
                                     </td>
                                 </tr>
                             </tbody>
@@ -409,9 +418,24 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
-                                        <label class="d-flex align-items-center fw-bold" style="width: max-content;">
-                                            <input type="checkbox" id="isInstallAgency" class="me-2" {{ ($data->order->collaborator_id ?? $data->collaborator_id) == 1 ? 'checked' : '' }}> Đại lý lắp đặt
-                                        </label>
+                                        @if(!$requestAgency && (($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
+                                            {{-- Không có yêu cầu lắp đặt từ đại lý và đang ở trạng thái Chưa điều phối: chỉ hiển thị cảnh báo, ẩn checkbox --}}
+                                            <div class="mt-1 text-danger" style="font-size: 1rem;">
+                                                Đơn hàng này không có yêu cầu lắp đặt từ đại lý
+                                            </div>
+                                        @elseif($requestAgency)
+                                            <div class="d-flex flex-wrap gap-3">
+                                                <label class="d-flex align-items-center fw-bold" style="width: max-content;">
+                                                    <input type="checkbox" id="isInstallAgency" class="me-2" {{ ($data->order->collaborator_id ?? $data->collaborator_id) == 1 ? 'checked' : '' }}>
+                                                    Đại lý lắp đặt
+                                                </label>
+                                                <div class="mt-1 text-black bg-info p-2 rounded" style="font-size: 1rem;">
+                                                    Đơn hàng này đã có yêu cầu lắp đặt từ đại lý <strong>{{ $requestAgencyAgency->name ?? '' }}</strong>
+                                                    <div class="text-black"><strong>Số điện thoại:</strong> {{ $requestAgencyAgency->phone ?? '' }}</div>
+                                                    <div class="text-black"><strong>CCCD:</strong> {{ $requestAgencyAgency->cccd ?? '' }}</div>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr class="installCostRow" style="display: none;">
@@ -1429,12 +1453,22 @@
                     
 
                     if (isInstallAgency === 1) {
-                        formData.append("ctv_id", 1);
+                        // Case ĐẠI LÝ LẮP ĐẶT:
+                        // - KHÔNG dùng collaborator_id = 1 làm flag nữa
+                        // - Gửi rỗng để backend hiểu là không có CTV
+                        formData.append("ctv_id", "");
                         formData.append("successed_at", $("#successed_at").val().trim());
-                        
-                        // SỬA LỖI TẠI ĐÂY: Thêm $()
                         formData.append("installcost", getCurrencyValue( $('#install_cost_agency') ));
-                    
+                        
+                        // Gửi kèm thông tin đại lý đang hiển thị để backend lưu vào installation_orders
+                        let agencyName  = $("td[data-agency='agency_name'] .text-value").text().trim();
+                        let agencyPhone = $("td[data-agency='agency_phone'] .text-value").text().trim();
+                        if (agencyName) {
+                            formData.append("agency_name", agencyName);
+                        }
+                        if (agencyPhone) {
+                            formData.append("agency_phone", agencyPhone);
+                        }
                     } else {
                         formData.append("ctv_id", $("#ctv_id").val());
                         formData.append("successed_at", $("#successed_at_ctv").val().trim());
