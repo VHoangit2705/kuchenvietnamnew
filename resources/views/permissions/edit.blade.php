@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         body {
@@ -214,6 +215,12 @@
             $('#btnSave').on('click', function(e) {
                 e.preventDefault();
                 if (!Validate()) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi validation!',
+                        text: 'Vui lòng kiểm tra lại các trường bắt buộc.',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
                 const roleId = $('#role_id').val().trim();
@@ -239,15 +246,18 @@
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Thành công!',
-                                text: 'Cập nhật thành công!',
+                                text: response.message || 'Cập nhật nhóm quyền thành công!',
                                 timer: 1500,
                                 showConfirmButton: false
+                            }).then(() => {
+                                window.location.reload();
                             });
                         } else {
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Lỗi!',
-                                text: response.message || 'Có lỗi xảy ra',
+                                text: response.message || 'Có lỗi xảy ra khi cập nhật nhóm quyền.',
+                                confirmButtonText: 'OK'
                             });
                         }
                     },
@@ -266,10 +276,56 @@
                             });
                             return;
                         }
+                        
+                        // Xử lý lỗi validation
+                        let errorMessage = 'Đã xảy ra lỗi khi cập nhật nhóm quyền.';
+                        if (xhr.responseJSON) {
+                            if (xhr.responseJSON.message) {
+                                // Nếu message là object (errors), lấy lỗi đầu tiên
+                                if (typeof xhr.responseJSON.message === 'object') {
+                                    const errors = xhr.responseJSON.message;
+                                    const errorList = Object.keys(errors).map(key => {
+                                        if (Array.isArray(errors[key])) {
+                                            return errors[key][0];
+                                        }
+                                        return errors[key];
+                                    }).join('\n');
+                                    errorMessage = errorList || errorMessage;
+                                } else {
+                                    errorMessage = xhr.responseJSON.message;
+                                }
+                            } else if (xhr.responseJSON.errors) {
+                                // Hiển thị tất cả lỗi validation
+                                const errors = xhr.responseJSON.errors;
+                                const errorList = Object.keys(errors).map(key => {
+                                    if (Array.isArray(errors[key])) {
+                                        return errors[key][0];
+                                    }
+                                    return errors[key];
+                                }).join('\n');
+                                errorMessage = errorList || errorMessage;
+                            }
+                        }
+                        
+                        // Highlight các trường bị lỗi
+                        if (xhr.responseJSON && xhr.responseJSON.errors) {
+                            const errors = xhr.responseJSON.errors;
+                            $('#role_name').removeClass('is-invalid');
+                            $('#role_description').removeClass('is-invalid');
+                            
+                            if (errors.role_name) {
+                                $('#role_name').addClass('is-invalid');
+                            }
+                            if (errors.role_description) {
+                                $('#role_description').addClass('is-invalid');
+                            }
+                        }
+                        
                         Swal.fire({
                             icon: 'error',
                             title: 'Lỗi!',
-                            text: 'Đã xảy ra lỗi khi lưu nhóm quyền.',
+                            text: errorMessage,
+                            confirmButtonText: 'OK'
                         });
                     }
                 });

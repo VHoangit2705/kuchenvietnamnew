@@ -24,7 +24,15 @@ use App\Models\KyThuat\KhachHang;
 use App\Models\Kho\ProductWarranty;
 use App\Models\Kho\WarrantyActive;
 use App\Models\Kho\OrderProduct;
+use App\Models\Kho\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\KyThuat\UserDeviceToken;
+use App\Models\KyThuat\WarrantyAnomalyAlert;
+use App\Models\KyThuat\WarrantyAnomalyBlock;
+use App\Services\WarrantyAnomalyDetector;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 Paginator::useBootstrap();
 
@@ -52,7 +60,9 @@ class WarrantyController extends Controller
         $zoneWithoutFirst = implode(' ', array_slice($parts, 1));
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
-
+         // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
+        $toDate = Carbon::parse(request('toDate', now()));
         $branchMap = [
             'vinh' => 'kuchen vinh',
             'hcm' => 'kuchen hcm',
@@ -76,11 +86,14 @@ class WarrantyController extends Controller
             })
             ->when($sophieu = request('sophieu'), fn($q) => $q->where('id', 'like', "%$sophieu%"))
             ->when($seri = request('seri'), fn($q) => $q->where('serial_number', 'like', "%$seri%"))
+            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
             ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
-            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
+            ->when($fromDate && $toDate, function ($q) use ($fromDate, $toDate) {
+                return $q->whereBetween('received_date', [$fromDate->startOfDay(), $toDate->endOfDay()]);
+            });
 
         $counts = (clone $query)
             ->selectRaw("
@@ -106,7 +119,10 @@ class WarrantyController extends Controller
         };
 
         $data = $tabQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(self::$pageSize)->withQueryString();
-
+         $products = [];
+        if (session('brand') == 'kuchen') {
+            $products = Product::where('view', '1')->select('product_name')->get()->toArray();
+        }
         if (request()->ajax()) {
             return response()->json([
                 'tab' => view('components.tabheader', [
@@ -117,7 +133,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'products', 'tab', 'fromDate', 'toDate'));
     }
 
 
@@ -131,7 +147,9 @@ class WarrantyController extends Controller
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
         // $today = Carbon::today()->toDateString();
-
+       // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
+        $toDate = Carbon::parse(request('toDate', now()));
         $branchMap = [
             'vinh' => 'hurom vinh',
             'hcm' => 'hurom hcm',
@@ -158,11 +176,14 @@ class WarrantyController extends Controller
             })
             ->when($sophieu = request('sophieu'), fn($q) => $q->where('id', 'like', "%$sophieu%"))
             ->when($seri = request('seri'), fn($q) => $q->where('serial_number', 'like', "%$seri%"))
+            ->when($product_name = request('product_name'), fn($q) => $q->where('product', 'like', "%$product_name%"))
             ->when($sdt = request('sdt'), fn($q) => $q->where('phone_number', 'like', "%$sdt%"))
             ->when($khachhang = request('khachhang'), fn($q) => $q->where('full_name', 'like', "%$khachhang%"))
             ->when($kythuatvien = request('kythuatvien'), fn($q) => $q->where('staff_received', 'like', "%$kythuatvien%"))
             ->when($chinhanh = request('chinhanh'), fn($q) => $q->where('branch', 'like', "%$chinhanh%"))
-            ->when($product = request('product'), fn($q) => $q->where('product', 'like', "%$product%"));
+            ->when($fromDate && $toDate, function ($q) use ($fromDate, $toDate) {
+                return $q->whereBetween('received_date', [$fromDate->startOfDay(), $toDate->endOfDay()]);
+            });
 
 
         $counts = (clone $query)
@@ -189,7 +210,10 @@ class WarrantyController extends Controller
         };
 
         $data = $tabQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(self::$pageSize)->withQueryString();
-
+        $products = [];
+        if (session('brand') == 'hurom') {
+            $products = Product::where('view', '3')->select('product_name')->get()->toArray();
+        }
         if (request()->ajax()) {
             $tabHtml = view('components.tabheader', [
                 'counts' => $counts,
@@ -204,7 +228,7 @@ class WarrantyController extends Controller
             ]);
         }
 
-        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts'));
+        return view('warranty.homewarranty', compact('data', 'userBranch', 'counts', 'products', 'tab', 'fromDate', 'toDate'));
     }
     //phân trang
     public function paginateCollection(Collection $items, $perPage, $currentPage)
@@ -342,14 +366,6 @@ class WarrantyController extends Controller
                     $newRecord->unit_price = 0;
                     $newRecord->total = 0;
                     $newRecord->save();
-                    // $newQty =  $record->quantity - $component['return_quantity'];
-                    // if ($newQty <= 0) {
-                    //     // Xóa bản ghi nếu số lượng mới bằng hoặc nhỏ hơn 0
-                    //     WarrantyRequestDetail::where('id', $component['id'])->delete();
-                    // } else {
-                    //     // Cập nhật lại số lượng nếu còn
-                    //     WarrantyRequestDetail::where('id', $component['id'])->update(['quantity' => $newQty]);
-                    // }
                 }
             }
         }
@@ -364,37 +380,145 @@ class WarrantyController extends Controller
     //Chi tiết ca bảo hành
     public function Details($id)
     {
-        $data = WarrantyRequest::where('id', $id)->first();
-        $quatrinhsua = WarrantyRequestDetail::where('warranty_request_id', $id)->get();
-        $history = WarrantyRequest::where('serial_number', $data->serial_number)->where('phone_number', $data->phone_number)->orderBy('received_date', 'desc')->get();
+        // Eager load relationships để tránh N+1 queries
+        $data = WarrantyRequest::with('details')
+            ->where('id', $id)
+            ->first();
+        
+        if (!$data) {
+            abort(404, 'Không tìm thấy phiếu bảo hành');
+        }
+        
+        // Sử dụng relationship đã eager load và sort trong memory (không query lại)
+        $quatrinhsuaRaw = $data->details
+            ->sortBy([
+                ['Ngaytao', 'asc'],
+                ['id', 'asc']
+            ])
+            ->values();
+        
+        // Nhóm các bản ghi có cùng error_type, solution, và Ngaytao
+        $quatrinhsua = collect();
+        $grouped = $quatrinhsuaRaw->groupBy(function ($item) {
+            return $item->error_type . '|' . $item->solution . '|' . $item->Ngaytao;
+        });
+        
+        foreach ($grouped as $group) {
+            $firstItem = $group->first();
+            $components = $group->map(function ($item, $index) {
+                return [
+                    'number' => $index + 1,
+                    'name' => $item->replacement,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total' => $item->quantity * $item->unit_price
+                ];
+            });
+            
+            // Tính tổng số lượng và thành tiền
+            $totalQuantity = $group->sum('quantity');
+            $totalAmount = $group->sum(function ($item) {
+                return $item->quantity * $item->unit_price;
+            });
+            
+            // Kiểm tra xem có nhiều linh kiện với đơn giá khác nhau không
+            $uniquePrices = $group->pluck('unit_price')->unique()->count();
+            $hasMultiplePrices = $uniquePrices > 1 || $group->count() > 1;
+            
+            // Tạo object mới với thông tin đã nhóm
+            $groupedItem = (object) [
+                'id' => $firstItem->id, 
+                'error_type' => $firstItem->error_type,
+                'solution' => $firstItem->solution,
+                'replacement' => $components,
+                'quantity' => $totalQuantity,
+                'unit_price' => $hasMultiplePrices ? null : ($group->first()->unit_price ?? 0),
+                'total' => $totalAmount,
+                'Ngaytao' => $firstItem->Ngaytao,
+                'warranty_request_id' => $firstItem->warranty_request_id,
+                'edit_by' => $firstItem->edit_by,
+            ];
+            
+            $quatrinhsua->push($groupedItem);
+        }
+        
+        // Eager load details cho history để tránh N+1 queries
+        $history = WarrantyRequest::with('details')
+            ->where('serial_number', $data->serial_number)
+            ->where('phone_number', $data->phone_number)
+            ->where('product', $data->product)
+            ->orderBy('received_date', 'desc')
+            ->get();
+        
+        // Lấy danh sách linh kiện
         $linhkien = Product::where('view', '2')->select('product_name')->get();
         
         // Lấy danh sách sản phẩm dựa trên brand
         $view = session('brand') === 'hurom' ? 3 : 1;
         $sanpham = Product::where('view', $view)->select('product_name')->get();
         
-        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'history', 'linhkien', 'sanpham'));
+        // Truyền cả dữ liệu để có thể sử dụng khi edit
+        return view('warranty.warrantydetails', compact('data', 'quatrinhsua', 'quatrinhsuaRaw', 'history', 'linhkien', 'sanpham'));
     }
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
     {
-        $request->merge([
-            'quantity' => (int) $request->quantity
-        ]);
-        $validator = Validator::make($request->all(), [
+        // Kiểm tra nếu replacement là mảng (nhiều linh kiện)
+        $isMultipleComponents = false;
+        if (is_array($request->replacement) && count($request->replacement) > 0) {
+            $isMultipleComponents = true;
+        }
+        
+        // Validation rules
+        $rules = [
             'error_type' => 'required|string|max:255',
             'solution' => 'required|string|max:255',
-            'replacement' => 'nullable|string|max:255',
-            'quantity' => 'nullable',
-            'unit_price' => 'nullable|integer|min:0',
             'des_error_type' => 'nullable',
-        ]);
+        ];
 
-        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm') && empty($request->replacement)) {
-            $validator->after(function ($validator) use ($request) {
-                $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
-                $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
-            });
+        if ($isMultipleComponents) {
+            // Validation cho nhiều linh kiện
+            $rules['replacement'] = 'required|array';
+            $rules['replacement.*'] = 'nullable|string|max:255';
+            $rules['quantity'] = 'required|array';
+            $rules['quantity.*'] = 'nullable|integer|min:0';
+            $rules['unit_price'] = 'required|array';
+            $rules['unit_price.*'] = 'nullable|integer|min:0';
+        } else {
+            // Validation cho một linh kiện (backward compatible)
+            $rules['replacement'] = 'nullable|string|max:255';
+            $rules['quantity'] = 'nullable|integer|min:0';
+            $rules['unit_price'] = 'nullable|integer|min:0';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        // Kiểm tra bắt buộc linh kiện cho một số giải pháp
+        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm')) {
+            if ($isMultipleComponents) {
+                $hasValidComponent = false;
+                foreach ($request->replacement as $index => $replacement) {
+                    if (!empty($replacement) && 
+                        isset($request->quantity[$index]) && 
+                        $request->quantity[$index] > 0) {
+                        $hasValidComponent = true;
+                        break;
+                    }
+                }
+                if (!$hasValidComponent) {
+                    $validator->after(function ($validator) use ($request) {
+                        $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                        $validator->errors()->add('replacement.0', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
+                    });
+                }
+            } else {
+                if (empty($request->replacement)) {
+                    $validator->after(function ($validator) use ($request) {
+                        $fieldName = $request->solution === 'Đổi mới sản phẩm' ? 'Sản phẩm thay thế' : 'Linh kiện thay thế';
+                        $validator->errors()->add('replacement', $fieldName . ' là bắt buộc khi chọn giải pháp này.');
+                    });
+                }
+            }
         }
 
         if ($validator->fails()) {
@@ -402,38 +526,114 @@ class WarrantyController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-        
-        $data = $validator->validated();
-        if($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)'){
-            $data['replacement'] = $request->des_error_type;
-        }
-        if($request->replacement){
-            // Tìm sản phẩm trong cả linh kiện và sản phẩm chính
-            $product = Product::getProductByName($request->replacement);
-            if (!$product) {
-                // Nếu không tìm thấy trong linh kiện, tìm trong sản phẩm chính
-                $view = session('brand') === 'hurom' ? 3 : 1;
-                $product = Product::where('product_name', $request->replacement)
-                    ->where('view', $view)
-                    ->first();
-            }
-            $data['replacement_price'] = $product->price ?? $request->unit_price;
-        }
-        // Thêm thông tin bổ sung
-        $data['warranty_request_id'] =  $request->warranty_request_id;
-        $data['total'] =  $request->quantity * $request->unit_price;
-        $data['Ngaytao'] = Carbon::now();
-        $data['edit_by'] = session('user');
-        if ($request->id) {
-            $detail = WarrantyRequestDetail::find($request->id);
-            if ($detail) {
-                $detail->update($data);
-                return response()->json(['success' => true, 'updated' => true]);
-            }
-        }
-        WarrantyRequestDetail::create($data);
 
-        return response()->json(['success' => true, 'created' => true]);
+        // Xử lý khi edit (có id) - xóa các bản ghi cũ và tạo mới
+        if ($request->id) {
+            $oldDetail = WarrantyRequestDetail::find($request->id);
+            if ($oldDetail) {
+                WarrantyRequestDetail::where('warranty_request_id', $oldDetail->warranty_request_id)
+                    ->where('error_type', $oldDetail->error_type)
+                    ->where('solution', $oldDetail->solution)
+                    ->where('Ngaytao', $oldDetail->Ngaytao)
+                    ->delete();
+            }
+        }
+
+        // Dữ liệu chung cho tất cả các bản ghi
+        $commonData = [
+            'warranty_request_id' => $request->warranty_request_id,
+            'error_type' => $request->error_type,
+            'solution' => $request->solution,
+            'Ngaytao' => Carbon::now(),
+            'edit_by' => session('user'),
+        ];
+
+        // Xử lý cho trường hợp "Sửa chữa tại chỗ (lỗi nhẹ)"
+        if ($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            $commonData['replacement'] = $request->des_error_type;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý nhiều linh kiện
+        if ($isMultipleComponents) {
+            $createdCount = 0;
+            $replacements = $request->replacement ?? [];
+            $quantities = $request->quantity ?? [];
+            $unitPrices = $request->unit_price ?? [];
+
+            foreach ($replacements as $index => $replacement) {
+                if (empty($replacement) || 
+                    !isset($quantities[$index]) || 
+                    $quantities[$index] <= 0) {
+                    continue;
+                }
+
+                $quantity = (int)($quantities[$index] ?? 0);
+                $unitPrice = (int)($unitPrices[$index] ?? 0);
+                
+                // Tìm giá sản phẩm
+                $product = Product::getProductByName($replacement);
+                if (!$product) {
+                    $view = session('brand') === 'hurom' ? 3 : 1;
+                    $product = Product::where('product_name', $replacement)
+                        ->where('view', $view)
+                        ->first();
+                }
+
+                $detailData = array_merge($commonData, [
+                    'replacement' => $replacement,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total' => $quantity * $unitPrice,
+                    'replacement_price' => $product->price ?? $unitPrice,
+                ]);
+
+                WarrantyRequestDetail::create($detailData);
+                $createdCount++;
+            }
+
+            if ($createdCount > 0) {
+                return response()->json([
+                    'success' => true, 
+                    'created' => true,
+                    'message' => "Đã lưu {$createdCount} linh kiện thành công."
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng nhập ít nhất một linh kiện hợp lệ.'
+                ], 422);
+            }
+        } else {
+            // Xử lý một linh kiện (backward compatible)
+            $data = $commonData;
+            $data['replacement'] = $request->replacement;
+            $data['quantity'] = (int)($request->quantity ?? 0);
+            $data['unit_price'] = (int)($request->unit_price ?? 0);
+            $data['total'] = $data['quantity'] * $data['unit_price'];
+
+            if ($request->replacement) {
+                $product = Product::getProductByName($request->replacement);
+                if (!$product) {
+                    $view = session('brand') === 'hurom' ? 3 : 1;
+                    $product = Product::where('product_name', $request->replacement)
+                        ->where('view', $view)
+                        ->first();
+                }
+                $data['replacement_price'] = $product->price ?? $data['unit_price'];
+            } else {
+                $data['replacement_price'] = 0;
+            }
+
+            WarrantyRequestDetail::create($data);
+            return response()->json(['success' => true, 'created' => true]);
+        }
     }
     //Xoá quá trình
     public function DeleteDetail(Request $request)
@@ -442,11 +642,17 @@ class WarrantyController extends Controller
             $detail = WarrantyRequestDetail::find($request->id);
 
             if ($detail) {
-                $detail->delete();
+                $deletedCount = WarrantyRequestDetail::where('warranty_request_id', $detail->warranty_request_id)
+                    ->where('error_type', $detail->error_type)
+                    ->where('solution', $detail->solution)
+                    ->where('Ngaytao', $detail->Ngaytao)
+                    ->delete();
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Xóa bản ghi thành công.'
+                    'message' => $deletedCount > 1 
+                        ? "Đã xóa {$deletedCount} bản ghi thành công." 
+                        : 'Xóa bản ghi thành công.'
                 ]);
             } else {
                 return response()->json([
@@ -490,6 +696,24 @@ class WarrantyController extends Controller
                         'message' => "Số seri tem bảo hành không được để trống.",
                         'old_value' => $detail->serial_number,
                     ]);
+                }
+                if($type == 'address'){
+                    // Validate địa chỉ: chữ, số và các ký tự '().,-', tối đa 100 ký tự
+                    if($value != null && strlen($value) > 100){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Địa chỉ tối đa 100 ký tự.",
+                            'old_value' => $detail->address,
+                        ]);
+                    }
+                    // Kiểm tra ký tự hợp lệ (chữ, số, khoảng trắng, và các ký tự đặc biệt: ().,-)
+                    if($value != null && !preg_match('/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ().,\-]+$/', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Chỉ cho phép chữ, số và các ký tự '().,-'",
+                            'old_value' => $detail->address,
+                        ]);
+                    }
                 }
                 $detail->update($data);
                 return response()->json(['success' => true, 'message' => "Cập nhật thành công"]);
@@ -555,7 +779,8 @@ class WarrantyController extends Controller
 
     public function GeneratePdf($id)
     {
-        $data = WarrantyRequest::findOrFail($id);
+        // Eager load details để tránh N+1 queries
+        $data = WarrantyRequest::with('details')->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
@@ -589,22 +814,23 @@ class WarrantyController extends Controller
             $city = 'hà nội';
             $address = 'Số 136, đường Cổ Linh, P. Long Biên, TP. Hà Nội';
         }
-        //
-        $month =  Product::where('product_name', $data->product)->value('month');
-        if (!$month) {
-            $month = 0;
-        }
+        // Lấy tháng bảo hành của sản phẩm
+        $month = Product::where('product_name', $data->product)->value('month') ?? 0;
+        
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
+        $paymentQr = $this->buildPaymentQr($data, $total);
+
         // Tạo PDF
-        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv'))
+        return PDF::loadView('warranty.print', compact('data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'))
             ->setPaper('A4')
             ->stream("phieu-bao-hanh-{$id}.pdf");
     }
 
     public function DowloadPdf($id)
     {
-        $data = WarrantyRequest::findOrFail($id);
+        // Eager load details để tránh N+1 queries
+        $data = WarrantyRequest::with('details')->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
@@ -634,16 +860,16 @@ class WarrantyController extends Controller
             $city = 'hà nội';
             $address = 'Số 136, đường Cổ Linh, Q. Long Biên, Hà Nội';
         }
-        //
-        $month =  Product::where('product_name', $data->product)->value('month');
-        if (!$month) {
-            $month = 0;
-        }
+        // Lấy tháng bảo hành của sản phẩm
+        $month = Product::where('product_name', $data->product)->value('month') ?? 0;
+        
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
+        $paymentQr = $this->buildPaymentQr($data, $total);
+
         // Tạo PDF
         $pdf = PDF::loadView('warranty.print', compact(
-            'data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv'
+            'data', 'items', 'total', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'
         ))->setPaper('A4');
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/octet-stream',
@@ -680,6 +906,77 @@ class WarrantyController extends Controller
         ]);
     }
 
+    /**
+     * Xây dựng thông tin QR thanh toán VietQR cho phiếu bảo hành.
+     */
+    private function buildPaymentQr(WarrantyRequest $data, float $total): ?array
+    {
+        $config = config('services.vietqr', []);
+        $bankId = $config['bank_id'] ?? null;
+        $accountNo = $config['account_no'] ?? null;
+        $accountName = $config['account_name'] ?? null;
+
+        if (!$bankId || !$accountNo || !$accountName) {
+            return null;
+        }
+
+        $amount = max(0, (int) round($total));
+        $description = "TTBH so phieu {$data->id}";
+        $qrPayLink = sprintf(
+            'https://img.vietqr.io/image/%s-%s-qr_only.jpg?amount=%s&addInfo=%s&accountName=%s',
+            rawurlencode($bankId),
+            rawurlencode($accountNo),
+            rawurlencode($amount),
+            rawurlencode($description),
+            rawurlencode($accountName)
+        );
+
+        try {
+            $response = Http::timeout(10)->get($qrPayLink);
+            if ($response->successful()) {
+                return [
+                    'title' => $description,
+                    'image' => 'data:image/png;base64,' . base64_encode($response->body()),
+                    'amount' => $amount,
+                    'account_no' => $accountNo,
+                    'account_name' => $accountName,
+                    'description' => $description,
+                ];
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Generate payment QR failed', [
+                'error' => $exception->getMessage(),
+                'warranty_id' => $data->id,
+            ]);
+        }
+
+        return null;
+    }
+
+    public function GetPaymentQr($id)
+    {
+        $data = WarrantyRequest::findOrFail($id);
+        $items = $data->details;
+        $total = 0;
+        foreach ($items as $item) {
+            $total += $item->quantity * $item->unit_price;
+        }
+
+        $qr = $this->buildPaymentQr($data, $total);
+
+        if (!$qr) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tạo QR thanh toán. Vui lòng kiểm tra cấu hình tài khoản.'
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $qr,
+        ]);
+    }
+
     // form nhập phiếu bảo hành
     public function FormWarrantyCard(Request $request)
     {
@@ -699,63 +996,6 @@ class WarrantyController extends Controller
         }
         return view('warranty.formwarranty', compact('warranty', 'lstproduct', 'products', 'chinhanh', 'provinces'));
     }
-    
-    // public function FindWarranty(Request $request)
-    // {
-    //     try {
-    //         $serialNumber = strtolower($request->input('serial_number'));
-
-    //         // Lấy thông tin bảo hành + orderProduct + order bằng Eloquent
-    //         $warrantyData = ProductWarranty::with(['order_product.order'])
-    //             ->whereRaw('LOWER(warranty_code) = ?', [$serialNumber])
-    //             ->first();
-
-    //         if (!$warrantyData) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Không tìm thấy thông tin bảo hành cho mã đã nhập.'
-    //             ]);
-    //         }
-
-    //         // Danh sách sản phẩm trong đơn hàng
-    //         $orderId = $warrantyData->order_product->order->id ?? null;
-    //         $lstproduct = [];
-
-    //         if ($orderId) {
-    //             $lstproduct = OrderProduct::where('order_products.order_id', $orderId)
-    //                 ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
-    //                 ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
-    //                 ->select('order_products.product_name', 'p.month', 'pw.warranty_code')
-    //                 ->get();
-    //         }
-
-    //         // Lịch sử bảo hành từ database mặc định
-    //         $warranty = WarrantyRequest::whereRaw('LOWER(serial_number) = ?', [$serialNumber])->first();
-    //         $history = $warranty ? $warranty->details()->with('warrantyRequest:id,received_date')->get() : [];
-
-    //         // Render view
-    //         $view = view('components.warranty_info', [
-    //             'warranty' => $warrantyData,
-    //             'lstproduct' => $lstproduct,
-    //             'product_warranty' => $warranty?->product,
-    //             'received_warranty' => $warranty?->staff_received,
-    //             'received_date' => $warranty?->received_date,
-    //             'history' => $history
-    //         ])->render();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'view' => $view,
-    //             'message' => 'Thông tin bảo hành'
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Lỗi FindWarranty: ' . $e->getMessage());
-    //         return response()->json([
-    //             'Lỗi FindWarranty' => $e->getMessage(),
-    //             'message' => 'Đã xảy ra lỗi trong quá trình xử lý.'
-    //         ], 500);
-    //     }
-    // }
     
     public function FindWarranty(Request $request)
     {
@@ -804,15 +1044,33 @@ class WarrantyController extends Controller
             }
 
             if (!$warrantyData) {
-                $suffix = substr($serialNumber, -3);
+                // Chỉ áp dụng logic suffix cho mã cũ bị lỗi (có prefix 2025050500)
                 $baseCodes = Enum::getCodes();
-                $finalCodes = array_map(function ($code) use ($suffix) {
-                    return $code . $suffix;
-                }, $baseCodes);
-                $warrantyData = ProductWarranty::with(['order_product.order'])
-                    ->whereIn('warranty_code', $finalCodes)
-                    ->first();
-                $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                $isOldErrorCode = false;
+                
+                // Kiểm tra xem mã nhập vào có phải là mã cũ bị lỗi không
+                foreach ($baseCodes as $baseCode) {
+                    $normalizedBaseCode = strtolower($baseCode);
+                    if (
+                        strpos($serialNumber, $normalizedBaseCode) === 0
+                        && strlen($serialNumber) === strlen($normalizedBaseCode) + 3
+                    ) {
+                        $isOldErrorCode = true;
+                        break;
+                    }
+                }
+                
+                // Chỉ áp dụng logic suffix nếu là mã cũ bị lỗi
+                if ($isOldErrorCode) {
+                    $suffix = substr($serialNumber, -3);
+                    $finalCodes = array_map(function ($code) use ($suffix) {
+                        return $code . $suffix;
+                    }, $baseCodes);
+                    $warrantyData = ProductWarranty::with(['order_product.order'])
+                        ->whereIn('warranty_code', $finalCodes)
+                        ->first();
+                    $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                }
             }
 
             if (!$warrantyData) {
@@ -870,6 +1128,122 @@ class WarrantyController extends Controller
         }
     }
 
+    public function FindWarrantyByOrderCode(Request $request)
+    {
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        try {
+            $orderCode = $request->input('order_code');
+            
+            if (empty($orderCode)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng nhập mã đơn hàng.'
+                ]);
+            }
+
+            // Tìm đơn hàng theo order_code1 hoặc order_code2
+            $order = Order::where('order_code1', $orderCode)
+                ->orWhere('order_code2', $orderCode)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng với mã: ' . $orderCode
+                ]);
+            }
+
+            // Lấy danh sách sản phẩm trong đơn hàng có bảo hành
+            $lstproduct = OrderProduct::where('order_products.order_id', $order->id)
+                ->where('p.view', $view)
+                ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
+                ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
+                ->select('order_products.product_name', 'p.month', 'pw.warranty_code')
+                ->get();
+
+            if ($lstproduct->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy sản phẩm bảo hành trong đơn hàng này.'
+                ]);
+            }
+
+            // Tạo object warranty giả lập từ thông tin đơn hàng để hiển thị
+            $warrantyData = (object) [
+                'order_product' => (object) [
+                    'order' => $order
+                ],
+                'full_name' => $order->customer_name,
+                'phone_number' => $order->customer_phone,
+                'address' => $order->customer_address,
+                'shipment_date' => $order->created_at ? Carbon::parse($order->created_at) : null,
+                'warranty_end' => null
+            ];
+
+            // Lấy lịch sử bảo hành của tất cả sản phẩm trong đơn hàng
+            $warrantyCodes = $lstproduct->pluck('warranty_code')->filter()->toArray();
+            $warranties = WarrantyRequest::whereIn('serial_number', $warrantyCodes)
+                ->orderBy('received_date', 'desc')
+                ->get();
+
+            // Tạo history từ tất cả các warranty requests
+            $history = collect();
+            foreach ($warranties as $warranty) {
+                $details = $warranty->details()->with('warrantyRequest:id,received_date')->get();
+                if ($details->isEmpty()) {
+                    // Nếu không có details, vẫn thêm warranty vào history
+                    $history->push((object) [
+                        'error_type' => null,
+                        'solution' => null,
+                        'replacement' => null,
+                        'warrantyRequest' => (object) [
+                            'received_date' => $warranty->received_date
+                        ],
+                        'product_name' => $warranty->product,
+                        'serial_number' => $warranty->serial_number,
+                        'staff_received' => $warranty->staff_received
+                    ]);
+                } else {
+                    foreach ($details as $detail) {
+                        $history->push((object) [
+                            'error_type' => $detail->error_type,
+                            'solution' => $detail->solution,
+                            'replacement' => $detail->replacement,
+                            'warrantyRequest' => (object) [
+                                'received_date' => $warranty->received_date
+                            ],
+                            'product_name' => $warranty->product,
+                            'serial_number' => $warranty->serial_number,
+                            'staff_received' => $warranty->staff_received
+                        ]);
+                    }
+                }
+            }
+
+            // Render view với thông tin đơn hàng
+            $viewHtml = view('components.warranty_info', [
+                'warranty' => $warrantyData,
+                'lstproduct' => $lstproduct,
+                'product_warranty' => null,
+                'received_warranty' => null,
+                'received_date' => null,
+                'history' => $history
+            ])->render();
+
+            return response()->json([
+                'success' => true,
+                'view' => $viewHtml,
+                'message' => 'Thông tin bảo hành đơn hàng: ' . $orderCode
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi FindWarrantyByOrderCode: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Đã xảy ra lỗi trong quá trình xử lý: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function findWarantyOld(Request $request)
     {
         $serial = $request->serial;
@@ -903,10 +1277,24 @@ class WarrantyController extends Controller
                 ->whereRaw('LOWER(warranty_code) = ?', [$serialNumber])
                 ->first();
             if (!$warrantyData){
+                $possibleOldCode = false;
+                foreach ($baseCodes as $code) {
+                    $normalizedBaseCode = strtolower($code);
+                    if (
+                        strpos($serialNumber, $normalizedBaseCode) === 0
+                        && strlen($serialNumber) === strlen($normalizedBaseCode) + 3
+                    ) {
+                        $possibleOldCode = true;
+                        break;
+                    }
+                }
+
+                if ($possibleOldCode) {
                 $warrantyData = ProductWarranty::with(['order_product.order'])
                     ->whereIn('warranty_code', $finalCodes)
                     ->first();
                 $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                }
             }
 
             if (!$warrantyData) {
@@ -927,9 +1315,7 @@ class WarrantyController extends Controller
                     ->select('op.product_name', 'p.nhap_tay', 'product_warranties.warranty_code')->get();
             }
 
-            if($lstproduct->isNotEmpty() && $lstproduct->first()->nhap_tay == 1){
-                return response()->json(['success' => false, 'message' => 'Sản phẩm này không thể quét.']);
-            }
+            
 
             return response()->json([
                 'success' => true,
@@ -956,6 +1342,8 @@ class WarrantyController extends Controller
     }
     public function CreateWarrany(Request $request)
     {
+        
+
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $name = $request->product;
         $product = Product::where('product_name', $name)->first();
@@ -967,6 +1355,20 @@ class WarrantyController extends Controller
         }
         $shipmentDate = Carbon::createFromFormat('d/m/Y', $request->shipment_date);
         $warrantyEnd = $shipmentDate->copy()->addMonths($product->month);
+        
+        // Kiểm tra anomaly và chặn nếu vượt ngưỡng
+        $staffName = session('user');
+        $branch = $request->branch;
+        $anomalyDetector = new WarrantyAnomalyDetector();
+        $anomalyCheck = $anomalyDetector->checkAndBlock($staffName, $branch);
+        
+        if ($anomalyCheck['blocked']) {
+            return response()->json([
+                'success' => false,
+                'message' => $anomalyCheck['message'],
+                'block_info' => $anomalyCheck['block_info']
+            ], 403);
+        }
         
         //Kiểm tra trùng lặp trước khi tạo phiếu
         $today = Carbon::today();
@@ -1096,6 +1498,177 @@ class WarrantyController extends Controller
             'photos' => $photos,
             'video' => $videoPath,
             'success' => true
+        ]);
+    }
+
+    /**
+     * Trang xem cảnh báo anomaly (chỉ admin)
+     */
+    public function AnomalyAlertsPage()
+    {
+        // Chỉ admin hoặc quản trị viên mới được xem
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            abort(403, 'Bạn không có quyền truy cập trang này.');
+        }
+
+        return view('warranty.anomaly_alerts');
+    }
+
+    /**
+     * Lấy danh sách cảnh báo anomaly (chỉ admin) - API
+     */
+    public function getAnomalyAlerts(Request $request)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xem
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xem cảnh báo này.'
+            ], 403);
+        }
+
+        $date = $request->input('date');
+        $branch = $request->input('branch');
+        $resolved = $request->input('resolved');
+
+        $anomalyDetector = new WarrantyAnomalyDetector();
+        $alerts = $anomalyDetector->getAlerts($date, $branch, $resolved);
+
+        // Thêm thông tin block vào mỗi alert
+        $alertsData = $alerts->map(function ($alert) {
+            $block = WarrantyAnomalyBlock::where('staff_name', $alert->staff_name)
+                ->where('branch', $alert->branch)
+                ->where('date', $alert->date)
+                ->where('is_active', true)
+                ->where('blocked_until', '>', now())
+                ->first();
+            
+            // Chuyển sang array và thêm field mới
+            $alertData = $alert->toArray();
+            $alertData['has_active_block'] = $block !== null;
+            return $alertData;
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $alertsData
+        ]);
+    }
+
+    /**
+     * Đánh dấu cảnh báo đã được xử lý
+     */
+    public function resolveAnomalyAlert(Request $request, $id)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xử lý
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xử lý cảnh báo này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($id);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        $alert->update([
+            'is_resolved' => true,
+            'resolved_by' => Auth::id(),
+            'resolved_at' => now()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã đánh dấu cảnh báo đã được xử lý.'
+        ]);
+    }
+
+    /**
+     * Gỡ block cho nhân viên
+     */
+    public function unblockStaff(Request $request, $alertId)
+    {
+        // Chỉ admin hoặc quản trị viên mới được gỡ block
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền gỡ block này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($alertId);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        // Tìm và gỡ tất cả block của nhân viên này trong ngày
+        $blocks = WarrantyAnomalyBlock::where('staff_name', $alert->staff_name)
+            ->where('branch', $alert->branch)
+            ->where('date', $alert->date)
+            ->where('is_active', true)
+            ->get();
+
+        // Gỡ tất cả block (nếu có)
+        if ($blocks->count() > 0) {
+            foreach ($blocks as $block) {
+                $block->update([
+                    'is_active' => false,
+                    'blocked_until' => now() // Đảm bảo block hết hiệu lực ngay
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã gỡ block cho nhân viên ' . $alert->staff_name . '. Nhân viên có thể tiếp tục tạo phiếu bảo hành.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Không tìm thấy block đang active cho nhân viên này.'
+        ], 404);
+    }
+
+    /**
+     * Xóa cảnh báo
+     */
+    public function deleteAnomalyAlert(Request $request, $id)
+    {
+        // Chỉ admin hoặc quản trị viên mới được xóa cảnh báo
+        $position = strtolower(session('position') ?? '');
+        if (!in_array($position, ['admin', 'quản trị viên'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xóa cảnh báo này.'
+            ], 403);
+        }
+
+        $alert = WarrantyAnomalyAlert::find($id);
+        if (!$alert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy cảnh báo.'
+            ], 404);
+        }
+
+        // Xóa cảnh báo
+        $alert->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa cảnh báo thành công.'
         ]);
     }
 

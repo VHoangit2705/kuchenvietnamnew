@@ -41,7 +41,7 @@
                     <td class="text-center">
                         <span style="font-size: 14px; cursor: pointer;"
                             class="badge @if($item->status == 'Đã hoàn tất') bg-success @elseif($item->status == 'Chờ KH phản hồi') bg-secondary @elseif($item->status == 'Đã tiếp nhận') bg-primary @elseif($item->status == 'Đã gửi linh kiện') bg-info @else bg-warning text-dark @endif"
-                            @if(($item->status != 'Đã hoàn tất' && session('user') == $item->staff_received) || session('position') == 'admin')
+                            @if(($item->status != 'Đã hoàn tất' && session('user') == $item->staff_received) || session('position') == 'admin' || session('position') == 'quản trị viên')
                             onclick="showStatusModal({{ $item->id }}, '{{ $item->status }}', '{{ $item->type }}', false)"
                             @else
                             onclick="showError()"
