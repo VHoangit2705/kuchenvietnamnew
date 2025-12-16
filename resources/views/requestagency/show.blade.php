@@ -80,28 +80,41 @@
                 <div class="col-md-6">
                     <label class="form-label text-muted">Tên đại lý</label>
                     <div class="form-control-plaintext">
-                        {{ $request->agency_name ?? '-' }}
+                        @if($request->agency)
+                            {{ $request->agency->name ?? $request->agency_name ?? '-' }}
+                        @else
+                            {{ $request->agency_name ?? '-' }}
+                        @endif
                     </div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label text-muted">Số điện thoại đại lý</label>
                     <div class="form-control-plaintext">
-                        {{ $request->agency_phone ?? '-' }}
+                        @if($request->agency)
+                            {{ $request->agency->phone ?? $request->agency_phone ?? '-' }}
+                        @else
+                            {{ $request->agency_phone ?? '-' }}
+                        @endif
                     </div>
                 </div>
             </div>
+            
+            @if($request->agency && $request->agency->cccd)
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label text-muted">CCCD đại lý</label>
+                    <div class="form-control-plaintext">
+                        {{ $request->agency->cccd }}
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label class="form-label text-muted">Người tiếp nhận</label>
                     <div class="form-control-plaintext">
                         {{ $request->received_by ?? '-' }}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label text-muted">Người được gán xử lý</label>
-                    <div class="form-control-plaintext">
-                        {{ $request->assigned_to ?? '-' }}
                     </div>
                 </div>
             </div>

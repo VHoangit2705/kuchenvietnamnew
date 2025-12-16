@@ -291,8 +291,6 @@ class RequestAgencyController extends Controller
             'customer_phone' => $request->customer_phone,
             'installation_address' => $request->installation_address,
             'notes' => $request->notes,
-            'agency_name' => $request->agency_name,
-            'agency_phone' => $request->agency_phone,
             'agency_id' => $agencyId,
             'status' => RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY,
         ]);
@@ -306,7 +304,7 @@ class RequestAgencyController extends Controller
      */
     public function show(string $id)
     {
-        $request = RequestAgency::findOrFail($id);
+        $request = RequestAgency::with('agency')->findOrFail($id);
         return view('requestagency.show', compact('request'));
     }
 
@@ -315,7 +313,7 @@ class RequestAgencyController extends Controller
      */
     public function edit(string $id)
     {
-        $request = RequestAgency::findOrFail($id);
+        $request = RequestAgency::with('agency')->findOrFail($id);
         return view('requestagency.edit', compact('request'));
     }
 
@@ -336,12 +334,44 @@ class RequestAgencyController extends Controller
             'status' => 'required|in:' . implode(',', array_keys(RequestAgency::getStatuses())),
             'agency_name' => 'nullable|string|max:255',
             'agency_phone' => 'nullable|string|max:20',
+            'agency_cccd' => 'nullable|string|max:12',
             'received_by' => 'nullable|string|max:255',
             'assigned_to' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
+        }
+
+        // Tìm hoặc tạo agency từ agency_phone và cập nhật thông tin
+        $agencyId = null;
+        if ($request->agency_phone) {
+            $agency = Agency::where('phone', $request->agency_phone)->first();
+            
+            if ($agency) {
+                // Cập nhật thông tin agency nếu có thay đổi
+                $updateData = [];
+                if ($request->agency_name && $agency->name != $request->agency_name) {
+                    $updateData['name'] = $request->agency_name;
+                }
+                if ($request->agency_cccd && $agency->cccd != $request->agency_cccd) {
+                    $updateData['cccd'] = $request->agency_cccd;
+                }
+                if (!empty($updateData)) {
+                    $agency->update($updateData);
+                }
+                $agencyId = $agency->id;
+            } else {
+                // Tạo agency mới nếu chưa tồn tại
+                $agency = Agency::create([
+                    'name' => $request->agency_name,
+                    'phone' => $request->agency_phone,
+                    'cccd' => $request->agency_cccd,
+                    'created_ad' => now(),
+                    'create_by' => session('user', 'system'),
+                ]);
+                $agencyId = $agency->id;
+            }
         }
 
         // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
@@ -358,8 +388,7 @@ class RequestAgencyController extends Controller
             'installation_address' => $request->installation_address,
             'notes' => $request->notes,
             'status' => $request->status,
-            'agency_name' => $request->agency_name,
-            'agency_phone' => $request->agency_phone,
+            'agency_id' => $agencyId ?? $requestAgency->agency_id,
             'received_by' => $request->received_by ?? $requestAgency->received_by,
             'assigned_to' => $request->assigned_to,
         ]);

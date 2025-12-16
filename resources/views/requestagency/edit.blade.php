@@ -107,7 +107,7 @@
                 </div>
 
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="status" class="form-label">
                             Trạng thái <span class="text-danger">*</span>
                         </label>
@@ -127,26 +127,39 @@
                         @enderror
                     </div>
                     
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="agency_name" class="form-label">Tên đại lý</label>
                         <input type="text" 
                             class="form-control @error('agency_name') is-invalid @enderror" 
                             id="agency_name" 
                             name="agency_name" 
-                            value="{{ old('agency_name', $request->agency_name) }}">
+                            value="{{ old('agency_name', $request->agency ? ($request->agency->name ?? $request->agency_name) : $request->agency_name) }}">
                         @error('agency_name')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
                     
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="agency_phone" class="form-label">Số điện thoại đại lý</label>
                         <input type="text" 
                             class="form-control @error('agency_phone') is-invalid @enderror" 
                             id="agency_phone" 
                             name="agency_phone" 
-                            value="{{ old('agency_phone', $request->agency_phone) }}">
+                            value="{{ old('agency_phone', $request->agency ? ($request->agency->phone ?? $request->agency_phone) : $request->agency_phone) }}">
                         @error('agency_phone')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="agency_cccd" class="form-label">CCCD đại lý</label>
+                        <input type="text" 
+                            class="form-control @error('agency_cccd') is-invalid @enderror" 
+                            id="agency_cccd" 
+                            name="agency_cccd" 
+                            value="{{ old('agency_cccd', $request->agency ? ($request->agency->cccd ?? '') : '') }}"
+                            placeholder="Nhập CCCD đại lý">
+                        @error('agency_cccd')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -161,18 +174,6 @@
                             name="received_by" 
                             value="{{ old('received_by', $request->received_by) }}">
                         @error('received_by')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label for="assigned_to" class="form-label">Người được gán xử lý</label>
-                        <input type="text" 
-                            class="form-control @error('assigned_to') is-invalid @enderror" 
-                            id="assigned_to" 
-                            name="assigned_to" 
-                            value="{{ old('assigned_to', $request->assigned_to) }}">
-                        @error('assigned_to')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -213,6 +214,10 @@ document.getElementById('customer_phone').addEventListener('input', function(e) 
 });
 
 document.getElementById('agency_phone').addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+
+document.getElementById('agency_cccd').addEventListener('input', function(e) {
     this.value = this.value.replace(/[^0-9]/g, '');
 });
 

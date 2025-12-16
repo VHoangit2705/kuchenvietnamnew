@@ -210,7 +210,10 @@
                                     {{ $request->status_name }}
                                 </span>
                             </td>
-                            <td>{{ $request->created_at->format('d/m/Y H:i') }}</td>
+                            <td>
+                                {{ $request->created_at->format('d/m/Y') }}<br>
+                                Vào lúc: {{ $request->created_at->format('H:i') }}
+                            </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ route('requestagency.show', $request->id) }}" 
