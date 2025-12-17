@@ -44,9 +44,14 @@
     <div class="card">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Quản lý yêu cầu lắp đặt đại lý</h4>
-            <a href="{{ route('requestagency.create') }}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>Thêm mới
-            </a>
+            <div>
+                <a href="{{ route('requestagency.manage-agencies') }}" class="btn btn-success me-2">
+                    <i class="bi bi-shield-check me-1"></i>Quản lý xác nhận đại lý
+                </a>
+                <a href="{{ route('requestagency.create') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Thêm mới
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <!-- Form tìm kiếm -->

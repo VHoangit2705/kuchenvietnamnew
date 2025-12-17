@@ -442,4 +442,181 @@ class RequestAgencyController extends Controller
             'status_name' => $requestAgency->status_name
         ]);
     }
+
+    /**
+     * Hiển thị danh sách đại lý gửi yêu cầu lần đầu (chưa xác nhận)
+     * Chỉ hiển thị các đại lý có request đầu tiên với trạng thái "Chưa xác nhận đại lý"
+     */
+    public function manageAgencies(Request $request)
+    {
+        // Lấy tất cả các request chưa xác nhận đại lý, sắp xếp theo thời gian tạo (cũ nhất trước)
+        $pendingRequests = RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)
+            ->whereNotNull('agency_id')
+            ->with('agency')
+            ->orderBy('created_at', 'asc') // Sắp xếp từ cũ đến mới để lấy request đầu tiên
+            ->get();
+
+        // Nhóm theo agency_id và chỉ lấy request đầu tiên (cũ nhất) của mỗi đại lý
+        $firstTimeAgencies = [];
+        $processedAgencyIds = [];
+
+        foreach ($pendingRequests as $req) {
+            $agencyId = $req->agency_id;
+            
+            // Kiểm tra xem đại lý này đã có request nào được xác nhận chưa
+            $hasConfirmedRequest = RequestAgency::where('agency_id', $agencyId)
+                ->where('status', RequestAgency::STATUS_DA_XAC_NHAN_AGENCY)
+                ->exists();
+
+            // Chỉ thêm vào danh sách nếu:
+            // 1. Đây là request đầu tiên của đại lý này (chưa có trong processedAgencyIds)
+            // 2. Đại lý này chưa có request nào được xác nhận trước đó
+            if (!in_array($agencyId, $processedAgencyIds) && !$hasConfirmedRequest) {
+                $firstTimeAgencies[] = $req;
+                $processedAgencyIds[] = $agencyId;
+            }
+        }
+
+        // Sắp xếp lại theo thời gian tạo mới nhất để hiển thị
+        usort($firstTimeAgencies, function($a, $b) {
+            return $b->created_at <=> $a->created_at;
+        });
+
+        // Filter theo tìm kiếm
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $firstTimeAgencies = array_filter($firstTimeAgencies, function($req) use ($search) {
+                return stripos($req->agency->name ?? '', $search) !== false ||
+                       stripos($req->agency->phone ?? '', $search) !== false ||
+                       stripos($req->agency->cccd ?? '', $search) !== false ||
+                       stripos($req->order_code ?? '', $search) !== false ||
+                       stripos($req->customer_name ?? '', $search) !== false;
+            });
+            // Re-index array sau khi filter
+            $firstTimeAgencies = array_values($firstTimeAgencies);
+        }
+
+        // Phân trang thủ công
+        $currentPage = $request->get('page', 1);
+        $perPage = self::$pageSize;
+        $total = count($firstTimeAgencies);
+        $offset = ($currentPage - 1) * $perPage;
+        $items = array_slice($firstTimeAgencies, $offset, $perPage);
+
+        // Tạo paginator thủ công
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('requestagency.manage-agencies', compact('paginator', 'firstTimeAgencies'));
+    }
+
+    /**
+     * Hiển thị form xác nhận đại lý
+     */
+    public function confirmAgencyForm(string $id)
+    {
+        $request = RequestAgency::with('agency')->findOrFail($id);
+        
+        // Kiểm tra xem đại lý này đã có request nào được xác nhận chưa
+        $hasConfirmedRequest = RequestAgency::where('agency_id', $request->agency_id)
+            ->where('status', RequestAgency::STATUS_DA_XAC_NHAN_AGENCY)
+            ->where('id', '!=', $id)
+            ->exists();
+
+        // Kiểm tra xem request này có phải là request đầu tiên của đại lý không
+        $isFirstRequest = !RequestAgency::where('agency_id', $request->agency_id)
+            ->where('id', '<', $id)
+            ->exists();
+
+        if (!$isFirstRequest && !$hasConfirmedRequest) {
+            // Nếu không phải request đầu tiên nhưng chưa có request nào được xác nhận
+            // Vẫn cho phép xác nhận
+        }
+
+        return view('requestagency.confirm-agency', compact('request', 'hasConfirmedRequest', 'isFirstRequest'));
+    }
+
+    /**
+     * Xác nhận đại lý (chuyển trạng thái từ "Chưa xác nhận đại lý" sang "Đã xác nhận đại lý")
+     */
+    public function confirmAgency(Request $request, string $id)
+    {
+        $requestAgency = RequestAgency::with('agency')->findOrFail($id);
+
+        // Kiểm tra trạng thái hiện tại
+        if ($requestAgency->status !== RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY) {
+            return back()->with('error', 'Yêu cầu này không ở trạng thái "Chưa xác nhận đại lý"!');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'received_by' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Cập nhật trạng thái và thông tin xác nhận
+        $requestAgency->status = RequestAgency::STATUS_DA_XAC_NHAN_AGENCY;
+        $requestAgency->received_at = now();
+        $requestAgency->received_by = $request->received_by ?? session('user', 'system');
+        
+        if ($request->notes) {
+            $requestAgency->notes = ($requestAgency->notes ? $requestAgency->notes . "\n" : '') . 
+                                    '[Xác nhận đại lý] ' . $request->notes;
+        }
+        
+        $requestAgency->save();
+
+        return redirect()->route('requestagency.manage-agencies')
+            ->with('success', 'Xác nhận đại lý thành công!');
+    }
+
+    /**
+     * Xác nhận nhiều đại lý cùng lúc
+     */
+    public function confirmMultipleAgencies(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'request_ids' => 'required|array',
+            'request_ids.*' => 'required|exists:mysql.request_agency,id',
+            'received_by' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $requestIds = $request->request_ids;
+        $receivedBy = $request->received_by ?? session('user', 'system');
+        $confirmedCount = 0;
+
+        foreach ($requestIds as $requestId) {
+            $requestAgency = RequestAgency::find($requestId);
+            
+            if ($requestAgency && $requestAgency->status === RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY) {
+                $requestAgency->status = RequestAgency::STATUS_DA_XAC_NHAN_AGENCY;
+                $requestAgency->received_at = now();
+                $requestAgency->received_by = $receivedBy;
+                $requestAgency->save();
+                $confirmedCount++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Đã xác nhận {$confirmedCount} đại lý thành công!",
+            'confirmed_count' => $confirmedCount
+        ]);
+    }
 }

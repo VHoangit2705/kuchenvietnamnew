@@ -14,6 +14,8 @@ use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
 use App\Http\Controllers\RequestAgencyController;
+use App\Http\Middleware\CheckBrandSession;
+use App\Http\Middleware\CheckCookieLogin;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -137,7 +139,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 });
 
 // Request Agency (Yêu cầu lắp đặt đại lý)
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    // Quản lý xác nhận đại lý lần đầu - Phải đặt trước resource để tránh conflict
+    Route::get('/requestagency/manage-agencies', [RequestAgencyController::class, 'manageAgencies'])->name('requestagency.manage-agencies');
+    Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
+    Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
+    Route::post('/requestagency/confirm-multiple', [RequestAgencyController::class, 'confirmMultipleAgencies'])->name('requestagency.confirm-multiple');
+    
+    // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
     Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
 });
