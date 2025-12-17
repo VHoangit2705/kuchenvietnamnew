@@ -239,31 +239,35 @@ class CollaboratorInstallController extends Controller
      */
     public function getTabData(Request $request)
     {
-        $tab = $request->get('tab', 'donhang');
-        $view = session('brand') === 'hurom' ? 3 : 1;
+        try {
+            $tab = $request->get('tab', 'donhang');
+            $view = session('brand') === 'hurom' ? 3 : 1;
 
-        // Lấy query builder cho tab
-        $mainQuery = $this->buildTabQuery($tab, $view);
+            $mainQuery = $this->buildTabQuery($tab, $view);
+            $mainQuery = $this->applyTabFilters($mainQuery, $tab, $request);
+            if ($tab === 'dieuphoibaohanh') {
+                $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
+            } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
+                $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();               
+            } else {
+                $data = $mainQuery->orderByDesc('installation_orders.created_at')->orderByDesc('installation_orders.id')->paginate(50)->withQueryString();
+            }
 
-        // Áp dụng filters
-        $mainQuery = $this->applyTabFilters($mainQuery, $tab, $request);
-
-        // Phân trang + sắp xếp
-        if ($tab === 'dieuphoibaohanh') {
-            // Sắp xếp ca bảo hành theo ngày nhận phiếu (received_date) mới nhất
-            $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
-        } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
-            $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();
-        } else {
-            $data = $mainQuery->orderByDesc('installation_orders.created_at')->orderByDesc('installation_orders.id')->paginate(50)->withQueryString();
+            $startRender = microtime(true);
+            $html = view('collaboratorinstall.tablecontent', compact('data'))->render();
+            $renderTime = round((microtime(true) - $startRender) * 1000, 2);
+            
+            // Chỉ trả về bảng dữ liệu; header (counts) sẽ được gọi riêng qua endpoint counts để giảm query
+            return response()->json([
+                'table' => $html,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Có lỗi xảy ra khi tải dữ liệu: ' . $e->getMessage(),
+                'table' => '<div class="alert alert-danger">Lỗi: ' . htmlspecialchars($e->getMessage()) . '</div>'
+            ], 500);
         }
-
-        $html = view('collaboratorinstall.tablecontent', compact('data'))->render();
-
-        // Chỉ trả về bảng dữ liệu; header (counts) sẽ được gọi riêng qua endpoint counts để giảm query
-        return response()->json([
-            'table' => $html,
-        ]);
     }
 
     /**
@@ -271,50 +275,86 @@ class CollaboratorInstallController extends Controller
      */
     private function buildTabQuery($tab, $view)
     {
-        // Định nghĩa closure trả về query cho từng tab
-        $queryBuilders = [
+        try {
+            // Định nghĩa closure trả về query cho từng tab
+            $queryBuilders = [
             'donhang' => function () use ($view) {
-                return OrderProduct::with('order')
-                    ->join('products as p', function($join) {
+                return OrderProduct::join('products as p', function($join) {
                         $join->on('order_products.product_name', '=', 'p.product_name');
                     })
-                    ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
-                    ->where('p.view', $view)
-                    ->select('order_products.*')
-                    ->where('order_products.install', 1)
-                    ->whereHas('order', function ($q) {
-                        $q->where('order_code2', 'not like', 'KU%')
-                            ->where(function ($sub) {
-                                // Chỉ hiển thị các đơn hàng chưa điều phối
-                                $sub->whereNull('status_install')
-                                    ->orWhere('status_install', 0);
-                            })
-                            // Chỉ lấy đơn thực sự chưa có CTV gán
-                            ->whereNull('collaborator_id');
+                    ->join('orders', 'order_products.order_id', '=', 'orders.id')
+                    ->leftJoin('installation_orders as io', function($join) {
+                        $join->on(function($q) {
+                            $q->whereColumn('io.order_code', 'orders.order_code2')
+                              ->orWhereColumn('io.order_code', 'orders.order_code1');
+                        })
+                        ->whereColumn('io.product', 'order_products.product_name')
+                        ->where('io.status_install', '>=', 1);
                     })
+                    ->where('p.view', $view)
+                    ->select(
+                        'order_products.id',
+                        'order_products.order_id',
+                        'order_products.product_name',
+                        'orders.order_code2',
+                        'orders.zone',
+                        'orders.created_at',
+                        'orders.status_install',
+                        'orders.agency_name',
+                        'orders.agency_phone',
+                        'orders.customer_name',
+                        'orders.customer_phone',
+                    )
+                    ->where('order_products.install', 1)
+                    ->where('orders.order_code2', 'not like', 'KU%')
+                    ->where(function ($sub) {
+                        $sub->whereNull('orders.status_install')
+                            ->orWhere('orders.status_install', 0);
+                    })
+                    ->whereNull('orders.collaborator_id')
+                    ->whereNull('io.id')
                     ->orderByDesc('orders.created_at');
             },
             'dieuphoidonhangle' => function () use ($view) {
-                return OrderProduct::with('order')
-                    ->join('products as p', function($join) {
+                return OrderProduct::join('products as p', function($join) {
                         $join->on('order_products.product_name', '=', 'p.product_name');
                     })
-                    ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
-                    ->where('p.view', $view)
-                    ->select('order_products.*')
-                    ->where('order_products.install', 1)
-                    ->whereHas('order', function ($q) {
-                        $q->where(function ($sub) {
-                                $sub->whereNull('status_install')
-                                    ->orWhere('status_install', 0);
-                            })
-                            ->whereNull('collaborator_id')
-                            ->whereIn('type', [
-                                'warehouse_branch',
-                                'warehouse_ghtk',
-                                'warehouse_viettel'
-                            ]);
+                    ->join('orders', 'order_products.order_id', '=', 'orders.id')
+                    ->leftJoin('installation_orders as io', function($join) {
+                        $join->on(function($q) {
+                            $q->whereColumn('io.order_code', 'orders.order_code2')
+                              ->orWhereColumn('io.order_code', 'orders.order_code1');
+                        })
+                        ->whereColumn('io.product', 'order_products.product_name')
+                        ->where('io.status_install', '>=', 1);
                     })
+                    ->where('p.view', $view)
+                    ->select(
+                        'order_products.id',
+                        'order_products.order_id',
+                        'order_products.product_name',
+                        'orders.order_code2',
+                        'orders.zone',
+                        'orders.created_at',
+                        'orders.status_install',
+                        'orders.agency_name',
+                        'orders.agency_phone',
+                        'orders.customer_name',
+                        'orders.customer_phone',
+                    )
+                    ->where('order_products.install', 1)
+                    ->where(function ($sub) {
+                        $sub->whereNull('orders.status_install')
+                            ->orWhere('orders.status_install', 0);
+                    })
+                    ->whereNull('orders.collaborator_id')
+                    ->whereIn('orders.type', [
+                        'warehouse_branch',
+                        'warehouse_ghtk',
+                        'warehouse_viettel'
+                    ])
+                    // Loại trừ các đơn đã có trong installation_orders với status_install >= 1 (đã điều phối)
+                    ->whereNull('io.id')
                     ->orderByDesc('orders.created_at');
             },
             'dieuphoibaohanh' => function () use ($view) {
@@ -375,7 +415,11 @@ class CollaboratorInstallController extends Controller
             },
         ];
         
-        return ($queryBuilders[$tab] ?? $queryBuilders['donhang'])();
+        $query = ($queryBuilders[$tab] ?? $queryBuilders['donhang'])();
+        return $query;
+        } catch (\Exception $e) {
+            throw $e;
+        }
     }
 
     /**
@@ -383,36 +427,35 @@ class CollaboratorInstallController extends Controller
      */
     private function applyTabFilters($query, $tab, Request $request)
     {
-        $tungay = $request->input('tungay');
-        $denngay = $request->input('denngay');
-        $madon = $request->input('madon');
-        $sanpham = $request->input('sanpham');
-        $trangthai = $request->input('trangthai');
-        $phanloai = $request->input('phanloai');
-        $customer_name = $request->input('customer_name');
-        $customer_phone = $request->input('customer_phone');
-        $agency_phone = $request->input('agency_phone');
-        $agency_name = $request->input('agency_name');
+        try {
+            $tungay = $request->filled('tungay') ? (trim($request->input('tungay')) ?: null) : null;
+            $denngay = $request->filled('denngay') ? (trim($request->input('denngay')) ?: null) : null;
+            $madon = $request->filled('madon') ? (trim($request->input('madon')) ?: null) : null;
+            $sanpham = $request->filled('sanpham') ? (trim($request->input('sanpham')) ?: null) : null;
+            $trangthai = $request->filled('trangthai') && $request->input('trangthai') !== '' ? $request->input('trangthai') : null;
+            $phanloai = $request->filled('phanloai') && $request->input('phanloai') !== '' ? $request->input('phanloai') : null;
+            $customer_name = $request->filled('customer_name') ? (trim($request->input('customer_name')) ?: null) : null;
+            $customer_phone = $request->filled('customer_phone') ? (trim($request->input('customer_phone')) ?: null) : null;
+            $agency_phone = $request->filled('agency_phone') ? (trim($request->input('agency_phone')) ?: null) : null;
+            $agency_name = $request->filled('agency_name') ? (trim($request->input('agency_name')) ?: null) : null;
 
-        // Filter chung cho các tab dựa trên OrderProduct
-        // Sử dụng điều kiện trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
         if (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
-            $query->when($madon, function ($q) use ($madon) {
+            $query->when(!empty($madon), function ($q) use ($madon) {
                 $q->where('orders.order_code2', 'like', "%$madon%");
             })
-            ->when($sanpham, function ($q) use ($sanpham) {
+            ->when(!empty($sanpham), function ($q) use ($sanpham) {
                 // Chỉ định rõ table prefix để tránh xung đột khi có join nhiều bảng
                 $q->where('order_products.product_name', 'like', "%$sanpham%");
             })
-            ->when($tungay && !empty($tungay), function ($q) use ($tungay) {
+            ->when(!empty($tungay), function ($q) use ($tungay) {
                 // Sử dụng trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
                 $q->whereDate('orders.created_at', '>=', $tungay);
             })
-            ->when($denngay && !empty($denngay), function ($q) use ($denngay) {
+            ->when(!empty($denngay), function ($q) use ($denngay) {
                 // Sử dụng trực tiếp trên bảng orders đã join thay vì whereHas để tối ưu hiệu năng
                 $q->whereDate('orders.created_at', '<=', $denngay);
             })
-            ->when($trangthai, function ($q) use ($trangthai) {
+            ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
                     $q->where(function ($sub) {
                         $sub->whereNull('orders.status_install')->orWhere('orders.status_install', 0);
@@ -425,7 +468,7 @@ class CollaboratorInstallController extends Controller
                     $q->where('orders.status_install', 3);
                 }
             })
-            ->when($phanloai, function ($q) use ($phanloai) {
+            ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
                     // Đơn do CTV lắp đặt: không có thông tin đại lý
                     $q->where(function ($sub) {
@@ -438,29 +481,29 @@ class CollaboratorInstallController extends Controller
                       ->where('orders.agency_name', '!=', '');
                 }
             })
-            ->when($customer_name, function ($q) use ($customer_name) {
+            ->when(!empty($customer_name), function ($q) use ($customer_name) {
                 $q->where('orders.customer_name', 'like', "%$customer_name%");
             })
-            ->when($customer_phone, function ($q) use ($customer_phone) {
+            ->when(!empty($customer_phone), function ($q) use ($customer_phone) {
                 $q->where('orders.customer_phone', 'like', "%$customer_phone%");
             })
-            ->when($agency_phone, function ($q) use ($agency_phone) {
+            ->when(!empty($agency_phone), function ($q) use ($agency_phone) {
                 $q->where('orders.agency_phone', 'like', "%$agency_phone%");
             })
-            ->when($agency_name, function ($q) use ($agency_name) {
+            ->when(!empty($agency_name), function ($q) use ($agency_name) {
                 $q->where('orders.agency_name', 'like', "%$agency_name%");
             });
         }
         // Filter cho WarrantyRequest (dieuphoibaohanh)
         elseif ($tab === 'dieuphoibaohanh') {
-            $query->when($madon, fn($q) => $q->where('serial_number', 'like', "%$madon%"))
-                ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
+            $query->when(!empty($madon), fn($q) => $q->where('serial_number', 'like', "%$madon%"))
+                ->when(!empty($sanpham), fn($q) => $q->where('product', 'like', "%$sanpham%"))
                 // Lọc theo ngày nhận phiếu (received_date) để đồng bộ với cột "Ngày tạo" hiển thị ngoài view
-                ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
-                ->when($denngay && !empty($denngay), function($q) use ($denngay) {
+                ->when(!empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
+                ->when(!empty($denngay), function($q) use ($denngay) {
                     $q->whereDate('received_date', '<=', $denngay);
                 })
-                ->when($trangthai, function ($q) use ($trangthai) {
+                ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
                     if ($trangthai === '0') {
                         $q->where(function ($sub) {
                             $sub->whereNull('status_install')
@@ -474,7 +517,7 @@ class CollaboratorInstallController extends Controller
                         $q->where('status_install', 3);
                     }
                 })
-                ->when($phanloai, function ($q) use ($phanloai) {
+                ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
                     if ($phanloai === 'collaborator') {
                         // Ca bảo hành do CTV phụ trách: không có thông tin đại lý
                         $q->where(function ($sub) {
@@ -487,20 +530,20 @@ class CollaboratorInstallController extends Controller
                           ->where('agency_name', '!=', '');
                     }
                 })
-                ->when($customer_name, fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
-                ->when($customer_phone, fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
-                ->when($agency_name, fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
-                ->when($agency_phone, fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
+                ->when(!empty($customer_name), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+                ->when(!empty($customer_phone), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+                ->when(!empty($agency_name), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+                ->when(!empty($agency_phone), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
         }
         // Filter cho InstallationOrder (các tab còn lại)
         else {
-            $query->when($madon, fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
-                ->when($sanpham, fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
-                ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('installation_orders.created_at', '>=', $tungay))
-                ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                    $q->whereDate('installation_orders.created_at', '<=', $denngay);
+            $query->when(!empty($madon), fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
+                ->when(!empty($sanpham), fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
+                ->when(!empty($tungay), fn($q) => $q->whereDate('installation_orders.successed_at', '>=', $tungay))
+                ->when(!empty($denngay), function($q) use ($denngay) {
+                    $q->whereDate('installation_orders.successed_at', '<=', $denngay);
                 })
-                ->when($trangthai, function ($q) use ($trangthai) {
+                ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
                     if ($trangthai === '0') {
                         $q->where(function ($sub) {
                             $sub->whereNull('installation_orders.status_install')
@@ -514,7 +557,7 @@ class CollaboratorInstallController extends Controller
                         $q->where('installation_orders.status_install', 3);
                     }
                 })
-                ->when($phanloai, function ($q) use ($phanloai) {
+                ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
                     if ($phanloai === 'collaborator') {
                         // Lắp đặt do CTV phụ trách: không có thông tin đại lý
                         $q->where(function ($sub) {
@@ -527,13 +570,15 @@ class CollaboratorInstallController extends Controller
                           ->where('installation_orders.agency_name', '!=', '');
                     }
                 })
-                ->when($customer_name, fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
-                ->when($customer_phone, fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
-                ->when($agency_name, fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
-                ->when($agency_phone, fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
+                ->when(!empty($customer_name), fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
+                ->when(!empty($customer_phone), fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
+                ->when(!empty($agency_name), fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
+                ->when(!empty($agency_phone), fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
         }
-
-        return $query;
+            return $query;
+        } catch (\Exception $e) {
+            throw $e;
+        }
     }
 
     public function Details(Request $request)
@@ -1017,33 +1062,10 @@ class CollaboratorInstallController extends Controller
                         $requestAgency->assigned_to = session('user', 'system');
                         $requestAgency->save();
                         
-                        Log::info('RequestAgency status synced with status_install', [
-                            'order_code' => $orderCode,
-                            'request_agency_id' => $requestAgency->id,
-                            'old_status' => $oldRequestAgencyStatus,
-                            'new_status' => $newRequestAgencyStatus,
-                            'status_install' => $newStatusInstall,
-                            'assigned_to' => session('user', 'system')
-                        ]);
                     }
                 }
                 
-                // Log để debug
-                Log::info('InstallationOrder updated/created', [
-                    'order_code' => $orderCode,
-                    'status_install' => $installationOrder->status_install,
-                    'collaborator_id' => $installationOrder->collaborator_id,
-                    'agency_name' => $installationOrder->agency_name,
-                    'agency_phone' => $installationOrder->agency_phone,
-                    'is_agency' => !empty($installationOrder->agency_name) || !empty($installationOrder->agency_phone),
-                    'is_collaborator' => !empty($installationOrder->collaborator_id)
-                ]);
             } catch (\Exception $e) {
-                Log::error("InstallationOrder updateOrCreate failed", [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                    'order_code' => $orderCode
-                ]);
                 throw $e;
             }
 

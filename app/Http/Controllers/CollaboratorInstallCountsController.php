@@ -32,7 +32,15 @@ class CollaboratorInstallCountsController extends Controller
         $query = OrderProduct::join('products as p', function($join){
                 $join->on('order_products.product_name', '=', 'p.product_name');
             })
-            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->leftJoin('installation_orders as io', function($join) {
+                $join->on(function($q) {
+                    $q->whereColumn('io.order_code', 'orders.order_code2')
+                      ->orWhereColumn('io.order_code', 'orders.order_code1');
+                })
+                ->whereColumn('io.product', 'order_products.product_name')
+                ->where('io.status_install', '>=', 1);
+            })
             ->where('p.view', $view)
             ->where('order_products.install', 1)
             ->where('orders.order_code2', 'not like', 'KU%')
@@ -40,7 +48,9 @@ class CollaboratorInstallCountsController extends Controller
                 $q->whereNull('orders.status_install')
                     ->orWhere('orders.status_install', 0);
             })
-            ->whereNull('orders.collaborator_id');
+            ->whereNull('orders.collaborator_id')
+            // Loại trừ các đơn đã có trong installation_orders với status_install >= 1 (đã điều phối)
+            ->whereNull('io.id');
 
         return $this->applyCommonFiltersToOrderProduct($query, $request)
             ->count();
@@ -51,7 +61,15 @@ class CollaboratorInstallCountsController extends Controller
         $query = OrderProduct::join('products as p', function($join){
                 $join->on('order_products.product_name', '=', 'p.product_name');
             })
-            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->leftJoin('installation_orders as io', function($join) {
+                $join->on(function($q) {
+                    $q->whereColumn('io.order_code', 'orders.order_code2')
+                      ->orWhereColumn('io.order_code', 'orders.order_code1');
+                })
+                ->whereColumn('io.product', 'order_products.product_name')
+                ->where('io.status_install', '>=', 1);
+            })
             ->where('p.view', $view)
             ->where('order_products.install', 1)
             ->where(function ($q) {
@@ -63,7 +81,9 @@ class CollaboratorInstallCountsController extends Controller
                 'warehouse_branch',
                 'warehouse_ghtk',
                 'warehouse_viettel'
-            ]);
+            ])
+            // Loại trừ các đơn đã có trong installation_orders với status_install >= 1 (đã điều phối)
+            ->whereNull('io.id');
 
         return $this->applyCommonFiltersToOrderProduct($query, $request)
             ->count();
@@ -260,9 +280,9 @@ class CollaboratorInstallCountsController extends Controller
 
         return $query->when($madon, fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
             ->when($sanpham, fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('installation_orders.created_at', '>=', $tungay))
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('installation_orders.successed_at', '>=', $tungay))
             ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('installation_orders.created_at', '<=', $denngay);
+                $q->whereDate('installation_orders.successed_at', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
