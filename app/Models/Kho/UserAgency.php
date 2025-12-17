@@ -49,10 +49,13 @@ class UserAgency extends Authenticatable
 
     /**
      * Kiểm tra user đã được xác minh chưa
+     * Điều kiện: status = 1, có phone_verified_at và đã liên kết agency_id
      */
     public function isVerified(): bool
     {
-        return $this->status === 1 && $this->phone_verified_at !== null;
+        return $this->status === 1
+            && $this->phone_verified_at !== null
+            && $this->agency_id !== null;
     }
 
     /**

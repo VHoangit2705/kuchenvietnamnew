@@ -45,6 +45,9 @@
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Quản lý yêu cầu lắp đặt đại lý</h4>
             <div>
+                <a href="{{ route('useragency.index') }}" class="btn btn-info me-2">
+                    <i class="bi bi-people me-1"></i>Quản lý tài khoản đại lý
+                </a>
                 <a href="{{ route('requestagency.manage-agencies') }}" class="btn btn-success me-2">
                     <i class="bi bi-shield-check me-1"></i>Quản lý xác nhận đại lý
                 </a>

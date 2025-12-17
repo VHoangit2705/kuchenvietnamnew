@@ -14,6 +14,7 @@ use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
 use App\Http\Controllers\RequestAgencyController;
+use App\Http\Controllers\UserAgencyController;
 use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
 
@@ -149,6 +150,13 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
     Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
+});
+
+// User Agency (Quản lý tài khoản đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    Route::post('/useragency/{id}/reset-password', [UserAgencyController::class, 'resetPassword'])->name('useragency.reset-password');
+    Route::post('/useragency/{id}/toggle-status', [UserAgencyController::class, 'toggleStatus'])->name('useragency.toggle-status');
+    Route::resource('useragency', UserAgencyController::class);
 });
 
 // hỗ trợ
