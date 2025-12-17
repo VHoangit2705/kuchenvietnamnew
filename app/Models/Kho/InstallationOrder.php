@@ -71,7 +71,10 @@ class InstallationOrder extends Model
 		'type',
 		'zone',
 		'created_at',
-		'successed_at'
+		'successed_at',
+		'dispatched_at',
+		'paid_at',
+		'agency_at'
 	];
 
 	public function getCollaboratorAttribute()

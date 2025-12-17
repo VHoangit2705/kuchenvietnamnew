@@ -250,12 +250,36 @@ class CollaboratorInstallController extends Controller
                 $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
             } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
                 $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();               
+            } elseif ($tab === 'dadieuphoi') {
+                // Sắp xếp theo dispatched_at (thời gian chuyển sang "Đã điều phối")
+                $data = $mainQuery->orderByDesc('installation_orders.dispatched_at')
+                    ->orderByDesc('installation_orders.created_at')
+                    ->orderByDesc('installation_orders.id')
+                    ->paginate(50)->withQueryString();
+            } elseif ($tab === 'dailylapdat') {
+                // Sắp xếp theo agency_at (thời gian chuyển sang "Đại lý lắp đặt")
+                $data = $mainQuery->orderByDesc('installation_orders.agency_at')
+                    ->orderByDesc('installation_orders.dispatched_at')
+                    ->orderByDesc('installation_orders.created_at')
+                    ->orderByDesc('installation_orders.id')
+                    ->paginate(50)->withQueryString();
+            } elseif ($tab === 'dahoanthanh') {
+                // Sắp xếp theo successed_at (thời gian chuyển sang "Đã hoàn thành")
+                $data = $mainQuery->orderByDesc('installation_orders.successed_at')
+                    ->orderByDesc('installation_orders.id')
+                    ->paginate(50)->withQueryString();
+            } elseif ($tab === 'dathanhtoan') {
+                // Sắp xếp theo paid_at (thời gian chuyển sang "Đã thanh toán")
+                $data = $mainQuery->orderByDesc('installation_orders.paid_at')
+                    ->orderByDesc('installation_orders.successed_at')
+                    ->orderByDesc('installation_orders.id')
+                    ->paginate(50)->withQueryString();
             } else {
                 $data = $mainQuery->orderByDesc('installation_orders.created_at')->orderByDesc('installation_orders.id')->paginate(50)->withQueryString();
             }
 
             $startRender = microtime(true);
-            $html = view('collaboratorinstall.tablecontent', compact('data'))->render();
+            $html = view('collaboratorinstall.tablecontent', compact('data', 'tab'))->render();
             $renderTime = round((microtime(true) - $startRender) * 1000, 2);
             
             // Chỉ trả về bảng dữ liệu; header (counts) sẽ được gọi riêng qua endpoint counts để giảm query
@@ -540,11 +564,25 @@ class CollaboratorInstallController extends Controller
         }
         // Filter cho InstallationOrder (các tab còn lại)
         else {
+            // Xác định trường thời gian để lọc theo tab
+            $dateField = 'installation_orders.created_at'; // Mặc định
+            if ($tab === 'dadieuphoi') {
+                $dateField = 'installation_orders.dispatched_at';
+            } elseif ($tab === 'dailylapdat') {
+                $dateField = 'installation_orders.agency_at';
+            } elseif ($tab === 'dahoanthanh') {
+                $dateField = 'installation_orders.successed_at';
+            } elseif ($tab === 'dathanhtoan') {
+                $dateField = 'installation_orders.paid_at';
+            }
+            
             $query->when(!empty($madon), fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
                 ->when(!empty($sanpham), fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
-                ->when(!empty($tungay), fn($q) => $q->whereDate('installation_orders.successed_at', '>=', $tungay))
-                ->when(!empty($denngay), function($q) use ($denngay) {
-                    $q->whereDate('installation_orders.successed_at', '<=', $denngay);
+                ->when(!empty($tungay), function($q) use ($dateField, $tungay) {
+                    $q->whereDate($dateField, '>=', $tungay);
+                })
+                ->when(!empty($denngay), function($q) use ($dateField, $denngay) {
+                    $q->whereDate($dateField, '<=', $denngay);
                 })
                 ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
                     if ($trangthai === '0') {
@@ -1010,6 +1048,43 @@ class CollaboratorInstallController extends Controller
                 $resolvedAgencyPhone = '';
             }
 
+            // Xử lý các trường thời gian khi thay đổi trạng thái
+            $now = now();
+            $dispatchedAt = $installationOrder?->dispatched_at;
+            $successedAt = $installationOrder?->successed_at;
+            $paidAt = $installationOrder?->paid_at;
+            $agencyAt = $installationOrder?->agency_at;
+            
+            // Kiểm tra xem có chuyển sang đại lý lắp đặt không (có agency_name và không có collaborator_id)
+            $wasAgencyInstall = !empty($installationOrder?->agency_name) && empty($installationOrder?->collaborator_id);
+            $isNowAgencyInstall = $isAgencyInstall && !empty($resolvedAgencyName);
+            
+            // Set dispatched_at khi chuyển sang status_install = 1 (Đã điều phối)
+            if ($newStatusInstall == 1 && $oldStatus != 1) {
+                $dispatchedAt = $now;
+            } elseif ($newStatusInstall == 1 && $oldStatus == 1 && !$dispatchedAt) {
+                // Nếu đã là status 1 nhưng chưa có dispatched_at, set luôn
+                $dispatchedAt = $now;
+            }
+            
+            // Set successed_at khi chuyển sang status_install = 2 (Đã hoàn thành)
+            if ($newStatusInstall == 2 && $oldStatus != 2) {
+                $successedAt = $request->successed_at ?? $now;
+            }
+            
+            // Set paid_at khi chuyển sang status_install = 3 (Đã thanh toán)
+            if ($newStatusInstall == 3 && $oldStatus != 3) {
+                $paidAt = $now;
+            }
+            
+            // Set agency_at khi chuyển sang "Đại lý lắp đặt" (có agency_name và không có collaborator_id)
+            if ($isNowAgencyInstall && !$wasAgencyInstall) {
+                $agencyAt = $now;
+            } elseif ($isNowAgencyInstall && $wasAgencyInstall && !$agencyAt) {
+                // Nếu đã là đại lý nhưng chưa có agency_at, set luôn
+                $agencyAt = $now;
+            }
+
             // Chuẩn bị dữ liệu cho installation_orders (KHÔNG động vào orders/warranty_requests)
             $installationOrderData = [
                 'full_name'        => $requestAgency?->customer_name 
@@ -1058,7 +1133,10 @@ class CollaboratorInstallController extends Controller
                     ?? $sourceWarrantyRequest?->Ngaytao 
                     ?? $installationOrder?->created_at 
                     ?? now(),
-                'successed_at'     => $request->successed_at ?? $installationOrder?->successed_at
+                'successed_at'     => $successedAt,
+                'dispatched_at'    => $dispatchedAt,
+                'paid_at'          => $paidAt,
+                'agency_at'        => $agencyAt
             ];
             
             // Tạo hoặc cập nhật installation_orders (DUY NHẤT bảng được phép sửa)

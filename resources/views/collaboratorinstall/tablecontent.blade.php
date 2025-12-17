@@ -36,7 +36,22 @@
             <tr>
                 <th>STT</th>
                 <th style="min-width: 160px;">Mã đơn/Serial</th>
-                <th style="min-width: 100px;">Ngày tạo</th>
+                <th style="min-width: 100px;">
+                    @php
+                        $currentTab = $tab ?? 'donhang';
+                        if ($currentTab === 'dadieuphoi') {
+                            echo 'Ngày điều phối';
+                        } elseif ($currentTab === 'dailylapdat') {
+                            echo 'Ngày điều phối';
+                        } elseif ($currentTab === 'dahoanthanh') {
+                            echo 'Ngày hoàn thành';
+                        } elseif ($currentTab === 'dathanhtoan') {
+                            echo 'Ngày thanh toán';
+                        } else {
+                            echo 'Ngày tạo';
+                        }
+                    @endphp
+                </th>
                 <th style="min-width: 150px;">Kho</th>
                 <th style="min-width: 150px;">Đại lý</th>
                 <th style="min-width: 100px;">SĐT đại lý</th>
@@ -54,19 +69,42 @@
             @php
             $code = $item->order->order_code2 ?? $item->serial_number ?? $item->order_code;
             $zone = $item->order->zone ?? $item->zone ?? '';
-            $created_at = $item->order->created_at ?? $item->received_date ?? $item->created_at;
             $statusInstall = $item->order->status_install ?? $item->status_install;
             $type = $item->VAT ? 'donhang' : ($item->warranty_end ? 'baohanh' : 'danhsach');
             $rawInstallCost = $item->order->install_cost ?? $item->install_cost ?? 0;
             // Chỉ xem là đã có đơn lắp đặt (Đại lý/CTV) khi đã điều phối và có chi phí > 0
             $hasInstaller = !is_null($statusInstall) && $statusInstall != 0 && $rawInstallCost > 0;
+            
+            // Xác định ngày thay đổi trạng thái tùy theo tab
+            $statusDate = null;
+            $currentTab = $tab ?? 'donhang';
+            
+            if (in_array($currentTab, ['donhang', 'dieuphoidonhangle', 'dieuphoibaohanh'])) {
+                // Các tab đơn hàng chưa điều phối: dùng created_at gốc
+                $statusDate = $item->order->created_at ?? $item->received_date ?? $item->created_at;
+            } elseif ($currentTab === 'dadieuphoi') {
+                // Tab "Đã điều phối": dùng dispatched_at (thời gian chuyển sang status_install = 1)
+                $statusDate = $item->dispatched_at ?? null;
+            } elseif ($currentTab === 'dailylapdat') {
+                // Tab "Đại lý lắp đặt": dùng agency_at (thời gian chuyển sang đại lý lắp đặt)
+                $statusDate = $item->agency_at ?? null;
+            } elseif ($currentTab === 'dahoanthanh') {
+                // Tab "Đã hoàn thành": dùng successed_at (thời gian chuyển sang status_install = 2)
+                $statusDate = $item->successed_at ?? null;
+            } elseif ($currentTab === 'dathanhtoan') {
+                // Tab "Đã thanh toán": dùng paid_at (thời gian chuyển sang status_install = 3)
+                $statusDate = $item->paid_at ?? null;
+            } else {
+                // Fallback: dùng created_at gốc
+                $statusDate = $item->order->created_at ?? $item->received_date ?? $item->created_at;
+            }
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration}}</td>
                 {{-- <td>{{$code}}</td> --}}
                 <td>{{ $code ?: ' N/A ' }}</td>
                 <td class="text-center">
-                    {{ ($created_at ?? null) ? \Carbon\Carbon::parse($created_at)->format('d-m-Y') : 'N/A' }}
+                    {{ ($statusDate ?? null) ? \Carbon\Carbon::parse($statusDate)->format('d-m-Y') : 'N/A' }}
                   </td>
                 <td class="text-center">{{ $zone }}</td>
                 <td>{{ $item->order->agency_name ?? $item->agency_name ?? '' }}</td>
