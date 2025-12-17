@@ -18,6 +18,7 @@ use App\Models\Kho\Agency;
 use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Models\KyThuat\RequestAgency;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 class CollaboratorInstallController extends Controller
 {
     // public function __construct()
@@ -296,6 +297,7 @@ class CollaboratorInstallController extends Controller
                         'order_products.id',
                         'order_products.order_id',
                         'order_products.product_name',
+                        'order_products.VAT',
                         'orders.order_code2',
                         'orders.zone',
                         'orders.created_at',
@@ -333,6 +335,7 @@ class CollaboratorInstallController extends Controller
                         'order_products.id',
                         'order_products.order_id',
                         'order_products.product_name',
+                        'order_products.VAT',
                         'orders.order_code2',
                         'orders.zone',
                         'orders.created_at',
@@ -583,19 +586,19 @@ class CollaboratorInstallController extends Controller
 
     public function Details(Request $request)
     {
-        $installationOrder = null;
-        $order = null;
-        $orderCode = null;
-        $statusInstall = null;
-        $productName = null;
-        
-        // Ưu tiên tìm installation_orders trước (nếu đã điều phối), fallback về orders nếu chưa có
-        if ($request->type == 'donhang') {
-            $data = OrderProduct::with('order')->findOrFail($request->id);
-            $order = $data->order;
-            $productName = $data->product_name ?? null;
-            $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
+        try {
             $installationOrder = null;
+            $order = null;
+            $orderCode = null;
+            $statusInstall = null;
+            $productName = null;
+            
+            if ($request->type == 'donhang') {
+                $data = OrderProduct::with('order')->findOrFail($request->id);
+                $order = $data->order;
+                $productName = $data->product_name ?? null;
+                $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
+                $installationOrder = null;
             
             // Luôn tìm installation_orders trước (ưu tiên dữ liệu đã điều phối)
             if ($orderCode) {
@@ -647,22 +650,51 @@ class CollaboratorInstallController extends Controller
             
         } else {
             // type = danhsach hoặc default
-            $data = InstallationOrder::findOrFail($request->id);
-            $installationOrder = $data;
-            $orderCode = $data->order_code ?? null;
-            $statusInstall = $data->status_install ?? null;
+            $data = InstallationOrder::find($request->id);
+            
+            if ($data) {
+                // Tìm thấy InstallationOrder
+                $installationOrder = $data;
+                $orderCode = $data->order_code ?? null;
+                $statusInstall = $data->status_install ?? null;
+                $order = null;
+            } else {
+                // Không tìm thấy InstallationOrder, tìm OrderProduct
+                $orderProduct = OrderProduct::with('order')->find($request->id);
+                if ($orderProduct) {
+                    $data = $orderProduct;
+                    $order = $orderProduct->order;
+                    $productName = $orderProduct->product_name ?? null;
+                    $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
+                    $statusInstall = $order->status_install ?? null;
+                    $installationOrder = null;
+                    
+                    // Tìm installation_orders nếu có order_code (có thể đã được điều phối sau khi tạo link)
+                    if ($orderCode) {
+                        $installationOrder = InstallationOrder::where('order_code', $orderCode)
+                            ->when($productName, fn($q) => $q->where('product', $productName))
+                            ->first();
+                        if ($installationOrder) {
+                            $data = $installationOrder;
+                            $statusInstall = $installationOrder->status_install ?? null;
+                        }
+                    }
+                } else {
+                    throw new ModelNotFoundException("No query results for model [App\Models\Kho\InstallationOrder] {$request->id}");
+                }
+            }
             
             // Nếu có order_code, tìm order để fallback
-            if ($orderCode) {
+            if ($orderCode && !isset($order)) {
                 $order = Order::where('order_code2', $orderCode)
                     ->orWhere('order_code1', $orderCode)
                     ->first();
             }
             
             // Nếu status_install = 0 hoặc null, ưu tiên dùng order thay vì installationOrder
-            if (($statusInstall === null || $statusInstall == 0) && $order) {
+            if (($statusInstall === null || $statusInstall == 0) && isset($order) && $order) {
                 $data = $order;
-                $installationOrder = null; // Không dùng installationOrder khi chưa điều phối
+                $installationOrder = null;
             }
             
             $provinceId = $installationOrder ? ($installationOrder->province_id ?? null) : ($order->province ?? null);
@@ -752,6 +784,9 @@ class CollaboratorInstallController extends Controller
             'requestAgency',
             'requestAgencyAgency'
         ));
+        } catch (\Exception $e) {
+            throw $e;
+        }
     }
 
     public function Update(Request $request)
