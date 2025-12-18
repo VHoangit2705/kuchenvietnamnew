@@ -815,6 +815,12 @@ class CollaboratorInstallController extends Controller
             'provinces',
             'agency',
             'fullAddress',
+            'provinceName',
+            'districtName',
+            'wardName',
+            'provinceId',
+            'districtId',
+            'wardId',
             'installationOrder',
             'order',
             'orderCode',
@@ -1042,10 +1048,34 @@ class CollaboratorInstallController extends Controller
                     ?: ($requestAgencyAgency->phone ?? null)
                     ?: ($sourceOrder?->agency_phone ?? null)
                     ?: '';
+
+                // Thêm: xác định agency_id để lưu xuống installation_orders
+                // Ưu tiên: request_agency.agency_id > Agency tìm theo phone > Agency tìm theo name
+                $resolvedAgencyId = null;
+                if ($requestAgency && $requestAgency->agency_id) {
+                    $resolvedAgencyId = $requestAgency->agency_id;
+                } else {
+                    // Thử tìm theo số điện thoại đại lý
+                    if (!empty($resolvedAgencyPhone)) {
+                        $agencyByPhone = Agency::where('phone', $resolvedAgencyPhone)->first();
+                        if ($agencyByPhone) {
+                            $resolvedAgencyId = $agencyByPhone->id;
+                        }
+                    }
+
+                    // Nếu vẫn chưa có, thử tìm theo CCCD đại lý
+                    if (!$resolvedAgencyId && !empty($requestAgencyAgency?->cccd)) {
+                        $agencyByCccd = Agency::where('cccd', $requestAgencyAgency->cccd)->first();
+                        if ($agencyByCccd) {
+                            $resolvedAgencyId = $agencyByCccd->id;
+                        }
+                    }
+                }
             } else {
                 // Ca CTV: KHÔNG lưu thông tin đại lý
                 $resolvedAgencyName = '';
                 $resolvedAgencyPhone = '';
+                $resolvedAgencyId = null;
             }
 
             // Xử lý các trường thời gian khi thay đổi trạng thái
@@ -1127,6 +1157,7 @@ class CollaboratorInstallController extends Controller
                 'reviews_install'  => $reviewsInstallFilename ?? $installationOrder?->reviews_install,
                 'agency_name'      => $resolvedAgencyName,
                 'agency_phone'     => $resolvedAgencyPhone,
+                'agency_id'        => $resolvedAgencyId,
                 'type'             => $request->type ?? $sourceOrder?->type ?? 'donhang',
                 'zone'             => $sourceOrder?->zone ?? $installationOrder?->zone ?? '',
                 'created_at'       => $sourceOrder?->created_at 
@@ -1214,14 +1245,20 @@ class CollaboratorInstallController extends Controller
     }
 
     /**
-     * Cập nhật địa chỉ khách hàng
+     * Cập nhật thông tin khách hàng (tên, SĐT, địa chỉ)
      * Lưu vào bảng installation_orders để không thay đổi dữ liệu gốc trong orders
      */
     public function UpdateDetailCustomerAddress(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'order_code' => 'required|string',
-            'address' => 'nullable|string|max:150',
+            'order_code'   => 'required|string',
+            'full_name'    => 'nullable|string|max:80',
+            'phone_number' => 'nullable|string|max:20',
+            'address'      => 'nullable|string|max:150',
+            'product'      => 'nullable|string|max:255',
+            'province_id'  => 'nullable|integer',
+            'district_id'  => 'nullable|integer',
+            'ward_id'      => 'nullable|integer',
         ]);
 
         if ($validator->fails()) {
@@ -1233,15 +1270,55 @@ class CollaboratorInstallController extends Controller
         }
 
         try {
-            $orderCode = $request->input('order_code');
-            $newAddress = $request->input('address', '');
+            $orderCode   = $request->input('order_code');
+            $newAddress  = $request->input('address', '');
+            $newName     = $request->input('full_name');
+            $newPhone    = $request->input('phone_number');
+            $product     = $request->input('product');
+            $provinceId  = $request->input('province_id');
+            $districtId  = $request->input('district_id');
+            $wardId      = $request->input('ward_id');
+
+            // Ghi log để debug dữ liệu nhận được từ frontend
+            Log::info('UpdateDetailCustomerAddress payload', [
+                'raw_request' => $request->all(),
+                'order_code'  => $orderCode,
+                'full_name'   => $newName,
+                'phone'       => $newPhone,
+                'address'     => $newAddress,
+                'product'     => $product,
+                'province_id' => $provinceId,
+                'district_id' => $districtId,
+                'ward_id'     => $wardId,
+            ]);
 
             // Tìm installation_order hiện có
-            $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+            $installationOrder = InstallationOrder::where('order_code', $orderCode)
+                ->when($product, function ($q) use ($product) {
+                    $q->where('product', $product);
+                })
+                ->first();
 
             if ($installationOrder) {
-                // Nếu đã tồn tại, chỉ cập nhật địa chỉ
-                $installationOrder->address = $newAddress;
+                // Nếu đã tồn tại, CHỈ cập nhật vào installation_orders (KHÔNG động vào orders)
+                if (!is_null($newAddress)) {
+                    $installationOrder->address = $newAddress;
+                }
+                if (!is_null($newName)) {
+                    $installationOrder->full_name = $newName;
+                }
+                if (!is_null($newPhone)) {
+                    $installationOrder->phone_number = $newPhone;
+                }
+                if (!is_null($provinceId)) {
+                    $installationOrder->province_id = $provinceId;
+                }
+                if (!is_null($districtId)) {
+                    $installationOrder->district_id = $districtId;
+                }
+                if (!is_null($wardId)) {
+                    $installationOrder->ward_id = $wardId;
+                }
                 $installationOrder->save();
             } else {
                 // Nếu chưa tồn tại, tìm dữ liệu từ orders hoặc warranty_requests để tạo mới
@@ -1265,7 +1342,7 @@ class CollaboratorInstallController extends Controller
                 // Chuẩn bị dữ liệu để tạo mới installation_order
                 $data = [
                     'order_code' => $orderCode,
-                    'address' => $newAddress,
+                    'address'    => $newAddress,
                 ];
 
                 if ($order) {
@@ -1280,6 +1357,10 @@ class CollaboratorInstallController extends Controller
                     $data['zone'] = $order->zone;
                     $data['type'] = $order->type ?? 'donhang';
                     $data['created_at'] = $order->created_at;
+                    // Nếu chưa có product mà request gửi lên có, thì dùng luôn
+                    if ($product) {
+                        $data['product'] = $product;
+                    }
                 } elseif ($warrantyRequest) {
                     // Lấy từ warranty_requests
                     $data['full_name'] = $warrantyRequest->full_name;
@@ -1294,14 +1375,22 @@ class CollaboratorInstallController extends Controller
                     $data['created_at'] = $warrantyRequest->Ngaytao;
                 }
 
-                // Tạo mới installation_order với địa chỉ đã cập nhật
+                // Nếu có tên/SĐT mới từ request, ghi đè vào data trước khi tạo
+                if (!is_null($newName)) {
+                    $data['full_name'] = $newName;
+                }
+                if (!is_null($newPhone)) {
+                    $data['phone_number'] = $newPhone;
+                }
+
+                // Tạo mới installation_order với thông tin đã cập nhật
                 $installationOrder = InstallationOrder::create($data);
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Cập nhật địa chỉ thành công!',
-                'address' => $newAddress
+                'message' => 'Cập nhật thông tin khách hàng thành công!',
+                'address' => $newAddress,
             ]);
         } catch (\Exception $e) {
             Log::error('Lỗi cập nhật địa chỉ khách hàng: ' . $e->getMessage());

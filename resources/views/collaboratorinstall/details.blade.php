@@ -78,50 +78,82 @@
                                 </tr>
                                 <tr>
                                     <th>Khách hàng:</th>
-                                    <td colspan="3">
+                                    <td colspan="3" data-field="customer_name">
                                         @php
                                         // Ưu tiên từ request_agency (nếu có), sau đó installation_order, cuối cùng order/warranty_request
                                         $customerName = $requestAgency->customer_name ?? $installationOrder->full_name ?? $order->customer_name ?? $data->order->customer_name ?? $data->full_name ?? '';
                                         @endphp
-                                        {{ $customerName }}
+                                        <span class="text-value">{{ $customerName }}</span>
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa tên khách hàng"></i>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th>Số điện thoại:</th>
-                                    <td colspan="3">
+                                    <td colspan="3" data-field="customer_phone">
                                         @php
                                         // Ưu tiên từ request_agency (nếu có), sau đó installation_order, cuối cùng order/warranty_request
                                         $customerPhone = $requestAgency->customer_phone ?? $installationOrder->phone_number ?? $order->customer_phone ?? $data->order->customer_phone ?? $data->phone_number ?? '';
                                         @endphp
-                                        {{ $customerPhone }}
+                                        <span class="text-value">{{ $customerPhone }}</span>
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa số điện thoại khách hàng"></i>
                                     </td>
                                 </tr>
+                                {{-- Địa chỉ chi tiết (số nhà, đường...) --}}
                                 <tr>
                                     <th>Địa chỉ:</th>
-                                    {{-- Nâng cấp: Thêm chức năng chỉnh sửa cho địa chỉ --}}
                                     <td colspan="3" data-field="customer_address">
                                         @php
-                                        // Ưu tiên địa chỉ từ installation_orders (nếu đã cập nhật), sau đó mới lấy từ orders/warranty_requests
-                                        $customerAddress = $installationOrder->address ?? $data->order->customer_address ?? $data->address ?? '';
-                                        // Nếu địa chỉ đã được nhập chi tiết trong installation_orders (thường đã bao gồm Tỉnh/TP, Quận/Huyện, Xã/Phường)
-                                        // thì KHÔNG nối thêm $fullAddress để tránh hiển thị trùng lặp.
-                                        $appendRegionAddress = empty($installationOrder?->address);
+                                        // CHỈ hiển thị trường address trong bảng installation_orders
+                                        $customerAddress = $installationOrder->address ?? '';
                                         @endphp
 
-                                        @if($appendRegionAddress)
-                                            <span class="text-value">{{ $customerAddress }}</span>@if(!empty($fullAddress)), {{ $fullAddress }}@endif
-                                        @else
-                                            <span class="text-value">{{ $customerAddress }}</span>
+                                        <span class="text-value">{{ $customerAddress }}</span>
+
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                            <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
                                         @endif
 
-                                        {{-- Icon chỉnh sửa - chỉ hiển thị khi status_install != 0 và != null --}}
-                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
-                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;" title="Sửa địa chỉ chi tiết"></i>
-                                        @endif
-                                        {{-- Input ẩn để lưu giá trị gốc --}}
-                                        <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}@if($appendRegionAddress && !empty($fullAddress)), {{ $fullAddress }}@endif">
+                                        <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}">
                                     </td>
                                 </tr>
+
+                                {{-- Xã/Phường --}}
+                                <tr>
+                                    <th>Phường/Xã:</th>
+                                    <td colspan="3">
+                                        <span id="region_ward_text" class="text-value">{{ $wardName ?? '' }}</span>
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="ward" style="cursor:pointer;" title="Sửa Phường/Xã"></i>
+                                        @endif
+                                    </td>
+                                </tr>
+                    
+                                {{-- Quận/Huyện --}}
+                                <tr>
+                                    <th>Quận/Huyện:</th>
+                                    <td colspan="3">
+                                        <span id="region_district_text" class="text-value">{{ $districtName ?? '' }}</span>
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="district" style="cursor:pointer;" title="Sửa Quận/Huyện"></i>
+                                        @endif
+                                    </td>
+                                </tr>
+                    
+                                {{-- Tỉnh/Thành phố --}}
+                                <tr>
+                                    <th>Tỉnh/TP:</th>
+                                    <td colspan="3">
+                                        <span id="region_province_text" class="text-value">{{ $provinceName ?? '' }}</span>
+                                        @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
+                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="province" style="cursor:pointer;" title="Sửa Tỉnh/TP"></i>
+                                        @endif
+                                    </td>
+                                </tr>
+
+                                {{-- Hidden lưu lại ID khu vực hiện tại để dùng cho JS --}}
+                                <input type="hidden" id="current_province_id" value="{{ $provinceId ?? '' }}">
+                                <input type="hidden" id="current_district_id" value="{{ $districtId ?? '' }}">
+                                <input type="hidden" id="current_ward_id" value="{{ $wardId ?? '' }}">
                             </tbody>
                         </table>
                     </div>
@@ -418,22 +450,21 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
+                                        @php
+                                            // Xác định xem đây có phải là đại lý lắp đặt không
+                                            // Logic: có agency_name trong installationOrder và không có collaborator_id
+                                            $isAgencyInstall = !empty($installationOrder->agency_name) && empty($installationOrder->collaborator_id);
+                                        @endphp
                                         @if(!$requestAgency && (($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
-                                            {{-- Không có yêu cầu lắp đặt từ đại lý và đang ở trạng thái Chưa điều phối: chỉ hiển thị cảnh báo, ẩn checkbox --}}
                                             <div class="mt-1 text-danger" style="font-size: 1rem;">
                                                 Đơn hàng này không có yêu cầu lắp đặt từ đại lý
                                             </div>
-                                        @elseif($requestAgency)
+                                        @elseif($requestAgency || $isAgencyInstall)
                                             <div class="d-flex flex-wrap gap-3">
                                                 <label class="d-flex align-items-center fw-bold" style="width: max-content;">
-                                                    <input type="checkbox" id="isInstallAgency" class="me-2" {{ ($data->order->collaborator_id ?? $data->collaborator_id) == 1 ? 'checked' : '' }}>
+                                                    <input type="checkbox" id="isInstallAgency" class="me-2" {{ $isAgencyInstall ? 'checked' : '' }}>
                                                     Đại lý lắp đặt
                                                 </label>
-                                                <div class="mt-1 text-black bg-info p-2 rounded" style="font-size: 1rem;">
-                                                    Đơn hàng này đã có yêu cầu lắp đặt từ đại lý <strong>{{ $requestAgencyAgency->name ?? '' }}</strong>
-                                                    <div class="text-black"><strong>Số điện thoại:</strong> {{ $requestAgencyAgency->phone ?? '' }}</div>
-                                                    <div class="text-black"><strong>CCCD:</strong> {{ $requestAgencyAgency->cccd ?? '' }}</div>
-                                                </div>
                                             </div>
                                         @endif
                                     </td>
@@ -441,14 +472,29 @@
                                 <tr class="installCostRow" style="display: none;">
                                     <th>Chi phí lắp đặt:</th>
                                     <td>
-                                        <input type="text" id="install_cost_agency" width="100%" class="form-control install_cost" name="install_cost_agency" value="{{ number_format($data->order->install_cost ?? $data->install_cost, 0, ',', '') ?? '' }}" placeholder="Nhập chi phí">
+                                        @php
+                                            $installCostAgency = $installationOrder->install_cost ?? $data->order->install_cost ?? $data->install_cost ?? 0;
+                                        @endphp
+                                        <input type="text" id="install_cost_agency" width="100%" class="form-control install_cost" name="install_cost_agency" value="{{ number_format($installCostAgency, 0, ',', '') }}" placeholder="Nhập chi phí">
                                         <div class="text-danger mt-1 error" id="install_cost_error" style="display:none;"></div>
                                     </td>
                                 </tr>
                                 <tr class="installCostRow" style="display: none;">
                                     <th>Ngày hoàn thành:</th>
                                     <td>
-                                        <input type="date" id="successed_at" width="100%" class="form-control successed_at" name="successed_at" value="{{ $data->order->successed_at ?? $data->successed_at ?? '' }}">
+                                        @php
+                                            $successedAtAgency = $installationOrder->successed_at ?? $data->order->successed_at ?? $data->successed_at ?? '';
+                                            // Format date nếu có giá trị
+                                            if ($successedAtAgency && is_string($successedAtAgency)) {
+                                                try {
+                                                    $date = new DateTime($successedAtAgency);
+                                                    $successedAtAgency = $date->format('Y-m-d');
+                                                } catch (Exception $e) {
+                                                    // Giữ nguyên nếu không parse được
+                                                }
+                                            }
+                                        @endphp
+                                        <input type="date" id="successed_at" width="100%" class="form-control successed_at" name="successed_at" value="{{ $successedAtAgency }}">
                                     </td>
                                 </tr>
                             </tbody>
@@ -688,6 +734,24 @@
                     showError($input, "Tối đa 80 ký tự.");
                 }
                 break;
+            case 'customer_name':
+                // Tên khách hàng: chỉ cho phép chữ và khoảng trắng, tối đa 80 ký tự
+                if (value && !/^[a-zA-Z\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸY]+$/.test(value)) { 
+                    showError($input, "Tên khách hàng chỉ được chứa chữ và dấu cách.");
+                } else if (value.length > 80) {
+                    showError($input, "Tối đa 80 ký tự.");
+                }
+                break;
+
+            case 'customer_phone':
+                // SĐT khách hàng: chỉ số, độ dài 9-11
+                if (value && !/^[0-9]+$/.test(value)) {
+                    showError($input, "Số điện thoại chỉ được chứa số.");
+                } else if (value && (value.length < 9 || value.length > 11)) {
+                    showError($input, "Số điện thoại phải từ 9 đến 11 số.");
+                }
+                break;
+
             case 'customer_address':
                 // Validation cho địa chỉ khách hàng
                 // Cho phép chữ, số, dấu cách và các ký tự .,-/
@@ -1044,12 +1108,9 @@
                     }
                     
                     // Cập nhật địa chỉ lắp đặt khách hàng (ưu tiên từ request_agency)
+                    // TRÁNH nhân đôi địa chỉ: sử dụng trực tiếp installationAddress (đã đầy đủ)
                     if (installationAddress) {
-                        let fullAddress = "{{ $fullAddress }}";
                         let fullAddressText = installationAddress;
-                        if (fullAddress) {
-                            fullAddressText = installationAddress + ", " + fullAddress;
-                        }
                         let currentAddress = $("td[data-field='customer_address'] .text-value").text().trim();
                         if (fullAddressText !== currentAddress) {
                             $("td[data-field='customer_address'] .text-value").text(fullAddressText);
@@ -1123,12 +1184,9 @@
                 }
                 
                 // Cập nhật địa chỉ lắp đặt
+                // TRÁNH nhân đôi địa chỉ: dùng trực tiếp installationAddress
                 if (installationAddress) {
-                    let fullAddress = "{{ $fullAddress }}";
                     let fullAddressText = installationAddress;
-                    if (fullAddress) {
-                        fullAddressText = installationAddress + ", " + fullAddress;
-                    }
                     $("td[data-field='customer_address'] .text-value").text(fullAddressText);
                     $("#customer_address_full").val(fullAddressText);
                 }
@@ -1591,6 +1649,134 @@
                 }
             });
         }
+
+        // ================== CHỈNH SỬA KHU VỰC LẮP ĐẶT (TỈNH/HUYỆN/XÃ) - INLINE TỪNG DÒNG ==================
+        const orderCodeRegion = "{{ $code ?? $orderCode ?? '' }}";
+
+        function saveRegionField(field, value, text) {
+            if (!orderCodeRegion || !field) return;
+
+            let payload = {
+                _token: '{{ csrf_token() }}',
+                order_code: orderCodeRegion,
+                product: $("#product_name").val() || ''
+            };
+
+            if (field === 'province') {
+                payload.province_id = value;
+            } else if (field === 'district') {
+                payload.district_id = value;
+            } else if (field === 'ward') {
+                payload.ward_id = value;
+            }
+
+            $.ajax({
+                url: "{{ route('dieuphoi.update.address') }}",
+                type: 'POST',
+                data: payload,
+                success: function(res) {
+                    if (res.success) {
+                        if (field === 'province') {
+                            $('#current_province_id').val(value);
+                            $('#region_province_text').text(text);
+                        } else if (field === 'district') {
+                            $('#current_district_id').val(value);
+                            $('#region_district_text').text(text);
+                        } else if (field === 'ward') {
+                            $('#current_ward_id').val(value);
+                            $('#region_ward_text').text(text);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Bấm từng bút chì riêng cho Tỉnh/Huyện/Xã -> tạo select ngay trong ô đó
+        $(document).on('click', '.region-edit-btn', function() {
+            let field = $(this).data('field'); // province | district | ward
+            let $icon = $(this);
+            let $td = $icon.closest('td');
+            let $span = $td.find('.text-value');
+
+            // Nếu đang có select rồi thì không tạo thêm
+            if ($td.find('select.region-inline-select').length) {
+                return;
+            }
+
+            let $select = $('<select class="form-control region-inline-select"></select>');
+
+            if (field === 'province') {
+                // Dùng lại options từ bộ lọc province ở dưới
+                $('#province option').each(function() {
+                    let val = $(this).val();
+                    let text = $(this).text();
+                    if (val === '') return; // bỏ option trống
+                    $select.append('<option value="' + val + '">' + text + '</option>');
+                });
+                let currentProvinceId = $('#current_province_id').val();
+                if (currentProvinceId) {
+                    $select.val(currentProvinceId);
+                }
+            } else if (field === 'district') {
+                let provinceId = $('#current_province_id').val();
+                if (!provinceId) {
+                    alert('Vui lòng chọn Tỉnh/TP trước.');
+                    return;
+                }
+                let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', provinceId);
+                let currentDistrictId = $('#current_district_id').val();
+                $.get(url, function(data) {
+                    data.forEach(function(item) {
+                        let opt = $('<option>')
+                            .attr('value', item.district_id)
+                            .text(item.name);
+                        $select.append(opt);
+                    });
+                    if (currentDistrictId) {
+                        $select.val(currentDistrictId);
+                    }
+                });
+            } else if (field === 'ward') {
+                let districtId = $('#current_district_id').val();
+                if (!districtId) {
+                    alert('Vui lòng chọn Quận/Huyện trước.');
+                    return;
+                }
+                let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', districtId);
+                let currentWardId = $('#current_ward_id').val();
+                $.get(url, function(data) {
+                    data.forEach(function(item) {
+                        let opt = $('<option>')
+                            .attr('value', item.wards_id)
+                            .text(item.name);
+                        $select.append(opt);
+                    });
+                    if (currentWardId) {
+                        $select.val(currentWardId);
+                    }
+                });
+            }
+
+            $select.on('change', function() {
+                let val = $(this).val();
+                let text = $(this).find('option:selected').text().trim();
+                if (!val) return;
+                saveRegionField(field, val, text);
+            });
+
+            // Khi blur thì bỏ select, hiện lại text + icon
+            $select.on('blur', function() {
+                $(this).remove();
+                $span.show();
+                $icon.show();
+            });
+
+            $span.hide();
+            $icon.hide();
+            $td.append($select);
+            $select.focus();
+        });
+        // ================== KẾT THÚC CHỈNH SỬA KHU VỰC LẮP ĐẶT INLINE ==================
     });
 
     // NÂNG CẤP: Gắn validation vào trình xử lý .edit-icon
@@ -1664,19 +1850,8 @@
             validateDynamicField($(this), fieldName); // Chạy validation lần cuối
             let newValue = $(this).val().trim();
             
-            // Lưu giá trị hiển thị đầy đủ ban đầu để khôi phục khi lỗi
+            // Địa chỉ: chỉ dùng giá trị address trong installation_orders, không ghép khu vực
             let oldDisplayValue = $("#customer_address_full").val() || oldValue;
-            if (fieldName === 'customer_address' && !oldDisplayValue) {
-                // Fallback: ghép oldValue với fullAddress
-                let fullAddress = "{{ $fullAddress }}";
-                if (oldValue && fullAddress) {
-                    oldDisplayValue = oldValue + ", " + fullAddress;
-                } else if (fullAddress) {
-                    oldDisplayValue = fullAddress;
-                } else {
-                    oldDisplayValue = oldValue;
-                }
-            }
 
             // Trường hợp 1: Người dùng xóa rỗng -> Luôn gỡ lỗi và cập nhật
             if (newValue === '') {
@@ -1698,54 +1873,66 @@
                     }
                 }
                 
-                // Lưu địa chỉ khách hàng vào database nếu là customer_address
-                if (fieldName === 'customer_address') {
+                // Lưu thông tin khách hàng vào bảng installation_orders (KHÔNG sửa bảng orders)
+                if (['customer_address','customer_name','customer_phone'].includes(fieldName)) {
                     let orderCode = "{{ $code }}";
                     if (orderCode) {
+                        // Chuẩn bị payload theo từng trường
+                        let payload = {
+                            _token: $('meta[name="csrf-token"]').attr("content"),
+                            order_code: orderCode,
+                            product: $("#product_name").val() || ''
+                        };
+                        if (fieldName === 'customer_address') {
+                            payload.address = newValue;
+                        } else if (fieldName === 'customer_name') {
+                            payload.full_name = newValue;
+                        } else if (fieldName === 'customer_phone') {
+                            payload.phone_number = newValue;
+                        }
+
+                        // console.log('Sending customer update', fieldName, payload);
+
                         $.ajax({
                             url: "{{ route('dieuphoi.update.address') }}",
                             method: "POST",
-                            data: {
-                                _token: $('meta[name="csrf-token"]').attr("content"),
-                                order_code: orderCode,
-                                address: newValue
-                            },
+                            data: payload,
                             success: function(response) {
+                                // console.log('Customer update response', fieldName, response);
                                 if (response.success) {
-                                    // Cập nhật lại full address với phần địa chỉ mới
-                                    let fullAddress = "{{ $fullAddress }}";
-                                    let fullAddressText = newValue;
-                                    if (newValue && fullAddress) {
-                                        fullAddressText = newValue + ", " + fullAddress;
-                                    } else if (fullAddress) {
-                                        fullAddressText = fullAddress;
+                                    if (fieldName === 'customer_address') {
+                                        // Chỉ hiển thị lại đúng trường address trong installation_orders
+                                        $span.text(newValue).show();
+                                        $("#customer_address_full").val(newValue);
+                                        $("#customer_address_detail").val(newValue);
+                                    } else {
+                                        // Tên và SĐT: chỉ cần hiển thị giá trị mới
+                                        $span.text(newValue).show();
                                     }
-                                    $span.text(fullAddressText).show();
-                                    // Cập nhật lại hidden inputs
-                                    $("#customer_address_full").val(fullAddressText);
-                                    $("#customer_address_detail").val(newValue);
                                 } else {
                                     Swal.fire({
                                         icon: 'error',
                                         title: 'Lỗi',
-                                        text: response.message || 'Không thể cập nhật địa chỉ',
+                                        text: response.message || 'Không thể cập nhật thông tin khách hàng',
                                         timer: 2000,
                                         showConfirmButton: false
                                     });
                                     // Quay về giá trị cũ nếu lưu thất bại
-                                    $span.text(oldDisplayValue).show();
+                                    let displayValue = (fieldName === 'customer_address') ? oldDisplayValue : oldValue;
+                                    $span.text(displayValue).show();
                                 }
                             },
                             error: function(xhr) {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Lỗi',
-                                    text: 'Có lỗi xảy ra khi cập nhật địa chỉ',
+                                    text: 'Có lỗi xảy ra khi cập nhật thông tin khách hàng',
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
                                 // Quay về giá trị cũ nếu lưu thất bại
-                                $span.text(oldDisplayValue).show();
+                                let displayValue = (fieldName === 'customer_address') ? oldDisplayValue : oldValue;
+                                $span.text(displayValue).show();
                             }
                         });
                     } else {
