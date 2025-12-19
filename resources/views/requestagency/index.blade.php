@@ -38,6 +38,32 @@
         overflow-x: auto;
         max-width: 100%;
     }
+
+    /* Badge thông báo trên nút Quản lý xác nhận đại lý */
+    .agency-alert-dot {
+        width: 14px;
+        height: 14px;
+        background-color: #dc3545;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.4);
+        animation: agency-pulse 1.2s infinite;
+    }
+
+    @keyframes agency-pulse {
+        0% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
+        70% {
+            transform: translate(-50%, -50%) scale(1.3);
+            box-shadow: 0 0 0 8px rgba(220, 53, 69, 0);
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
 </style>
 
 <div class="container mt-4">
@@ -48,8 +74,13 @@
                 <a href="{{ route('useragency.index') }}" class="btn btn-info me-2">
                     <i class="bi bi-people me-1"></i>Quản lý tài khoản đại lý
                 </a>
-                <a href="{{ route('requestagency.manage-agencies') }}" class="btn btn-success me-2">
+                <a href="{{ route('requestagency.manage-agencies') }}" class="btn btn-success me-2 position-relative">
                     <i class="bi bi-shield-check me-1"></i>Quản lý xác nhận đại lý
+                    @if(!empty($hasFirstTimePendingAgencies) && $hasFirstTimePendingAgencies)
+                        <span class="position-absolute top-0 start-100 translate-middle agency-alert-dot">
+                            <span class="visually-hidden">Có đại lý chưa xác nhận lần đầu</span>
+                        </span>
+                    @endif
                 </a>
                 <a href="{{ route('requestagency.create') }}" class="btn btn-primary">
                     <i class="bi bi-plus-circle me-1"></i>Thêm mới
@@ -119,12 +150,6 @@
             <a class="nav-link {{ !request('status') ? 'active' : '' }}" 
                 href="{{ route('requestagency.index') }}">
                 Tất cả <span class="badge bg-secondary">({{ $counts['all'] }})</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {{ request('status') == 'chua_xac_nhan_daily' ? 'active' : '' }}" 
-                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'chua_xac_nhan_daily'])) }}">
-                Chưa xác nhận đại lý <span class="badge bg-danger">({{ $counts['chua_xac_nhan_agency'] }})</span>
             </a>
         </li>
         <li class="nav-item">
@@ -261,44 +286,63 @@
     </div>
 </div>
 
-<!-- Modal xác nhận xóa -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Xác nhận xóa</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Bạn có chắc chắn muốn xóa yêu cầu lắp đặt này?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <form id="deleteForm" method="POST" style="display: inline;">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-danger">Xóa</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
-function deleteRequest(id) {
-    const form = document.getElementById('deleteForm');
-    form.action = '{{ route("requestagency.index") }}/' + id;
-    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-}
+    function deleteRequest(id) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Bạn chắc chắn?',
+                text: 'Yêu cầu lắp đặt sẽ bị xóa vĩnh viễn!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa ngay',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/requestagency/' + id;
 
-@if(session('success'))
-    toastr.success('{{ session('success') }}');
-@endif
+                    var token = document.createElement('input');
+                    token.type = 'hidden';
+                    token.name = '_token';
+                    token.value = '{{ csrf_token() }}';
+                    form.appendChild(token);
 
-@if(session('error'))
-    toastr.error('{{ session('error') }}');
-@endif
+                    var method = document.createElement('input');
+                    method.type = 'hidden';
+                    method.name = '_method';
+                    method.value = 'DELETE';
+                    form.appendChild(method);
+
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        } else {
+            if (confirm('Bạn có chắc chắn muốn xóa yêu cầu này?')) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/requestagency/' + id;
+
+                var token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_token';
+                token.value = '{{ csrf_token() }}';
+                form.appendChild(token);
+
+                var method = document.createElement('input');
+                method.type = 'hidden';
+                method.name = '_method';
+                method.value = 'DELETE';
+                form.appendChild(method);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    }
 </script>
-@endsection
 
+@endsection

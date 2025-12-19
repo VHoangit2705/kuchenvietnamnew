@@ -17,7 +17,7 @@
         color: #fff;
     }
     .info-box {
-        background-color: #f8f9fa;
+        background-color: #a1cffd;
         border-left: 4px solid #0d6efd;
         padding: 15px;
         margin-bottom: 20px;
@@ -64,127 +64,219 @@
                     <h5 class="mb-0">Thông tin yêu cầu lắp đặt</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Mã đơn hàng</label>
-                            <div class="form-control-plaintext">
-                                <strong>{{ $request->order_code }}</strong>
-                            </div>
+                    <div class="row mb-2 align-items-center">
+                        <div class="col-md-2 col-4 text-muted">
+                            <span class="fw-semibold">Mã đơn hàng:</span>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Trạng thái</label>
-                            <div>
-                                <span class="status-badge status-{{ $request->status }}">
-                                    {{ $request->status_name }}
-                                </span>
-                            </div>
+                        <div class="col-md-4 col-8">
+                            <strong>{{ $request->order_code }}</strong>
                         </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">Tên sản phẩm</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->product_name }}
-                            </div>
+                        <div class="col-md-2 col-4 text-muted text-md-end mt-2 mt-md-0">
+                            <span class="fw-semibold">Trạng thái:</span>
+                        </div>
+                        <div class="col-md-4 col-8 mt-1 mt-md-0">
+                            <span class="status-badge status-{{ $request->status }}">
+                                {{ $request->status_name }}
+                            </span>
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Họ tên khách hàng</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->customer_name }}
-                            </div>
+                    <div class="row mb-2 align-items-center">
+                        <div class="col-md-2 col-4 text-muted">
+                            <span class="fw-semibold">Tên sản phẩm:</span>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Số điện thoại khách hàng</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->customer_phone }}
-                            </div>
+                        <div class="col-md-10 col-8">
+                            <span>{{ $request->product_name }}</span>
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">Địa chỉ lắp đặt</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->installation_address }}
-                            </div>
+                    <div class="row mb-2 align-items-center">
+                        <div class="col-md-2 col-4 text-muted">
+                            <span class="fw-semibold">Họ tên khách hàng:</span>
+                        </div>
+                        <div class="col-md-4 col-8">
+                            <span>{{ $request->customer_name }}</span>
+                        </div>
+                        <div class="col-md-2 col-4 text-muted text-md-end mt-2 mt-md-0">
+                            <span class="fw-semibold">Số điện thoại KH:</span>
+                        </div>
+                        <div class="col-md-4 col-8 mt-1 mt-md-0">
+                            <span>{{ $request->customer_phone }}</span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-2 align-items-center">
+                        <div class="col-md-2 col-4 text-muted">
+                            <span class="fw-semibold">Địa chỉ lắp đặt:</span>
+                        </div>
+                        <div class="col-md-10 col-8">
+                            <span>{{ $request->installation_address }}</span>
                         </div>
                     </div>
 
                     @if($request->notes)
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">Ghi chú</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->notes }}
-                            </div>
+                    <div class="row mb-2 align-items-center">
+                        <div class="col-md-2 col-4 text-muted">
+                            <span class="fw-semibold">Ghi chú:</span>
+                        </div>
+                        <div class="col-md-10 col-8">
+                            <span>{{ $request->notes }}</span>
                         </div>
                     </div>
                     @endif
                 </div>
             </div>
 
-            <!-- Thông tin đại lý -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Thông tin đại lý</h5>
+            <!-- Thông tin thanh toán và đại lý -->
+            <div class="row mb-4">
+                <!-- Thông tin thanh toán -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Thông tin thanh toán</h5>
+                        </div>
+                        <div class="card-body">
+                            @if($request->agency)
+                                <div class="mb-3">
+                                    <div class="row">
+                                        <div class="col-5">
+                                            <span class="text-muted">Chủ tài khoản:</span>
+                                        </div>
+                                        <div class="col-7">
+                                            <strong>{{ $request->agency->bank_account ?? '-' }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="row">
+                                        <div class="col-5">
+                                            <span class="text-muted">Số tài khoản:</span>
+                                        </div>
+                                        <div class="col-7">
+                                            {{ $request->agency->sotaikhoan ?? '-' }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="row">
+                                        <div class="col-5">
+                                            <span class="text-muted">Ngân hàng:</span>
+                                        </div>
+                                        <div class="col-7">
+                                            {{ $request->agency->bank_name_agency ?? '-' }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="row">
+                                        <div class="col-5">
+                                            <span class="text-muted">Chi nhánh:</span>
+                                        </div>
+                                        <div class="col-7">
+                                            {{ $request->agency->chinhanh ?? '-' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="text-danger">
+                                    <i class="bi bi-exclamation-circle me-2"></i>Chưa có thông tin đại lý
+                                </div>
+                            @endif
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Tên đại lý</label>
-                            <div class="form-control-plaintext">
-                                <strong>
-                                    @if($request->agency)
-                                        {{ $request->agency->name ?? '-' }}
-                                    @else
-                                        <span class="text-danger">Chưa có thông tin đại lý</span>
-                                    @endif
-                                </strong>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Số điện thoại đại lý</label>
-                            <div class="form-control-plaintext">
-                                @if($request->agency)
-                                    {{ $request->agency->phone ?? '-' }}
-                                @else
-                                    <span class="text-danger">-</span>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
 
-                    @if($request->agency && $request->agency->cccd)
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">CCCD đại lý</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->agency->cccd }}
-                            </div>
+                <!-- Thông tin đại lý -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Thông tin đại lý</h5>
                         </div>
-                    </div>
-                    @endif
-
-                    @if($request->agency && $request->agency->address)
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">Địa chỉ đại lý</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->agency->address }}
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Tên đại lý:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        <strong>
+                                            @if($request->agency)
+                                                {{ $request->agency->name ?? '-' }}
+                                            @else
+                                                <span class="text-danger">Chưa có thông tin đại lý</span>
+                                            @endif
+                                        </strong>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    @endif
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Ngày tạo yêu cầu</label>
-                            <div class="form-control-plaintext">
-                                {{ $request->created_at->format('d/m/Y H:i:s') }}
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Số điện thoại đại lý:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        @if($request->agency)
+                                            {{ $request->agency->phone ?? '-' }}
+                                        @else
+                                            <span class="text-danger">-</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Ngày sinh:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        @if($request->agency)
+                                            {{ \Carbon\Carbon::parse($request->agency->birthday)->format('d/m/Y') ?? '-' }}
+                                        @else
+                                            <span class="text-danger">-</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @if($request->agency && $request->agency->cccd)
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">CCCD đại lý:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $request->agency->cccd }}
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            @if($request->agency && $request->agency->address)
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Địa chỉ đại lý:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $request->agency->address }}
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Ngày tạo yêu cầu:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $request->created_at->format('d/m/Y H:i:s') }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -243,12 +335,33 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('confirmForm');
     
-    form.addEventListener('submit', function(e) {
-        if (!confirm('Bạn có chắc chắn muốn xác nhận đại lý này?')) {
-            e.preventDefault();
-            return false;
-        }
-    });
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (typeof Swal !== 'undefined') {
+                e.preventDefault();
+                
+                Swal.fire({
+                    title: 'Xác nhận đại lý?',
+                    html: 'Sau khi xác nhận, đại lý sẽ được kích hoạt và có thể tiếp tục gửi các yêu cầu khác.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#198754',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Xác nhận ngay',
+                    cancelButtonText: 'Hủy'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            } else {
+                if (!confirm('Bạn có chắc chắn muốn xác nhận đại lý này?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    }
 
     @if(session('success'))
         toastr.success('{{ session('success') }}');

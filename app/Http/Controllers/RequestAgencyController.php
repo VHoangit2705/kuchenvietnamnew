@@ -73,7 +73,9 @@ class RequestAgencyController extends Controller
 
         $query = RequestAgency::query();
 
-        // Filter theo trạng thái
+        $query->where('status', '!=', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY);
+
+        // Filter theo trạng thái (chỉ áp dụng cho các trạng thái còn lại)
         if ($request->has('status') && $request->status !== '') {
             $query->where('status', $request->status);
         }
@@ -153,7 +155,7 @@ class RequestAgencyController extends Controller
 
         // Đếm số lượng theo trạng thái
         $counts = [
-            'all' => RequestAgency::count(),
+            'all' => RequestAgency::where('status', '!=', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)->count(),
             'chua_xac_nhan_agency' => RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)->count(),
             'da_xac_nhan_agency' => RequestAgency::where('status', RequestAgency::STATUS_DA_XAC_NHAN_AGENCY)->count(),
             'da_dieu_phoi' => RequestAgency::where('status', RequestAgency::STATUS_DA_DIEU_PHOI)->count(),
@@ -161,7 +163,17 @@ class RequestAgencyController extends Controller
             'da_thanh_toan' => RequestAgency::where('status', RequestAgency::STATUS_DA_THANH_TOAN)->count(),
         ];
 
-        return view('requestagency.index', compact('requests', 'counts', 'hasOtherAgencyFlags'));
+        $hasFirstTimePendingAgencies = RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)
+            ->whereNotNull('agency_id')
+            ->whereNotIn('agency_id', function ($q) {
+                $q->select('agency_id')
+                    ->from('request_agency')
+                    ->whereNotNull('agency_id')
+                    ->where('status', RequestAgency::STATUS_DA_XAC_NHAN_AGENCY);
+            })
+            ->exists();
+
+        return view('requestagency.index', compact('requests', 'counts', 'hasOtherAgencyFlags', 'hasFirstTimePendingAgencies'));
     }
 
     /**
