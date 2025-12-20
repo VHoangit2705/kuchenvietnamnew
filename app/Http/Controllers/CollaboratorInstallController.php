@@ -786,7 +786,38 @@ class CollaboratorInstallController extends Controller
             }
         }
         
-        $agency = Agency::where('phone', $agency_phone)->first();
+        // Tìm agency: ưu tiên theo agency_id trong installation_orders, sau đó theo phone
+        $agency = null;
+        
+        // Ưu tiên 1: Tìm theo agency_id trong installation_orders
+        if ($installationOrder && $installationOrder->agency_id) {
+            $agency = Agency::find($installationOrder->agency_id);
+        }
+        
+        // Ưu tiên 2: Tìm theo phone (normalize phone number)
+        if (!$agency && $agency_phone) {
+            // Normalize phone number (loại bỏ khoảng trắng và ký tự đặc biệt)
+            $normalizedPhone = preg_replace('/[^0-9]/', '', $agency_phone);
+            
+            // Tìm chính xác
+            $agency = Agency::where('phone', $normalizedPhone)->first();
+            
+            // Nếu không tìm thấy, thử tìm với LIKE (trường hợp có khoảng trắng hoặc format khác)
+            if (!$agency && !empty($normalizedPhone)) {
+                $agency = Agency::where('phone', 'like', '%' . $normalizedPhone . '%')->first();
+            }
+            
+            // Nếu vẫn không tìm thấy, thử tìm với phone gốc (không normalize)
+            if (!$agency) {
+                $agency = Agency::where('phone', $agency_phone)->first();
+            }
+        }
+        
+        // Nếu có agency từ request_agency, ưu tiên dùng nó
+        if (!$agency && isset($requestAgencyAgency) && $requestAgencyAgency) {
+            $agency = $requestAgencyAgency;
+        }
+        
         $provinces = Province::orderBy('name')->get();
         
         $provinceName = $provinceId ? Province::find($provinceId)?->name : null;
@@ -844,6 +875,13 @@ class CollaboratorInstallController extends Controller
             // Thông tin đại lý (khi thao tác “Đại lý lắp đặt” ở cơ chế riêng)
             'agency_name' => 'nullable|string|max:255',
             'agency_phone' => 'nullable|string|max:50',
+            'agency_address' => 'nullable|string|max:500',
+            'agency_bank' => 'nullable|string|max:255',
+            'agency_paynumber' => 'nullable|string|max:100',
+            'agency_branch' => 'nullable|string|max:255',
+            'agency_cccd' => 'nullable|string|max:20',
+            'agency_release_date' => 'nullable|date',
+            'bank_account' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -947,6 +985,13 @@ class CollaboratorInstallController extends Controller
             // Nếu là đại lý (cơ chế riêng), nhận thông tin đại lý từ request để lưu xuống đơn
             $agencyName = $request->input('agency_name');
             $agencyPhone = $request->input('agency_phone');
+            $agencyAddress = $request->input('agency_address');
+            $agencyBank = $request->input('agency_bank');
+            $agencyPaynumber = $request->input('agency_paynumber');
+            $agencyBranch = $request->input('agency_branch');
+            $agencyCccd = $request->input('agency_cccd');
+            $agencyReleaseDate = $request->input('agency_release_date');
+            $bankAccount = $request->input('bank_account');
 
             // Xác định đang dùng CTV hay Đại lý làm đơn vị lắp đặt
             // Nếu đã chọn CTV thì xem như ca CTV, KHÔNG được set thông tin đại lý nữa
@@ -1050,25 +1095,160 @@ class CollaboratorInstallController extends Controller
                     ?: '';
 
                 // Thêm: xác định agency_id để lưu xuống installation_orders
-                // Ưu tiên: request_agency.agency_id > Agency tìm theo phone > Agency tìm theo name
+                // Ưu tiên: request_agency.agency_id > Agency tìm theo phone > Agency tìm theo name > Tạo mới
                 $resolvedAgencyId = null;
+                $agency = null;
+                
+                // Normalize phone number (loại bỏ khoảng trắng và ký tự đặc biệt)
+                $normalizedPhone = !empty($resolvedAgencyPhone) ? preg_replace('/[^0-9]/', '', $resolvedAgencyPhone) : '';
+                
                 if ($requestAgency && $requestAgency->agency_id) {
-                    $resolvedAgencyId = $requestAgency->agency_id;
-                } else {
-                    // Thử tìm theo số điện thoại đại lý
-                    if (!empty($resolvedAgencyPhone)) {
-                        $agencyByPhone = Agency::where('phone', $resolvedAgencyPhone)->first();
-                        if ($agencyByPhone) {
-                            $resolvedAgencyId = $agencyByPhone->id;
+                    $agency = Agency::find($requestAgency->agency_id);
+                    if ($agency) {
+                        $resolvedAgencyId = $agency->id;
+                    }
+                }
+                
+                // Nếu chưa có agency, tìm theo số điện thoại (normalized)
+                if (!$agency && !empty($normalizedPhone)) {
+                    // Tìm chính xác
+                    $agency = Agency::where('phone', $normalizedPhone)->first();
+                    
+                    // Nếu không tìm thấy, thử tìm với LIKE (trường hợp có khoảng trắng)
+                    if (!$agency) {
+                        $agency = Agency::where('phone', 'like', '%' . $normalizedPhone . '%')->first();
+                    }
+                    
+                    if ($agency) {
+                        $resolvedAgencyId = $agency->id;
+                        // Cập nhật phone về dạng normalized nếu khác
+                        if ($agency->phone !== $normalizedPhone) {
+                            $agency->phone = $normalizedPhone;
+                            $agency->save();
                         }
                     }
-
-                    // Nếu vẫn chưa có, thử tìm theo CCCD đại lý
-                    if (!$resolvedAgencyId && !empty($requestAgencyAgency?->cccd)) {
-                        $agencyByCccd = Agency::where('cccd', $requestAgencyAgency->cccd)->first();
-                        if ($agencyByCccd) {
-                            $resolvedAgencyId = $agencyByCccd->id;
+                }
+                
+                // Nếu vẫn chưa có, thử tìm theo CCCD (nếu có)
+                if (!$agency && !empty($agencyCccd)) {
+                    $agency = Agency::where('cccd', $agencyCccd)->first();
+                    if ($agency) {
+                        $resolvedAgencyId = $agency->id;
+                    }
+                }
+                
+                // Nếu vẫn chưa có agency và có số điện thoại, tạo mới hoặc cập nhật
+                if (!empty($normalizedPhone)) {
+                    try {
+                        // Sử dụng normalized phone
+                        $resolvedAgencyPhone = $normalizedPhone;
+                        
+                        // Chuẩn bị dữ liệu agency để updateOrCreate
+                        // Ưu tiên dữ liệu từ request, nếu không có thì dùng dữ liệu hiện có (nếu có agency)
+                        $agencyData = [
+                            'name' => $resolvedAgencyName ?: ($agency?->name ?? ''),
+                            'phone' => $normalizedPhone,
+                            'address' => $agencyAddress ?: ($agency?->address ?? ''),
+                            'bank_name_agency' => $agencyBank ?: ($agency?->bank_name_agency ?? ''),
+                            'bank_account' => $bankAccount ?: ($agency?->bank_account ?? ''),
+                            'sotaikhoan' => $agencyPaynumber ?: ($agency?->sotaikhoan ?? ''),
+                            'chinhanh' => $agencyBranch ?: ($agency?->chinhanh ?? ''),
+                            'cccd' => $agencyCccd ?: ($agency?->cccd ?? ''),
+                            'ngaycap' => $agencyReleaseDate ?: ($agency?->ngaycap ?? null),
+                            'create_by' => session('user', 'system'),
+                        ];
+                        
+                        if ($agency) {
+                            // Nếu đã có agency, chỉ cập nhật các trường không rỗng từ request
+                            $updateData = [];
+                            if (!empty($resolvedAgencyName)) {
+                                $updateData['name'] = $resolvedAgencyName;
+                            }
+                            if (!empty($agencyAddress)) {
+                                $updateData['address'] = $agencyAddress;
+                            }
+                            if (!empty($agencyBank)) {
+                                $updateData['bank_name_agency'] = $agencyBank;
+                            }
+                            if (!empty($bankAccount)) {
+                                $updateData['bank_account'] = $bankAccount;
+                            }
+                            if (!empty($agencyPaynumber)) {
+                                $updateData['sotaikhoan'] = $agencyPaynumber;
+                            }
+                            if (!empty($agencyBranch)) {
+                                $updateData['chinhanh'] = $agencyBranch;
+                            }
+                            if (!empty($agencyCccd)) {
+                                $updateData['cccd'] = $agencyCccd;
+                            }
+                            if (!empty($agencyReleaseDate)) {
+                                $updateData['ngaycap'] = $agencyReleaseDate;
+                            }
+                            
+                            if (!empty($updateData)) {
+                                $agency->update($updateData);
+                            }
+                        } else {
+                            // Nếu chưa có agency, sử dụng updateOrCreate để tránh duplicate
+                            // Tìm theo phone trước, nếu không có thì tạo mới
+                            $agencyData['created_ad'] = now();
+                            
+                            // Đảm bảo bank_account có giá trị (không được null nếu field không có default)
+                            if (empty($agencyData['bank_account'])) {
+                                $agencyData['bank_account'] = '';
+                            }
+                            
+                            // Chuyển đổi các giá trị rỗng thành null để database xử lý (trừ bank_account)
+                            foreach ($agencyData as $key => $value) {
+                                if ($value === '' && $key !== 'bank_account') {
+                                    $agencyData[$key] = null;
+                                }
+                            }
+                            
+                            $agency = Agency::updateOrCreate(
+                                ['phone' => $normalizedPhone],
+                                $agencyData
+                            );
                         }
+                        
+                        $resolvedAgencyId = $agency->id;
+                        
+                        // Log để debug
+                        Log::info('Agency đã được tạo/cập nhật thành công', [
+                            'agency_id' => $resolvedAgencyId,
+                            'phone' => $normalizedPhone,
+                            'name' => $resolvedAgencyName
+                        ]);
+                    } catch (\Exception $e) {
+                        // Log lỗi chi tiết
+                        Log::error('Lỗi khi tạo/cập nhật agency: ' . $e->getMessage(), [
+                            'phone' => $normalizedPhone ?? $resolvedAgencyPhone,
+                            'name' => $resolvedAgencyName,
+                            'agency_data' => $agencyData ?? [],
+                            'trace' => $e->getTraceAsString(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine()
+                        ]);
+                        
+                        // Nếu có lỗi nhưng đã có agency_id từ trước, vẫn tiếp tục
+                        if (!$resolvedAgencyId && $agency) {
+                            $resolvedAgencyId = $agency->id;
+                        }
+                        
+                        // Nếu vẫn chưa có agency_id, thử tìm lại một lần nữa
+                        if (!$resolvedAgencyId && !empty($normalizedPhone)) {
+                            $existingAgency = Agency::where('phone', $normalizedPhone)->first();
+                            if ($existingAgency) {
+                                $resolvedAgencyId = $existingAgency->id;
+                                $agency = $existingAgency;
+                            }
+                        }
+                    }
+                } else {
+                    // Nếu không có số điện thoại nhưng đã có agency_id từ trước, giữ nguyên
+                    if ($installationOrder && $installationOrder->agency_id) {
+                        $resolvedAgencyId = $installationOrder->agency_id;
                     }
                 }
             } else {
@@ -1218,9 +1398,17 @@ class CollaboratorInstallController extends Controller
                 'message' => 'Cập nhật thành công!'
             ]);
         } catch (\Exception $e) {
+            // Log lỗi chi tiết để debug
+            Log::error('Lỗi khi cập nhật installation order: ' . $e->getMessage(), [
+                'request_data' => $request->except(['_token', 'installreview']),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Có lỗi xảy ra khi cập nhật: ' . $e->getMessage()
             ], 500);
         }
     }
