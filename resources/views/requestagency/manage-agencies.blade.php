@@ -65,23 +65,6 @@
                 <strong>Lưu ý:</strong> Danh sách này chỉ hiển thị các đại lý gửi yêu cầu lần đầu và chưa được xác nhận. 
                 Sau khi xác nhận, đại lý sẽ không còn xuất hiện trong danh sách này.
             </div>
-
-            <!-- Form xác nhận nhiều -->
-            <form id="bulkConfirmForm" method="POST" action="{{ route('requestagency.confirm-multiple') }}">
-                @csrf
-                <div class="mb-3">
-                    <button type="button" class="btn btn-success" id="selectAllBtn">
-                        <i class="bi bi-check-all me-1"></i>Chọn tất cả
-                    </button>
-                    <button type="button" class="btn btn-secondary" id="deselectAllBtn">
-                        <i class="bi bi-x-square me-1"></i>Bỏ chọn tất cả
-                    </button>
-                    <button type="submit" class="btn btn-primary" id="confirmSelectedBtn" disabled>
-                        <i class="bi bi-check-circle me-1"></i>Xác nhận đã chọn
-                    </button>
-                    <span id="selectedCount" class="ms-2 text-muted">Đã chọn: 0</span>
-                </div>
-            </form>
         </div>
     </div>
 </div>

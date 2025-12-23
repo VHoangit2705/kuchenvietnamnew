@@ -343,7 +343,6 @@ class RequestAgencyController extends Controller
             'customer_phone' => 'required|string|max:20',
             'installation_address' => 'required|string',
             'notes' => 'nullable|string',
-            'status' => 'required|in:' . implode(',', array_keys(RequestAgency::getStatuses())),
             'agency_name' => 'nullable|string|max:255',
             'agency_phone' => 'nullable|string|max:20',
             'agency_cccd' => 'nullable|string|max:12',
@@ -386,12 +385,6 @@ class RequestAgencyController extends Controller
             }
         }
 
-        // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
-        if ($request->status === RequestAgency::STATUS_DA_XAC_NHAN_AGENCY && !$requestAgency->received_at) {
-            $requestAgency->received_at = now();
-            $requestAgency->received_by = $request->received_by ?? session('user', 'system');
-        }
-
         $requestAgency->update([
             'order_code' => $request->order_code,
             'product_name' => $request->product_name,
@@ -399,7 +392,6 @@ class RequestAgencyController extends Controller
             'customer_phone' => $request->customer_phone,
             'installation_address' => $request->installation_address,
             'notes' => $request->notes,
-            'status' => $request->status,
             'agency_id' => $agencyId ?? $requestAgency->agency_id,
             'received_by' => $request->received_by ?? $requestAgency->received_by,
             'assigned_to' => $request->assigned_to,
@@ -588,47 +580,5 @@ class RequestAgencyController extends Controller
 
         return redirect()->route('requestagency.manage-agencies')
             ->with('success', 'Xác nhận đại lý thành công!');
-    }
-
-    /**
-     * Xác nhận nhiều đại lý cùng lúc
-     */
-    public function confirmMultipleAgencies(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'request_ids' => 'required|array',
-            'request_ids.*' => 'required|exists:mysql.request_agency,id',
-            'received_by' => 'nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Dữ liệu không hợp lệ',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $requestIds = $request->request_ids;
-        $receivedBy = $request->received_by ?? session('user', 'system');
-        $confirmedCount = 0;
-
-        foreach ($requestIds as $requestId) {
-            $requestAgency = RequestAgency::find($requestId);
-            
-            if ($requestAgency && $requestAgency->status === RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY) {
-                $requestAgency->status = RequestAgency::STATUS_DA_XAC_NHAN_AGENCY;
-                $requestAgency->received_at = now();
-                $requestAgency->received_by = $receivedBy;
-                $requestAgency->save();
-                $confirmedCount++;
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => "Đã xác nhận {$confirmedCount} đại lý thành công!",
-            'confirmed_count' => $confirmedCount
-        ]);
     }
 }

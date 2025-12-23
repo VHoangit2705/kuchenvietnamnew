@@ -302,7 +302,7 @@
                 if (result.isConfirmed) {
                     var form = document.createElement('form');
                     form.method = 'POST';
-                    form.action = '/requestagency/' + id;
+                    form.action = "{{ route('requestagency.destroy', ':id') }}".replace(':id', id);
 
                     var token = document.createElement('input');
                     token.type = 'hidden';
@@ -324,7 +324,7 @@
             if (confirm('Bạn có chắc chắn muốn xóa yêu cầu này?')) {
                 var form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/requestagency/' + id;
+                form.action = "{{ route('requestagency.destroy', ':id') }}".replace(':id', id);
 
                 var token = document.createElement('input');
                 token.type = 'hidden';

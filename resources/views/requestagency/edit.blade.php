@@ -108,26 +108,6 @@
 
                 <div class="row mb-3">
                     <div class="col-md-3">
-                        <label for="status" class="form-label">
-                            Trạng thái <span class="text-danger">*</span>
-                        </label>
-                        <select class="form-control @error('status') is-invalid @enderror" 
-                            id="status" 
-                            name="status" 
-                            required>
-                            @foreach(\App\Models\KyThuat\RequestAgency::getStatuses() as $key => $label)
-                                <option value="{{ $key }}" 
-                                    {{ old('status', $request->status) == $key ? 'selected' : '' }}>
-                                    {{ $label }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('status')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    
-                    <div class="col-md-3">
                         <label for="agency_name" class="form-label">Tên đại lý</label>
                         <input type="text" 
                             class="form-control @error('agency_name') is-invalid @enderror" 

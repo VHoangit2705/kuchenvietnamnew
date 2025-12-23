@@ -402,9 +402,9 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>Chủ tài khoản ngân hàng:</th>
-                                    <td data-agency="bank_account">
-                                        <span class="text-value">{{ $agency->bank_account ?? '' }}</span>
+                                    <th>Địa chỉ đại lý:</th>
+                                    <td data-agency="agency_address">
+                                        <span class="text-value">{{ $agency->address ?? '' }}</span>
                                         @php
                                             $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
@@ -417,9 +417,9 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>Địa chỉ đại lý:</th>
-                                    <td data-agency="agency_address">
-                                        <span class="text-value">{{ $agency->address ?? '' }}</span>
+                                    <th>Chủ tài khoản ngân hàng:</th>
+                                    <td data-agency="bank_account">
+                                        <span class="text-value">{{ $agency->bank_account ?? '' }}</span>
                                         @php
                                             $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
