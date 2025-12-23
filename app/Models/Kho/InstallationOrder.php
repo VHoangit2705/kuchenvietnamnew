@@ -6,6 +6,7 @@
 
 namespace App\Models\Kho;
 
+use App\Enum;
 use App\Models\KyThuat\WarrantyCollaborator;
 
 use Illuminate\Database\Eloquent\Model;
@@ -76,8 +77,14 @@ class InstallationOrder extends Model
 
 	public function getCollaboratorAttribute()
 	{
+		$collaboratorId = $this->collaborator_id;
+
+		if (empty($collaboratorId) || Enum::isAgencyInstallFlag($collaboratorId)) {
+			return null;
+		}
+
 		return WarrantyCollaborator::on('mysql')
-			->find($this->collaborator_id);
+			->find($collaboratorId);
 	}
 	
 	public function agency()
