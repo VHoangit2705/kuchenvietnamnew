@@ -72,7 +72,7 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getBaoHanhCount($view, $request)
     {
-        $query = WarrantyRequest::where('type', 'agent_home')
+        $query = WarrantyRequest::where('type', 'agent_component')
             ->where('view', $view);
 
         return $this->applyCommonFiltersToWarranty($query, $request)
@@ -85,9 +85,9 @@ class CollaboratorInstallCountsController extends Controller
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
             ->where('p.view', $view)
-            ->where('status_install', 1)
-            ->whereNotNull('collaborator_id')
-            ->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+            ->where('installation_orders.status_install', 1)
+            ->whereNotNull('installation_orders.collaborator_id')
+            ->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -99,8 +99,8 @@ class CollaboratorInstallCountsController extends Controller
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
             ->where('p.view', $view)
-            ->where('status_install', 1)
-            ->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+            ->where('installation_orders.status_install', 1)
+            ->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -112,7 +112,7 @@ class CollaboratorInstallCountsController extends Controller
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
             ->where('p.view', $view)
-            ->where('status_install', 2);
+            ->where('installation_orders.status_install', 2);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -124,7 +124,7 @@ class CollaboratorInstallCountsController extends Controller
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
             ->where('p.view', $view)
-            ->where('status_install', 3);
+            ->where('installation_orders.status_install', 3);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -189,9 +189,10 @@ class CollaboratorInstallCountsController extends Controller
 
         return $query->when($madon, fn($q) => $q->where('serial_number', 'like', "%$madon%"))
             ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
+            // Lọc theo received_date để trùng với "Ngày tạo" hiển thị ở bảng
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
             ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('Ngaytao', '<=', $denngay);
+                $q->whereDate('received_date', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
@@ -233,36 +234,36 @@ class CollaboratorInstallCountsController extends Controller
         $agency_phone = $request->input('agency_phone');
         $agency_name = $request->input('agency_name');
 
-        return $query->when($madon, fn($q) => $q->where('order_code', 'like', "%$madon%"))
-            ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
+        return $query->when($madon, fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
+            ->when($sanpham, fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('installation_orders.created_at', '>=', $tungay))
             ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('created_at', '<=', $denngay);
+                $q->whereDate('installation_orders.created_at', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
                     $q->where(function ($sub) {
-                        $sub->whereNull('status_install')
-                            ->orWhere('status_install', 0);
+                        $sub->whereNull('installation_orders.status_install')
+                            ->orWhere('installation_orders.status_install', 0);
                     });
                 } elseif ($trangthai === '1') {
-                    $q->where('status_install', 1);
+                    $q->where('installation_orders.status_install', 1);
                 } elseif ($trangthai === '2') {
-                    $q->where('status_install', 2);
+                    $q->where('installation_orders.status_install', 2);
                 } elseif ($trangthai === '3') {
-                    $q->where('status_install', 3);
+                    $q->where('installation_orders.status_install', 3);
                 }
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    $q->where('installation_orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    $q->where('installation_orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
                 }
             })
-            ->when($customer_name, fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
-            ->when($customer_phone, fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
-            ->when($agency_name, fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
-            ->when($agency_phone, fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
+            ->when($customer_name, fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone, fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name, fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone, fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
     }
 }
