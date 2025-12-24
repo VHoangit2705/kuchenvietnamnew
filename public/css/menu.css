@@ -1,0 +1,278 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+}
+
+body {
+    font-family: 'Nunito', sans-serif;
+    background-color: #f8f9fa;
+    overflow-x: hidden;
+}
+
+.full-height {
+    min-height: 100vh;
+}
+
+.content {
+    flex: 1 0 auto;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    pointer-events: all;
+}
+
+/* Modern Header Styles */
+header {
+    background: #1a1a2e !important;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+header:hover {
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Logo Styles */
+.header-logo a {
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.header-logo a:hover {
+    transform: scale(1.05);
+}
+
+/* Desktop Navigation Styles */
+.nav.d-none.d-lg-flex {
+    gap: 0.5rem;
+}
+
+.nav.d-none.d-lg-flex .nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.25rem;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    font-size: 0.9rem;
+}
+
+.nav.d-none.d-lg-flex .nav-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.nav.d-none.d-lg-flex .nav-link:hover::before {
+    left: 100%;
+}
+
+.nav.d-none.d-lg-flex .nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav.d-none.d-lg-flex .nav-link:active {
+    transform: translateY(0);
+}
+
+/* Active state for current page */
+.nav.d-none.d-lg-flex .nav-link.active,
+.nav.d-none.d-lg-flex .nav-link[aria-current="page"] {
+    background: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
+/* Mobile Toggle Button */
+.navbar-toggler {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.75rem !important;
+    transition: all 0.3s ease;
+}
+
+.navbar-toggler:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: scale(1.05);
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
+}
+
+/* Mobile Menu Styles */
+#navbarMenu {
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.nav.flex-column .nav-link {
+    color: #ffffff !important;
+    padding: 0.875rem 1.25rem !important;
+    margin: 0.25rem 0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav.flex-column .nav-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: rgba(255, 255, 255, 0.5);
+    transform: scaleY(0);
+    transition: transform 0.3s ease;
+}
+
+.nav.flex-column .nav-link:hover::before {
+    transform: scaleY(1);
+}
+
+.nav.flex-column .nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    padding-left: 1.5rem;
+    transform: translateX(5px);
+}
+
+.nav.flex-column .nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
+/* Account Dropdown Styles */
+#accountDropdown {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 10px !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+#accountDropdown:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#accountDropdown:focus {
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
+}
+
+#accountDropdown::after {
+    transition: transform 0.3s ease;
+}
+
+#accountDropdown[aria-expanded="true"]::after {
+    transform: rotate(180deg);
+}
+
+/* Dropdown Menu Styles */
+.dropdown-menu {
+    border: none !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+    border-radius: 12px !important;
+    padding: 0.5rem 0 !important;
+    margin-top: 0.5rem !important;
+    background: #ffffff !important;
+    animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-item {
+    padding: 0.75rem 1.25rem !important;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    color: #333 !important;
+    display: flex;
+    align-items: center;
+}
+
+.dropdown-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    color: #000 !important;
+    padding-left: 1.5rem;
+}
+
+.dropdown-item.text-danger {
+    color: #dc3545 !important;
+}
+
+.dropdown-item.text-danger:hover {
+    background: linear-gradient(90deg, #fff5f5 0%, #ffe0e0 100%) !important;
+    color: #c82333 !important;
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0 !important;
+    border-color: #e9ecef !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+    .nav.d-none.d-lg-flex .nav-link {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem !important;
+    }
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+

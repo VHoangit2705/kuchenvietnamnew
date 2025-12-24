@@ -48,7 +48,8 @@ class InstallationOrder extends Model
 		'order_id' => 'int',
 		'collaborator_id' => 'int',
 		'install_cost' => 'int',
-		'status_install' => 'int'
+		'status_install' => 'int',
+        'agency_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -72,7 +73,11 @@ class InstallationOrder extends Model
 		'type',
 		'zone',
 		'created_at',
-		'successed_at'
+		'successed_at',
+		'dispatched_at',
+		'paid_at',
+		'agency_at',
+        'agency_id',
 	];
 
 	public function getCollaboratorAttribute()

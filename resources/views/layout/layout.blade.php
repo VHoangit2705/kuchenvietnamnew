@@ -33,49 +33,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-size: 14px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #f8f9fa;
-            overflow-x: hidden;
-        }
-
-        .full-height {
-            min-height: 100vh;
-        }
-
-        .content {
-            flex: 1 0 auto;
-        }
-        
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.3);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            pointer-events: all;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/menu.css') }}">
 </head>
 
 <body class="bg-gray text-gray-800">
     <header class="bg-dark py-2 position-relative" style="height: 60px; z-index: 1050;">
-        <div class="container d-flex justify-content-between align-items-center" style="height: 100%;">
+        <div class="container-fluid d-flex align-items-center" style="height: 100%; gap: 20px; padding-left: 15;">
             <!-- Logo (Hidden on Small Screens) -->
-            <div class="header-logo d-flex align-items-center d-none d-lg-flex">
+            <div class="header-logo d-flex align-items-center d-none d-lg-flex" style="flex-shrink: 0;">
                 <a href="{{ route('home') }}">
                     @if (session()->has('brand') && session('brand') == 'kuchen')
                         <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
@@ -88,7 +53,7 @@
             <!-- Toggle Menu for Small Screens -->
             <button class="navbar-toggler d-lg-none text-white border-0" type="button" data-bs-toggle="collapse"
                 data-bs-target="#navbarMenu" aria-controls="navbarMenu" aria-expanded="false"
-                aria-label="Toggle navigation" style="z-index: 1060;">
+                aria-label="Toggle navigation" style="z-index: 1060; flex-shrink: 0; padding-left: 15px;">
                 @if (session()->has('brand'))
                 <img src="{{ asset('icons/menu.png') }}" alt="Menu"
                     style="height: 25px; filter: invert(100%) sepia(100%) saturate(2) hue-rotate(180deg);">
@@ -96,7 +61,7 @@
             </button>
 
             <!-- Full Menu (Hidden on small screens) -->
-            <nav class="nav d-none d-lg-flex">
+            <nav class="nav d-none d-lg-flex" style="flex: 1 1 auto; justify-content: center; gap: 10px; padding-left: 15px;">
                 @if (session()->has('brand'))
                 @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo hành</a>
@@ -111,6 +76,9 @@
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
+                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
+                @endif
+                @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
                 @endif
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
@@ -119,7 +87,7 @@
                 @endif
             </nav>
             <!-- Account Section -->
-            <div class="d-flex align-items-center text-white">
+            <div class="d-flex align-items-center text-white" style="flex-shrink: 0; margin-left: auto; padding-right: 15px;">
                 <div class="dropdown">
                     <button class="btn btn-link text-white text-decoration-none dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-2" style="font-size: 1.5rem;"></i>
@@ -164,6 +132,9 @@
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                @endif
+                @if (Auth::user()->hasPermission('Quản lý CTV'))
+                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
@@ -261,6 +232,10 @@
         $(document).ready(function() {
             ThongBao();
             CheckPasswordExpiry();
+            
+            // Set active menu item based on current URL
+            setActiveMenuItem();
+            
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
@@ -650,6 +625,26 @@
             } else {
                 return uri + separator + key + "=" + encodeURIComponent(value);
             }
+        }
+
+        // Set active menu item based on current URL
+        function setActiveMenuItem() {
+            const currentUrl = window.location.href;
+            const currentPath = window.location.pathname;
+            
+            // Remove active class from all menu items
+            $('.nav-link').removeClass('active');
+            
+            // Check each menu link
+            $('.nav-link').each(function() {
+                const linkHref = $(this).attr('href');
+                if (linkHref) {
+                    // Check if current URL matches the link
+                    if (currentUrl.includes(linkHref) || currentPath === linkHref) {
+                        $(this).addClass('active');
+                    }
+                }
+            });
         }
 
         // Gửi request mỗi 5 phút để giữ session sống

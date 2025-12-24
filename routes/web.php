@@ -13,6 +13,10 @@ use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\RequestAgencyController;
+use App\Http\Controllers\UserAgencyController;
+use App\Http\Middleware\CheckBrandSession;
+use App\Http\Middleware\CheckCookieLogin;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -136,6 +140,25 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/phanquyennhom', [PermissionController::class, 'IndexRole'])->name('permission.roles');
     Route::get('/admin/phanquyennhom/chinhsua/{manhom}', [PermissionController::class, 'Detail'])->name('permission.detail');
     Route::delete('/admin/phanquyennhom/xoa/{id}', [PermissionController::class, 'Delete'])->name('permission.delete');
+});
+
+// Request Agency (Yêu cầu lắp đặt đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    // Quản lý xác nhận đại lý lần đầu - Phải đặt trước resource để tránh conflict
+    Route::get('/requestagency/manage-agencies', [RequestAgencyController::class, 'manageAgencies'])->name('requestagency.manage-agencies');
+    Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
+    Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
+    
+    // Resource routes
+    Route::resource('requestagency', RequestAgencyController::class);
+    Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
+});
+
+// User Agency (Quản lý tài khoản đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    Route::post('/useragency/{id}/reset-password', [UserAgencyController::class, 'resetPassword'])->name('useragency.reset-password');
+    Route::post('/useragency/{id}/toggle-status', [UserAgencyController::class, 'toggleStatus'])->name('useragency.toggle-status');
+    Route::resource('useragency', UserAgencyController::class);
 });
 
 // hỗ trợ
