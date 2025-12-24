@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Http\Controllers\SaveLogController;
 use App\Enum;
+use App\Models\Kho\InstallationOrder;
 
 class CollaboratorController extends Controller
 {
@@ -225,36 +226,24 @@ class CollaboratorController extends Controller
 
             // Chỉ ghi log khi có order_code (thay đổi từ đơn hàng)
             if ($request->order_code) {
-                // Tìm bản ghi hiện có để cập nhật
-                $existingHistory = EditCtvHistory::where('order_code', $request->order_code)->first();
-                
-                if ($existingHistory) {
-                    // Cập nhật bản ghi hiện có - cập nhật new_* với dữ liệu CTV mới
-                    $existingHistory->new_collaborator_id = $collab->id;
-                    $existingHistory->new_full_name = $collab->full_name;
-                    $existingHistory->new_phone = $collab->phone;
-                    $existingHistory->new_province = $collab->province;
-                    $existingHistory->new_province_id = $collab->province_id;
-                    $existingHistory->new_district = $collab->district;
-                    $existingHistory->new_district_id = $collab->district_id;
-                    $existingHistory->new_ward = $collab->ward;
-                    $existingHistory->new_ward_id = $collab->ward_id;
-                    $existingHistory->new_address = $collab->address;
-                    $existingHistory->new_sotaikhoan = $collab->sotaikhoan;
-                    $existingHistory->new_chinhanh = $collab->chinhanh;
-                    $existingHistory->new_cccd = $collab->cccd;
-                    $existingHistory->new_ngaycap = $collab->ngaycap;
-                    
-                    $existingHistory->action_type = 'update';
-                    $existingHistory->edited_by = session('user', 'system');
-                    $existingHistory->edited_at = now();
-                    $existingHistory->comments = 'Cập nhật thông tin CTV: ' . $collab->full_name;
-                    
-                    $existingHistory->save();
-                } else {
-                    // Tạo bản ghi mới nếu chưa có
-                    $this->logChangesNew($collab, $newData, 'update', $request->order_code);
-                }
+                $orderCodeRaw = (string) $request->order_code;
+                $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+                $orderCodeBase = trim((string) $orderCodeBase);
+                $installationOrdersId = InstallationOrder::query()
+                    ->where('order_code', $orderCodeRaw)
+                    ->orWhere('order_code', $orderCodeBase)
+                    ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                    ->orderByDesc('id')
+                    ->value('id');
+
+                // Đồng bộ snapshot theo chuẩn stack (old <- new, new <- hiện tại)
+                $this->saveLogController->syncCtvSnapshotByOrderCode(
+                    $request->order_code,
+                    $collab,
+                    $installationOrdersId,
+                    'update',
+                    'Cập nhật thông tin CTV: ' . ($collab->full_name ?? '')
+                );
             }
 
             return response()->json([
@@ -353,35 +342,26 @@ class CollaboratorController extends Controller
                     
                     // CHỈ CẬP NHẬT KHI CÓ THAY ĐỔI THỰC SỰ
                     if ($hasChanges) {
-                        // CẬP NHẬT: Đẩy dữ liệu cũ (new_*) vào old_*, dữ liệu mới vào new_*
-                        $existingHistory->old_agency_name = $existingHistory->new_agency_name;
-                        $existingHistory->new_agency_name = $agency->name;
-                        $existingHistory->old_agency_phone = $existingHistory->new_agency_phone;
-                        $existingHistory->new_agency_phone = $agency->phone;
-                        $existingHistory->old_agency_address = $existingHistory->new_agency_address;
-                        $existingHistory->new_agency_address = $agency->address;
-                        $existingHistory->old_agency_paynumber = $existingHistory->new_agency_paynumber;
-                        $existingHistory->new_agency_paynumber = $agency->sotaikhoan;
-                        $existingHistory->old_agency_branch = $existingHistory->new_agency_branch;
-                        $existingHistory->new_agency_branch = $agency->chinhanh;
-                        $existingHistory->old_agency_cccd = $existingHistory->new_agency_cccd;
-                        $existingHistory->new_agency_cccd = $agency->cccd;
-                        $existingHistory->old_agency_release_date = $existingHistory->new_agency_release_date;
-                        $existingHistory->new_agency_release_date = $agency->ngaycap;
-                        
-                        // Cập nhật thông tin chung
-                        $existingHistory->action_type = 'update_agency';
-                        $existingHistory->edited_by = session('user', 'system');
-                        $existingHistory->edited_at = now();
-                        $existingHistory->comments = 'Cập nhật thông tin đại lý';
-                        
-                        $existingHistory->save();
+                        $orderCodeRaw = (string) $request->order_code;
+                        $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+                        $orderCodeBase = trim((string) $orderCodeBase);
+                        $installationOrdersId = InstallationOrder::query()
+                            ->where('order_code', $orderCodeRaw)
+                            ->orWhere('order_code', $orderCodeBase)
+                            ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                            ->orderByDesc('id')
+                            ->value('id');
+
+                        // Đồng bộ snapshot đại lý theo chuẩn stack (old <- new, new <- hiện tại)
+                        $this->saveLogController->syncAgencySnapshotByOrderCode(
+                            $request->order_code,
+                            $agency,
+                            $installationOrdersId,
+                            'update_agency',
+                            'Cập nhật thông tin đại lý'
+                        );
                     } else {
-                        // Nếu không có thay đổi, vẫn cập nhật thời gian để ghi nhận việc truy cập
-                        $existingHistory->edited_by = session('user', 'system');
-                        $existingHistory->edited_at = now();
-                        $existingHistory->comments = 'Truy cập thông tin đại lý (không có thay đổi)';
-                        $existingHistory->save();
+                        // Không tạo log nếu không có thay đổi thực sự
                     }
                     
                 } else {

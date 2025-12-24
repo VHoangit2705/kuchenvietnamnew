@@ -45,129 +45,38 @@ class CollaboratorInstallController extends Controller
             $oldCollaborator = $oldCollaboratorId ? WarrantyCollaborator::find($oldCollaboratorId) : null;
             $newCollaborator = $newCollaboratorId ? WarrantyCollaborator::find($newCollaboratorId) : null;
 
+            // Normalize legacy: nếu newCollaborator có tên = "Đại lý lắp đặt" thì coi như đại lý (không lưu collaborator_id)
+            if ($newCollaborator && mb_strtolower(trim((string) $newCollaborator->full_name)) === mb_strtolower(trim(\App\Enum::AGENCY_INSTALL_CHECKBOX_LABEL))) {
+                $newCollaborator = null;
+                $newCollaboratorId = null;
+            }
+
             if (!$oldCollaborator && !$newCollaborator) {
                 return; 
             }
 
-            // Tìm bản ghi lịch sử hiện có
-            $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
+            // Lấy installation_orders_id để gắn vào log (nếu có)
+            $orderCodeRaw = (string) $orderCode;
+            $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+            $orderCodeBase = trim((string) $orderCodeBase);
+            $installationOrdersId = InstallationOrder::query()
+                ->where('order_code', $orderCodeRaw)
+                ->orWhere('order_code', $orderCodeBase)
+                ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                ->orderByDesc('id')
+                ->value('id');
 
-            if ($existingHistory) {
-                // Nếu bản ghi trước đó đang lưu CTV thật (có collaborator_id) thì đẩy sang old_*
-                if (!empty($existingHistory->new_collaborator_id)) {
-                    // Nếu đang có CTV thật, đẩy dữ liệu CTV vào old_*
-                    $existingHistory->old_collaborator_id = $existingHistory->new_collaborator_id;
-                    $existingHistory->old_full_name = $existingHistory->new_full_name;
-                    $existingHistory->old_phone = $existingHistory->new_phone;
-                    $existingHistory->old_province = $existingHistory->new_province;
-                    $existingHistory->old_province_id = $existingHistory->new_province_id;
-                    $existingHistory->old_district = $existingHistory->new_district;
-                    $existingHistory->old_district_id = $existingHistory->new_district_id;
-                    $existingHistory->old_ward = $existingHistory->new_ward;
-                    $existingHistory->old_ward_id = $existingHistory->new_ward_id;
-                    $existingHistory->old_address = $existingHistory->new_address;
-                    $existingHistory->old_sotaikhoan = $existingHistory->new_sotaikhoan;
-                    $existingHistory->old_chinhanh = $existingHistory->new_chinhanh;
-                    $existingHistory->old_cccd = $existingHistory->new_cccd;
-                    $existingHistory->old_ngaycap = $existingHistory->new_ngaycap;
-                }
+            $oldName = $oldCollaborator ? $oldCollaborator->full_name : 'Đại lý lắp đặt';
+            $newName = $newCollaborator ? $newCollaborator->full_name : 'Đại lý lắp đặt';
 
-                // Cập nhật new_collaborator_id
-                $existingHistory->new_collaborator_id = $newCollaboratorId;
-
-                // Lưu dữ liệu CTV mới vào new_*
-                if ($newCollaborator) {
-                    $existingHistory->new_full_name = $newCollaborator->full_name;
-                    $existingHistory->new_phone = $newCollaborator->phone;
-                    $existingHistory->new_province = $newCollaborator->province;
-                    $existingHistory->new_province_id = $newCollaborator->province_id;
-                    $existingHistory->new_district = $newCollaborator->district;
-                    $existingHistory->new_district_id = $newCollaborator->district_id;
-                    $existingHistory->new_ward = $newCollaborator->ward;
-                    $existingHistory->new_ward_id = $newCollaborator->ward_id;
-                    $existingHistory->new_address = $newCollaborator->address;
-                    $existingHistory->new_sotaikhoan = $newCollaborator->sotaikhoan;
-                    $existingHistory->new_chinhanh = $newCollaborator->chinhanh;
-                    $existingHistory->new_cccd = $newCollaborator->cccd;
-                    $existingHistory->new_ngaycap = $newCollaborator->ngaycap;
-                } else {
-                    // Nếu không có CTV mới (chuyển về đại lý) - chỉ set thông tin mô tả, không dùng ID = 1 làm flag nữa
-                    $existingHistory->new_collaborator_id = null;
-                    $existingHistory->new_full_name = 'Đại lý lắp đặt';
-                    $existingHistory->new_phone = 'Đại lý lắp đặt';
-                    $existingHistory->new_province = 'Đại lý lắp đặt';
-                    $existingHistory->new_province_id = null;
-                    $existingHistory->new_district = 'Đại lý lắp đặt';
-                    $existingHistory->new_district_id = null;
-                    $existingHistory->new_ward = 'Đại lý lắp đặt';
-                    $existingHistory->new_ward_id = null;
-                    $existingHistory->new_address = 'Đại lý lắp đặt';
-                    $existingHistory->new_sotaikhoan = 'Đại lý lắp đặt';
-                    $existingHistory->new_chinhanh = 'Đại lý lắp đặt';
-                    $existingHistory->new_cccd = 'Đại lý lắp đặt';
-                    $existingHistory->new_ngaycap = null;
-                }
-
-                $existingHistory->action_type = 'update';
-                $existingHistory->edited_by = session('user', 'system');
-                $existingHistory->edited_at = now();
-                
-                $oldName = $oldCollaborator ? $oldCollaborator->full_name : 'Đại lý lắp đặt';
-                $newName = $newCollaborator ? $newCollaborator->full_name : 'Đại lý lắp đặt';
-                $existingHistory->comments = "Thay đổi CTV: '{$oldName}' → '{$newName}'";
-
-                $existingHistory->save();
-            } else {
-                // TẠO MỚI: Tạo bản ghi lịch sử mới
-                $historyData = [
-                    'old_collaborator_id' => $oldCollaboratorId,
-                    'new_collaborator_id' => $newCollaboratorId,
-                    'action_type' => 'update',
-                    'edited_by' => session('user', 'system'),
-                    'edited_at' => now(),
-                    'order_code' => $orderCode
-                ];
-
-                // Lưu thông tin CTV cũ vào old_*
-                if ($oldCollaborator) {
-                    $historyData['old_full_name'] = $oldCollaborator->full_name;
-                    $historyData['old_phone'] = $oldCollaborator->phone;
-                    $historyData['old_province'] = $oldCollaborator->province;
-                    $historyData['old_province_id'] = $oldCollaborator->province_id;
-                    $historyData['old_district'] = $oldCollaborator->district;
-                    $historyData['old_district_id'] = $oldCollaborator->district_id;
-                    $historyData['old_ward'] = $oldCollaborator->ward;
-                    $historyData['old_ward_id'] = $oldCollaborator->ward_id;
-                    $historyData['old_address'] = $oldCollaborator->address;
-                    $historyData['old_sotaikhoan'] = $oldCollaborator->sotaikhoan;
-                    $historyData['old_chinhanh'] = $oldCollaborator->chinhanh;
-                    $historyData['old_cccd'] = $oldCollaborator->cccd;
-                    $historyData['old_ngaycap'] = $oldCollaborator->ngaycap;
-                }
-
-                // Lưu thông tin CTV mới vào new_*
-                if ($newCollaborator) {
-                    $historyData['new_full_name'] = $newCollaborator->full_name;
-                    $historyData['new_phone'] = $newCollaborator->phone;
-                    $historyData['new_province'] = $newCollaborator->province;
-                    $historyData['new_province_id'] = $newCollaborator->province_id;
-                    $historyData['new_district'] = $newCollaborator->district;
-                    $historyData['new_district_id'] = $newCollaborator->district_id;
-                    $historyData['new_ward'] = $newCollaborator->ward;
-                    $historyData['new_ward_id'] = $newCollaborator->ward_id;
-                    $historyData['new_address'] = $newCollaborator->address;
-                    $historyData['new_sotaikhoan'] = $newCollaborator->sotaikhoan;
-                    $historyData['new_chinhanh'] = $newCollaborator->chinhanh;
-                    $historyData['new_cccd'] = $newCollaborator->cccd;
-                    $historyData['new_ngaycap'] = $newCollaborator->ngaycap;
-                }
-
-                $oldName = $oldCollaborator ? $oldCollaborator->full_name : 'Đại lý lắp đặt';
-                $newName = $newCollaborator ? $newCollaborator->full_name : 'Đại lý lắp đặt';
-                $historyData['comments'] = "Thay đổi CTV: '{$oldName}' → '{$newName}'";
-
-                EditCtvHistory::create($historyData);
-            }
+            $actionType = $newCollaborator ? 'update' : 'switch_to_agency';
+            $this->saveLogController->syncCtvSnapshotByOrderCode(
+                $orderCode,
+                $newCollaborator,
+                $installationOrdersId,
+                $actionType,
+                "Thay đổi CTV: '{$oldName}' → '{$newName}'"
+            );
         } catch (\Exception $e) {
             Log::error('Lỗi ghi log thay đổi CTV: ' . $e->getMessage());
         }
@@ -190,27 +99,22 @@ class CollaboratorInstallController extends Controller
             $oldStatusText = $statusMapping[$oldStatus] ?? 'Không xác định';
             $newStatusText = $statusMapping[$newStatus] ?? 'Không xác định';
             
-            // Tìm bản ghi hiện có để cập nhật
-            $existingHistory = EditCtvHistory::where('order_code', $orderCode)->first();
-            
-            if ($existingHistory) {
-                // Cập nhật bản ghi hiện có
-                $existingHistory->action_type = $action;
-                $existingHistory->edited_by = session('user', 'system');
-                $existingHistory->edited_at = now();
-                $existingHistory->comments = "Thay đổi trạng thái: {$oldStatusText} → {$newStatusText}";
-                
-                $existingHistory->save();
-            } else {
-                // Tạo bản ghi mới
-                $newHistory = EditCtvHistory::create([
-                    'order_code' => $orderCode,
-                    'action_type' => $action,
-                    'edited_by' => session('user', 'system'),
-                    'edited_at' => now(),
-                    'comments' => "Thay đổi trạng thái: {$oldStatusText} → {$newStatusText}"
-                ]);
-            }
+            $orderCodeRaw = (string) $orderCode;
+            $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+            $orderCodeBase = trim((string) $orderCodeBase);
+            $installationOrdersId = InstallationOrder::query()
+                ->where('order_code', $orderCodeRaw)
+                ->orWhere('order_code', $orderCodeBase)
+                ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                ->orderByDesc('id')
+                ->value('id');
+
+            $this->saveLogController->appendActionHistory(
+                $orderCode,
+                $installationOrdersId,
+                $action,
+                "Thay đổi trạng thái: {$oldStatusText} → {$newStatusText}"
+            );
             
             return true;
         } catch (\Exception $e) {

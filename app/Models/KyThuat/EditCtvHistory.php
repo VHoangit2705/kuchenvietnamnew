@@ -28,12 +28,14 @@ class EditCtvHistory extends Model
     protected $casts = [
         'old_collaborator_id' => 'int',
         'new_collaborator_id' => 'int',
+        'installation_orders_id' => 'int',
         'edited_at' => 'datetime'
     ];
 
     protected $fillable = [
         'old_collaborator_id',
         'new_collaborator_id',
+        'installation_orders_id',
         'action_type',
         'edited_by',
         'comments',
