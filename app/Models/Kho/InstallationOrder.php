@@ -84,7 +84,7 @@ class InstallationOrder extends Model
 	{
 		$collaboratorId = $this->collaborator_id;
 
-		if (empty($collaboratorId) || Enum::isAgencyInstallFlag($collaboratorId)) {
+		if (empty($collaboratorId)) {
 			return null;
 		}
 

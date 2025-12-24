@@ -130,47 +130,106 @@
 
             <!-- Thông tin đại lý -->
             @if($user->agency)
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Thông tin đại lý</h5>
+            <div class="row mb-4">
+                <!-- Thông tin đại lý (bên trái) -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Thông tin đại lý</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Tên đại lý</label>
+                                    <div class="form-control-plaintext">
+                                        <strong>{{ $user->agency->name ?? '-' }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Số điện thoại đại lý</label>
+                                    <div class="form-control-plaintext">
+                                        {{ $user->agency->phone ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if($user->agency->cccd)
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label text-muted">CCCD đại lý</label>
+                                    <div class="form-control-plaintext">
+                                        {{ $user->agency->cccd }}
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            @if($user->agency->address)
+                            <div class="row mb-0">
+                                <div class="col-md-12">
+                                    <label class="form-label text-muted">Địa chỉ đại lý</label>
+                                    <div class="form-control-plaintext">
+                                        {{ $user->agency->address }}
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Tên đại lý</label>
-                            <div class="form-control-plaintext">
-                                <strong>{{ $user->agency->name ?? '-' }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Số điện thoại đại lý</label>
-                            <div class="form-control-plaintext">
-                                {{ $user->agency->phone ?? '-' }}
-                            </div>
-                        </div>
-                    </div>
 
-                    @if($user->agency->cccd)
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">CCCD đại lý</label>
-                            <div class="form-control-plaintext">
-                                {{ $user->agency->cccd }}
-                            </div>
+                <!-- Thông tin thanh toán (bên phải) -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Thông tin thanh toán</h5>
                         </div>
-                    </div>
-                    @endif
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Chủ tài khoản:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        <strong>{{ $user->agency->bank_account ?? '-' }}</strong>
+                                    </div>
+                                </div>
+                            </div>
 
-                    @if($user->agency->address)
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">Địa chỉ đại lý</label>
-                            <div class="form-control-plaintext">
-                                {{ $user->agency->address }}
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Số tài khoản:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->sotaikhoan ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Ngân hàng:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->bank_name_agency ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-0">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Chi nhánh:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->chinhanh ?? '-' }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    @endif
                 </div>
             </div>
             @else
