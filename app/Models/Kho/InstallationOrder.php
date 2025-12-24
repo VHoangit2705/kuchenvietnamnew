@@ -6,6 +6,7 @@
 
 namespace App\Models\Kho;
 
+use App\Enum;
 use App\Models\KyThuat\WarrantyCollaborator;
 
 use Illuminate\Database\Eloquent\Model;
@@ -47,7 +48,8 @@ class InstallationOrder extends Model
 		'order_id' => 'int',
 		'collaborator_id' => 'int',
 		'install_cost' => 'int',
-		'status_install' => 'int'
+		'status_install' => 'int',
+        'agency_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -71,13 +73,23 @@ class InstallationOrder extends Model
 		'type',
 		'zone',
 		'created_at',
-		'successed_at'
+		'successed_at',
+		'dispatched_at',
+		'paid_at',
+		'agency_at',
+        'agency_id',
 	];
 
 	public function getCollaboratorAttribute()
 	{
+		$collaboratorId = $this->collaborator_id;
+
+		if (empty($collaboratorId) || Enum::isAgencyInstallFlag($collaboratorId)) {
+			return null;
+		}
+
 		return WarrantyCollaborator::on('mysql')
-			->find($this->collaborator_id);
+			->find($collaboratorId);
 	}
 	
 	public function agency()

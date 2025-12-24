@@ -229,10 +229,10 @@
                                         <th>Kỹ thuật viên tiếp nhận:</th>
                                         <td>{{ $data->staff_received }}</td>
                                     </tr>
-                                    <tr>
-                                        <th>Ngày tiếp nhận:</th>
-                                        <td>{{ \Carbon\Carbon::parse($data->Ngaytao)->format('d/m/Y') }}</td>
-                                    </tr>
+                                   <tr>
+                                       <th>Ngày tiếp nhận:</th>
+                                       <td>{{ $data->received_date ? \Carbon\Carbon::parse($data->received_date)->format('d/m/Y') : '-' }}</td>
+                                   </tr>
                                     <tr>
                                         <th>Ngày hẹn trả:</th>
                                         <td data-type="return_date" data-id="{{ $data->id }}">
@@ -306,6 +306,12 @@
                     <button class="nav-link" id="tab4" data-bs-toggle="tab" data-bs-target="#phieuin"
                         type="button" role="tab">
                         Phiếu in
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab5" data-bs-toggle="tab" data-bs-target="#congsuachua"
+                        type="button" role="tab">
+                        Công sửa chữa
                     </button>
                 </li>
             </ul>
@@ -508,6 +514,61 @@
                 </div>
             </div>
 
+            <div class="tab-pane fade" id="congsuachua" role="tabpanel" tabindex="0">
+                <div class="d-flex justify-content-start align-items-center mt-2 flex-wrap gap-2">
+                    <h5 class="mb-0">Công sửa chữa cho Phiếu</h5>
+                    <h5 class="fw-bold text-primary mb-0">#{{ $data->id }}</h5>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-bordered table-striped align-middle">
+                        <thead class="table-dark text-center">
+                            <tr>
+                                <th style="width: 60px;">STT</th>
+                                <th>Nội dung</th>
+                                <th>Sản phẩm/Linh kiện</th>
+                                <th style="width: 120px;">Số lượng</th>
+                                <th style="width: 150px;">Đơn giá (VND)</th>
+                                <th style="width: 150px;">Thành tiền (VND)</th>
+                                <th style="width: 140px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($repairJobs as $job)
+                                @php
+                                    $displayQty = rtrim(rtrim(number_format($job->quantity, 2, ',', '.'), '0'), ',');
+                                @endphp
+                                <tr data-id="{{ $job->id }}">
+                                    <td class="text-center">{{ $loop->iteration }}</td>
+                                    <td>{{ $job->description }}</td>
+                                    <td>{{ $job->component ?? '-' }}</td>
+                                    <td class="text-center">{{ $displayQty }}</td>
+                                    <td class="text-end">{{ number_format($job->unit_price, 0, ',', '.') }}</td>
+                                    <td class="text-end">{{ number_format($job->total_price, 0, ',', '.') }}</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-warning btn-sm me-1"
+                                            onclick="editRepairWork({{ $job->id }})">Sửa</button>
+                                        <button class="btn btn-danger btn-sm"
+                                            onclick="deleteRepairWork({{ $job->id }})">Xoá</button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Chưa có công sửa chữa nào.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                    <button class="btn btn-primary btn-sm d-flex align-items-center gap-1"
+                        onclick="openRepairWorkModal()">
+                        <i class="bi bi-plus-circle"></i>
+                        Thêm công
+                    </button>
+                <div class="text-end fw-bold mt-3">
+                    Tổng công: {{ number_format($repairJobsTotal, 0, ',', '.') }} VND
+                </div>
+            </div>
+
             <div class="tab-pane fade" id="phieuin" role="tabpanel" tabindex="0">
                 <a id="downloadPdf" href="{{ route('warranty.dowloadpdf', ['id' => $data->id]) }}" download> Tải file PDF
                 </a>
@@ -563,8 +624,8 @@
                         </div>
                         <div id="des_error_container" class="mb-2 d-none">
                             <label for="des_error_type" class="form-label">Mô tả cách xử lý</label>
-                            <input type="text" class="form-control" id="des_error_type" name="des_error_type"
-                                placeholder="Nhập mô tả các xử lý">
+                            <textarea class="form-control" id="des_error_type" name="des_error_type"
+                                placeholder="Nhập mô tả các xử lý" rows="4"></textarea>
                             <div class="error error_des text-danger small mt-1"></div>
                         </div>
                         <div id="rejection_reason_container" class="mb-2 d-none">
@@ -668,7 +729,68 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="repairWorkModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="repairWorkModalTitle">Thêm công sửa chữa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="repairWorkForm">
+                        <input type="hidden" id="repairWorkId" name="id">
+                        <input type="hidden" id="repairWorkRequestId" name="warranty_request_id"
+                            value="{{ $data->id }}">
 
+                        <div class="mb-3">
+                            <label for="repairWorkDescription" class="form-label">Nội dung sửa chữa <span
+                                    class="text-danger">*</span></label>
+                            <textarea class="form-control" id="repairWorkDescription" name="description" rows="3"
+                                placeholder="- Công vệ sinh, Công thay thế ..."></textarea>
+                            <div class="text-danger small d-none repair-work-error" data-error="description"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="repairWorkComponent" class="form-label">Linh kiện/Sản phẩm sửa chữa</label>
+                            <div style="position: relative;">
+                                <input type="text" class="form-control" id="repairWorkComponent" name="component"
+                                    placeholder="Nhập tên linh kiện/sản phẩm...">
+                                <div class="list-group replacement-suggestions d-none" id="repairWorkComponentSuggestions"
+                                    style="position: absolute; z-index: 1051; max-height: 200px; overflow-y: auto; width: 100%; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);">
+                                </div>
+                            </div>
+                            <div class="text-danger small d-none repair-work-error" data-error="component"></div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="repairWorkQuantity" class="form-label">Số lượng <span
+                                        class="text-danger">*</span></label>
+                                <input type="number" min="0.1" step="0.1" class="form-control" id="repairWorkQuantity"
+                                    name="quantity" placeholder="Nhập số lượng">
+                                <div class="text-danger small d-none repair-work-error" data-error="quantity"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="repairWorkUnitPrice" class="form-label">Đơn giá (VND) <span
+                                        class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="repairWorkUnitPrice" name="unit_price"
+                                    placeholder="0">
+                                <div class="text-danger small d-none repair-work-error" data-error="unit_price"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="repairWorkTotal" class="form-label">Thành tiền</label>
+                                <input type="text" class="form-control" id="repairWorkTotal" disabled>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" id="saveRepairWorkBtn" class="btn btn-primary">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
@@ -793,6 +915,7 @@
             PrintRequest();
             setupComponentActions();
             initQrModal();
+            initRepairWorkFeature();
             
             // Lazy load PDF iframe khi tab Phiếu in được click
             let pdfLoaded = false;
@@ -819,6 +942,278 @@
             }
             
         });
+
+        const repairJobRoutes = {
+            save: '{{ route('warranty.repairjobs.save') }}',
+            base: '{{ url('/baohanh/congsuachua') }}'
+        };
+
+        function initRepairWorkFeature() {
+            const componentList = {!! json_encode($linhkien) !!};
+            const productList = {!! json_encode($sanpham) !!};
+
+            const suggestionPool = [];
+            const suggestionTracker = new Set();
+
+            const pushSuggestion = (name) => {
+                const normalizedName = name.trim();
+                if (!normalizedName) {
+                    return;
+                }
+                const key = normalizedName.toLowerCase();
+                if (suggestionTracker.has(key)) {
+                    return;
+                }
+                suggestionTracker.add(key);
+                suggestionPool.push({ product_name: normalizedName });
+            };
+
+            componentList.forEach(item => {
+                if (!item || !item.product_name) {
+                    return;
+                }
+                const viewValue = Number(item.view);
+                // Linh kiện có thể nằm trong view 1 hoặc 2 tuỳ cấu hình
+                if (![1, 2].includes(viewValue)) {
+                    return;
+                }
+                pushSuggestion(item.product_name);
+            });
+
+            productList.forEach(item => {
+                if (!item || !item.product_name) {
+                    return;
+                }
+                const viewValue = Number(item.view);
+                if (viewValue !== 1) {
+                    return;
+                }
+                pushSuggestion(item.product_name);
+            });
+
+            $('#repairWorkDescription').on('input', function() {
+                clearRepairWorkError('description');
+            });
+
+            // Autocomplete cho component input
+            $('#repairWorkComponent').on('input', function() {
+                const $input = $(this);
+                const keyword = $input.val().toLowerCase().trim();
+                const $suggestionsBox = $('#repairWorkComponentSuggestions');
+                $suggestionsBox.empty();
+
+                if (!keyword) {
+                    $suggestionsBox.addClass('d-none');
+                    return;
+                }
+
+                // Lọc danh sách
+                const matchedItems = suggestionPool.filter(p =>
+                    p.product_name.toLowerCase().includes(keyword)
+                );
+
+                if (matchedItems.length > 0) {
+                    matchedItems.slice(0, 10).forEach(p => {
+                        const $button = $('<button type="button" class="list-group-item list-group-item-action"></button>');
+                        $button.text(p.product_name);
+                        $suggestionsBox.append($button);
+                    });
+                    $suggestionsBox.removeClass('d-none');
+                } else {
+                    $suggestionsBox.addClass('d-none');
+                }
+            });
+
+            // Xử lý khi click vào gợi ý
+            $(document).on('mousedown', '#repairWorkComponentSuggestions button', function(e) {
+                e.preventDefault();
+                $('#repairWorkComponent').val($(this).text());
+                $('#repairWorkComponentSuggestions').addClass('d-none').empty();
+            });
+
+            // Ẩn gợi ý khi click ra ngoài
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#repairWorkComponent, #repairWorkComponentSuggestions').length) {
+                    $('#repairWorkComponentSuggestions').addClass('d-none');
+                }
+            });
+
+            $('#repairWorkQuantity').on('input', function() {
+                clearRepairWorkError('quantity');
+                updateRepairWorkTotal();
+            });
+
+            $('#repairWorkUnitPrice').on('input', function() {
+                formatCurrency($(this));
+                clearRepairWorkError('unit_price');
+                updateRepairWorkTotal();
+            });
+
+            $('#saveRepairWorkBtn').on('click', submitRepairWork);
+        }
+
+        function openRepairWorkModal() {
+            resetRepairWorkForm();
+            $('#repairWorkModalTitle').text('Thêm công sửa chữa');
+            $('#repairWorkModal').modal('show');
+        }
+
+        function editRepairWork(id) {
+            resetRepairWorkForm();
+            $('#repairWorkModalTitle').text('Cập nhật công sửa chữa');
+            OpenWaitBox();
+            $.ajax({
+                url: `${repairJobRoutes.base}/${id}`,
+                method: 'GET',
+                success: function(response) {
+                    CloseWaitBox();
+                    if (response?.success) {
+                        const data = response.data;
+                        $('#repairWorkId').val(data.id);
+                        $('#repairWorkDescription').val(data.description);
+                        $('#repairWorkComponent').val(data.component || '');
+                        $('#repairWorkQuantity').val(data.quantity);
+                        $('#repairWorkUnitPrice').val(
+                            (data.unit_price || 0).toLocaleString('vi-VN')
+                        );
+                        updateRepairWorkTotal();
+                        $('#repairWorkModal').modal('show');
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: response?.message || 'Không thể tải dữ liệu công sửa chữa.'
+                        });
+                    }
+                },
+                error: function() {
+                    CloseWaitBox();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể tải dữ liệu công sửa chữa.'
+                    });
+                }
+            });
+        }
+
+        function deleteRepairWork(id) {
+            Swal.fire({
+                title: 'Xác nhận xoá?',
+                text: 'Bạn có chắc chắn muốn xoá công sửa chữa này?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Xoá',
+                cancelButtonText: 'Huỷ'
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+                OpenWaitBox();
+                $.ajax({
+                    url: `${repairJobRoutes.base}/${id}`,
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        CloseWaitBox();
+                        Swal.fire({
+                            icon: 'success',
+                            title: response?.message || 'Đã xoá công sửa chữa.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => location.reload());
+                    },
+                    error: function(xhr) {
+                        CloseWaitBox();
+                        Swal.fire({
+                            icon: 'error',
+                            title: xhr.responseJSON?.message || 'Không thể xoá công sửa chữa.'
+                        });
+                    }
+                });
+            });
+        }
+
+        function submitRepairWork() {
+            const payload = {
+                id: $('#repairWorkId').val(),
+                warranty_request_id: $('#repairWorkRequestId').val(),
+                description: $('#repairWorkDescription').val().trim(),
+                component: $('#repairWorkComponent').val().trim(),
+                quantity: $('#repairWorkQuantity').val(),
+                unit_price: $('#repairWorkUnitPrice').val().replace(/[^0-9]/g, '')
+            };
+
+            clearRepairWorkErrors();
+
+            OpenWaitBox();
+            $.ajax({
+                url: repairJobRoutes.save,
+                method: 'POST',
+                data: payload,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    CloseWaitBox();
+                    Swal.fire({
+                        icon: 'success',
+                        title: response?.message || 'Lưu công sửa chữa thành công.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                },
+                error: function(xhr) {
+                    CloseWaitBox();
+                    if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                        const errors = xhr.responseJSON.errors;
+                        Object.keys(errors).forEach((field) => {
+                            showRepairWorkError(field, errors[field][0]);
+                        });
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Vui lòng kiểm tra lại thông tin nhập.'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: xhr.responseJSON?.message || 'Không thể lưu công sửa chữa.'
+                        });
+                    }
+                }
+            });
+        }
+
+        function resetRepairWorkForm() {
+            $('#repairWorkForm')[0].reset();
+            $('#repairWorkId').val('');
+            $('#repairWorkComponent').val('');
+            $('#repairWorkUnitPrice').val('');
+            $('#repairWorkTotal').val('');
+            $('#repairWorkComponentSuggestions').addClass('d-none').empty();
+            clearRepairWorkErrors();
+        }
+
+        function updateRepairWorkTotal() {
+            const quantity = parseFloat($('#repairWorkQuantity').val()) || 0;
+            const unitPrice = parseInt($('#repairWorkUnitPrice').val().replace(/[^0-9]/g, '')) || 0;
+            const total = Math.round(quantity * unitPrice);
+            $('#repairWorkTotal').val(total ? total.toLocaleString('vi-VN') : '');
+        }
+
+        function clearRepairWorkErrors() {
+            $('#repairWorkForm .repair-work-error').addClass('d-none').text('');
+        }
+
+        function clearRepairWorkError(field) {
+            $(`#repairWorkForm .repair-work-error[data-error="${field}"]`).addClass('d-none').text('');
+        }
+
+        function showRepairWorkError(field, message) {
+            $(`#repairWorkForm .repair-work-error[data-error="${field}"]`).text(message).removeClass('d-none');
+        }
 
         function PrintRequest() {
             $('#printRequest').on('click', function(e) {
@@ -1420,8 +1815,17 @@
                 if (firstRecord && firstRecord.replacement) {
                     $('#des_error_type').val(firstRecord.replacement);
                 }
-                // Xóa tất cả các dòng linh kiện và để trống
-                $('.component-row-wrapper').remove();
+
+                // Chỉ giữ lại dòng đầu tiên để tránh mất template cho nút thêm linh kiện
+                $('.component-row-wrapper:not(:first)').remove();
+                const $firstRow = $('.component-row-wrapper:first');
+                if ($firstRow.length) {
+                    $firstRow.find('input').val('');
+                    $firstRow.find('input[name="quantity[]"]').val('0');
+                    $firstRow.find('input[name="unit_price[]"]').val('0');
+                    $firstRow.find('.error').text('').css('visibility', 'hidden');
+                    $firstRow.find('.remove-component-btn').hide();
+                }
             } else {
                 // Xóa tất cả các dòng linh kiện trừ dòng đầu tiên
                 $('.component-row-wrapper:not(:first)').remove();
@@ -2092,16 +2496,20 @@
 
         // Mô tả cách xử lý: chữ và số, max 100
         function validateDescription($input) {
-            const value = $input.val().trim();
-            hideRepairFormError($input);
-            if (value && !
-                /^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ,.\- ]+$/
-                .test(value)) {
-                showRepairFormError($input, "Chỉ được nhập chữ và số.");
-            } else if (value.length > 100) {
-                showRepairFormError($input, "Tối đa 100 ký tự.");
-            }
-        }
+    const value = ($input.val() || "").trim();
+    hideRepairFormError($input);
+
+    const regex = /^[\p{L}\p{N}\s,.\-]+$/u;
+
+    if (value && !regex.test(value)) {
+        return showRepairFormError($input, "Chỉ được nhập chữ và số.");
+    }
+
+    if (value.length > 500) {
+        return showRepairFormError($input, "Tối đa 500 ký tự.");
+    }
+}
+
 
         // Lý do từ chối: chữ và số, max 100
         function validateRejectionReason($input) {
