@@ -118,13 +118,7 @@ class CollaboratorController extends Controller
 
     public function CreateCollaborator(Request $request)
     {
-        // Không cho phép update CTV flag "Đại lý lắp đặt" (ID = 1)
-        if ($request->id && Enum::isAgencyInstallFlag($request->id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không thể cập nhật "Đại lý lắp đặt" - Đây là flag hệ thống'
-            ], 403);
-        }
+        //  bỏ Không dùng ID = 1 làm flag đại lý,
         
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
@@ -172,13 +166,7 @@ class CollaboratorController extends Controller
 
     public function DeleteCollaborator($id)
     {
-        // Không cho phép xóa CTV flag "Đại lý lắp đặt"
-        if (Enum::isAgencyInstallFlag($id)) {
-            return response()->json([
-                'success' => false, 
-                'message' => 'Không thể xóa "Đại lý lắp đặt" - Đây là flag hệ thống'
-            ]);
-        }
+        //  bỏ Không dùng ID = 1 làm flag đại lý,
 
         $item = WarrantyCollaborator::find($id);
         if ($item) {
@@ -191,13 +179,7 @@ class CollaboratorController extends Controller
     public function UpdateCollaborator(Request $request)
     {
         try {
-            // Không cho phép update CTV flag "Đại lý lắp đặt" (ID = 1)
-            if (Enum::isAgencyInstallFlag($request->id)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Không thể cập nhật "Đại lý lắp đặt" - Đây là flag hệ thống'
-                ], 403);
-            }
+            //  bỏ Không dùng ID = 1 làm flag đại lý,
             
             $validator = Validator::make($request->all(), [
                 'id' => 'required|integer',
