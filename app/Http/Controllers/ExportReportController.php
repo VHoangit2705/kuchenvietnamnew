@@ -9,7 +9,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Enum;
 use App\Helpers\ReportHelper;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
@@ -31,7 +30,8 @@ class ExportReportController extends Controller
         $denngay = $request->query('end_date')   ?? Carbon::now()->endOfMonth()->toDateString();
 
         $dataCollaborator = ReportHelper::applyDateFilter(
-            InstallationOrder::where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID)
+            InstallationOrder::query()
+                ->whereNotNull('collaborator_id')
                 ->where('status_install', 2),
             $tungay,
             $denngay
@@ -39,13 +39,25 @@ class ExportReportController extends Controller
 
         // Sắp xếp theo tên ngân hàng (gom liên tục), sau đó theo tên CTV
         $dataCollaborator = $dataCollaborator->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->collaborator->bank_name ?? null, $i->collaborator->chinhanh ?? null);
-            $nameKey = ReportHelper::cleanString($i->collaborator->full_name ?? '');
+            $c = $i->collaborator;
+            $bankKey = ReportHelper::bankSortKey($c?->bank_name ?? null, $c?->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($c?->full_name ?? '');
             return $bankKey . '|' . $nameKey;
         })->values();
 
         $dataAgency = ReportHelper::applyDateFilter(
-            InstallationOrder::where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
+            InstallationOrder::query()
+                ->whereNull('collaborator_id')
+                ->where(function ($q) {
+                    $q->whereNotNull('agency_id')
+                        ->orWhereNotNull('agency_at')
+                        ->orWhere(function ($sub) {
+                            $sub->whereNotNull('agency_phone')->where('agency_phone', '!=', '');
+                        })
+                        ->orWhere(function ($sub) {
+                            $sub->whereNotNull('agency_name')->where('agency_name', '!=', '');
+                        });
+                })
                 ->where('status_install', 2),
             $tungay,
             $denngay
@@ -53,8 +65,9 @@ class ExportReportController extends Controller
 
         // Sắp xếp theo tên ngân hàng (gom liên tục), sau đó theo tên đại lý
         $dataAgency = $dataAgency->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name_agency ?? null, $i->agency->chinhanh ?? null);
-            $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
+            $a = $i->agency;
+            $bankKey = ReportHelper::bankSortKey($a?->bank_name_agency ?? null, $a?->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($a?->name ?? '');
             return $bankKey . '|' . $nameKey;
         })->values();
 
@@ -384,7 +397,8 @@ class ExportReportController extends Controller
         $denngay = $request->query('end_date')   ?? Carbon::now()->endOfMonth()->toDateString();
 
         $dataCollaborator = ReportHelper::applyDateFilter(
-            InstallationOrder::where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID)
+            InstallationOrder::query()
+                ->whereNotNull('collaborator_id')
                 ->where('status_install', 2),
             $tungay,
             $denngay
@@ -392,13 +406,25 @@ class ExportReportController extends Controller
 
         // Preview: đảm bảo sắp xếp tương tự export
         $dataCollaborator = $dataCollaborator->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->collaborator->bank_name ?? null, $i->collaborator->chinhanh ?? null);
-            $nameKey = ReportHelper::cleanString($i->collaborator->full_name ?? '');
+            $c = $i->collaborator;
+            $bankKey = ReportHelper::bankSortKey($c?->bank_name ?? null, $c?->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($c?->full_name ?? '');
             return $bankKey . '|' . $nameKey;
         })->values();
 
         $dataAgency = ReportHelper::applyDateFilter(
-            InstallationOrder::where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID)
+            InstallationOrder::query()
+                ->whereNull('collaborator_id')
+                ->where(function ($q) {
+                    $q->whereNotNull('agency_id')
+                        ->orWhereNotNull('agency_at')
+                        ->orWhere(function ($sub) {
+                            $sub->whereNotNull('agency_phone')->where('agency_phone', '!=', '');
+                        })
+                        ->orWhere(function ($sub) {
+                            $sub->whereNotNull('agency_name')->where('agency_name', '!=', '');
+                        });
+                })
                 ->where('status_install', 2),
             $tungay,
             $denngay
@@ -406,8 +432,9 @@ class ExportReportController extends Controller
 
         // Preview: sắp xếp theo ngân hàng
         $dataAgency = $dataAgency->sortBy(function ($i) {
-            $bankKey = ReportHelper::bankSortKey($i->agency->bank_name_agency ?? null, $i->agency->chinhanh ?? null);
-            $nameKey = ReportHelper::cleanString($i->agency->name ?? '');
+            $a = $i->agency;
+            $bankKey = ReportHelper::bankSortKey($a?->bank_name_agency ?? null, $a?->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($a?->name ?? ($i->agency_name ?? ''));
             return $bankKey . '|' . $nameKey;
         })->values();
 
@@ -419,26 +446,27 @@ class ExportReportController extends Controller
         $stt = 1;
         $sheet1Total = 0;
         foreach ($dataCollaborator as $item) {
-            $bankInfo = ReportHelper::formatBankInfo($item->collaborator->bank_name ?? null, $item->collaborator->chinhanh ?? null);
+            $c = $item->collaborator;
+            $bankInfo = ReportHelper::formatBankInfo($c?->bank_name ?? null, $c?->chinhanh ?? null);
             
             $cost = $item->install_cost ?? 0;
             $sheet1Total += $cost;
             $sheet1Data[] = [
                 'stt' => $stt++,
-                'name' => ReportHelper::cleanString($item->collaborator->full_name ?? ''),
-                'phone' => ReportHelper::cleanString($item->collaborator->phone ?? ''),
+                'name' => ReportHelper::cleanString($c?->full_name ?? ''),
+                'phone' => ReportHelper::cleanString($c?->phone ?? ''),
                 'product' => ReportHelper::cleanString($item->product ?? ''),
                 'model' => ReportHelper::extractModel($item->product ?? ''),
                 'cost' => $cost,
                 'done_date' => ReportHelper::formatDate($item->successed_at),
-                'account' => ReportHelper::cleanString($item->collaborator->sotaikhoan ?? ''),
+                'account' => ReportHelper::cleanString($c?->sotaikhoan ?? ''),
                 'bank' => $bankInfo,
                 'order_code' => ReportHelper::cleanString($item->order_code ?? '')
             ];
         }
         $sheet1AmountInWords = ReportHelper::numberToWords($sheet1Total);
 
-        $dataCollaboratorgrouped = collect($dataCollaborator)->groupBy(fn($i) => $i->collaborator->phone ?? 'N/A');
+        $dataCollaboratorgrouped = collect($dataCollaborator)->groupBy(fn($i) => $i->collaborator?->phone ?? 'N/A');
         $dataCollaboratorgrouped = $dataCollaboratorgrouped->sortBy(function ($items) {
             $c = $items->first()->collaborator ?? null;
             $bankKey = ReportHelper::bankSortKey($c->bank_name ?? null, $c->chinhanh ?? null);
@@ -473,23 +501,24 @@ class ExportReportController extends Controller
         foreach ($dataAgency as $item) {
             $cost = $item->install_cost ?? 0;
             $sheet3Total += $cost;
-            $bankInfoAgency = ReportHelper::formatBankInfo($item->agency->bank_name_agency ?? null, $item->agency->chinhanh ?? null);
+            $a = $item->agency;
+            $bankInfoAgency = ReportHelper::formatBankInfo($a?->bank_name_agency ?? null, $a?->chinhanh ?? null);
             $sheet3Data[] = [
                 'stt' => $stt++,
-                'name' => ReportHelper::cleanString($item->agency->name ?? ''),
+                'name' => ReportHelper::cleanString($a?->name ?? ($item->agency_name ?? '')),
                 'phone' => ReportHelper::cleanString($item->agency_phone ?? ''),
                 'done_date' => ReportHelper::formatDate($item->successed_at),
                 'product' => ReportHelper::cleanString($item->product ?? ''),
                 'model' => ReportHelper::extractModel($item->product ?? ''),
                 'cost' => $cost,
-                'account' => ReportHelper::cleanString($item->agency->sotaikhoan ?? ''),
+                'account' => ReportHelper::cleanString($a?->sotaikhoan ?? ($item->agency_payment ?? '')),
                 'bank' => $bankInfoAgency,
                 'order_code' => ReportHelper::cleanString($item->order_code ?? '')
             ];
         }
         $sheet3AmountInWords = ReportHelper::numberToWords($sheet3Total);
 
-        $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
+        $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency_phone ?? ($i->agency?->phone ?? 'N/A'));
         $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
             $a = $items->first()->agency ?? null;
             $bankKey = ReportHelper::bankSortKey($a->bank_name_agency ?? null, $a->chinhanh ?? null);

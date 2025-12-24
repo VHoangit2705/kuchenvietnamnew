@@ -18,34 +18,6 @@ use App\Models\KyThuat\WarrantyRequest;
 class ImportExcelSyncController extends Controller
 {
     /**
-     * Đảm bảo CTV flag "Đại lý lắp đặt" với ID = 1 luôn tồn tại
-     * Đây chỉ là một flag để đánh dấu, không phải thông tin thật
-     */
-    private function ensureAgencyCollaboratorExists()
-    {
-        try {
-            WarrantyCollaborator::updateOrCreate(
-                ['id' => Enum::AGENCY_INSTALL_FLAG_ID], // điều kiện duy nhất
-                [
-                    'full_name' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'phone' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'province' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'district' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'ward' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'address' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'sotaikhoan' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'chinhanh' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'cccd' => Enum::AGENCY_INSTALL_CHECKBOX_LABEL,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
-        } catch (\Exception $e) {
-            Log::error('Lỗi tạo/đồng bộ CTV flag Đại lý lắp đặt: ' . $e->getMessage());
-        }
-    }
-    
-    /**
      * Chuẩn hóa và validate trường product
      */
     private function normalizeProduct($product)
@@ -123,24 +95,11 @@ class ImportExcelSyncController extends Controller
             $agencyCache = [];
             $productCache = [];
             
-            // ĐẢM BẢO CTV flag "Đại lý lắp đặt" với ID = 1 LUÔN TỒN TẠI trước khi import
-            $this->ensureAgencyCollaboratorExists();
-            
             // Pre-load existing data để giảm database queries
             $existingCollaborators = WarrantyCollaborator::pluck('id', 'phone')->toArray();
             $existingAgencies = Agency::pluck('id', 'phone')->toArray();
             $existingProducts = OrderProduct::pluck('id', 'product_name')->toArray();
-            
-            // Cache CTV flag để tránh query lặp lại - ĐẢM BẢO flag đã tồn tại
-            $flagCollaborator = WarrantyCollaborator::find(Enum::AGENCY_INSTALL_FLAG_ID);
-            $flagPhone = $flagCollaborator ? $flagCollaborator->phone : null;
             $flagName = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
-            
-            // Đảm bảo flag ID = 1 có trong existingCollaborators để tránh tạo trùng
-            if ($flagCollaborator && $flagPhone) {
-                $existingCollaborators[$flagPhone] = Enum::AGENCY_INSTALL_FLAG_ID;
-            }
-
             // Hàm chuẩn hóa số điện thoại - tối ưu hóa
             $sanitizePhone = function ($value) {
                 if (empty($value)) return '';
@@ -556,18 +515,9 @@ class ImportExcelSyncController extends Controller
                                 }
                             }
                             
-                            // BƯỚC 3: Kiểm tra xem collabPhone có trùng với phone của CTV flag không
-                            if (!$isAgencySelfInstall && !empty($collabPhone) && $flagPhone) {
-                                if ($flagPhone === $collabPhone) {
-                                    $isAgencySelfInstall = true;
-                                }
-                            }
-
-                            // Nếu phát hiện là "Đại lý lắp đặt" → CHỈ sử dụng flag ID, KHÔNG tạo CTV mới
                             if ($isAgencySelfInstall) {
                                 $statusInstall = $parseStatus($statusRaw); // Vẫn parse status để lấy đúng trạng thái
-                                $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
-                                // KHÔNG tạo CTV mới, chỉ dùng flag ID
+                                $collaboratorId = null;
                             } else {
                                 // Không ép trạng thái về 0 khi thiếu CTV; dùng trạng thái từ file Excel
                                 $parsedStatus = $parseStatus($statusRaw);
@@ -592,20 +542,14 @@ class ImportExcelSyncController extends Controller
                                                   strpos($collabNameClean, 'đại lý lắp đặt') !== false ||
                                                   strpos($collabNameClean, 'đại lý tự lắp') !== false;
                                     
-                                    // Kiểm tra theo phone
-                                    $isFlagPhone = $flagPhone && $flagPhone === $collabPhone;
-                                    
-                                    // QUAN TRỌNG: Nếu tên hoặc phone trùng với flag → LUÔN dùng flag ID, KHÔNG tạo mới
-                                    if ($isFlagPhone || $isFlagName) {
-                                        // Nếu là CTV flag, sử dụng flag ID thay vì tạo mới
-                                        $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
+                                    if ($isFlagName) {
+                                        $collaboratorId = null;
                                     } else {
                                         // Chỉ tạo CTV mới nếu KHÔNG phải là flag
                                         // Kiểm tra thêm: nếu tên có chứa "đại lý" và "lắp đặt" → cũng không tạo mới
                                         if (strpos($collabNameClean, 'đại lý') !== false && 
                                             (strpos($collabNameClean, 'lắp đặt') !== false || strpos($collabNameClean, 'tự lắp') !== false)) {
-                                            // Tên có vẻ là "Đại lý lắp đặt" → dùng flag ID
-                                            $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
+                                            $collaboratorId = null;
                                         } else {
                                             // CTV thật, có thể tạo mới
                                             if (!isset($collaboratorCache[$collabPhone])) {
@@ -657,11 +601,6 @@ class ImportExcelSyncController extends Controller
                                 }
                             }
                             
-                            // ĐẢM BẢO CUỐI CÙNG: Nếu collaboratorId trùng với flag ID, không được tạo CTV mới
-                            if ($collaboratorId == Enum::AGENCY_INSTALL_FLAG_ID || $collaboratorId === Enum::AGENCY_INSTALL_FLAG_ID) {
-                                $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
-                            }
-
                             // 2. Xử lý Agency - Tối ưu hóa với pre-loaded data
                             if (!empty($agencyName) && !empty($agencyPhone)) {
                                 if (!isset($agencyCache[$agencyPhone])) {

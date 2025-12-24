@@ -81,6 +81,12 @@ class InstallationOrder extends Model
 
 	public function getCollaboratorAttribute()
 	{
+		$collaboratorId = $this->collaborator_id;
+
+		if (empty($collaboratorId)) {
+			return null;
+		}
+
 		return WarrantyCollaborator::on('mysql')
 			->find($this->collaborator_id);
 	}

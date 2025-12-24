@@ -106,7 +106,13 @@ class Order extends Model
 	
 	public function getCollaboratorAttribute()
 	{
-		return WarrantyCollaborator::on('mysql') 
-			->find($this->collaborator_id);
+		$collaboratorId = $this->collaborator_id;
+
+		if (empty($collaboratorId)) {
+			return null;
+		}
+
+		return WarrantyCollaborator::on('mysql')
+			->find($collaboratorId);
 	}
 }
