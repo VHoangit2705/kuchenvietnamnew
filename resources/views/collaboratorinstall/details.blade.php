@@ -116,14 +116,14 @@
                                         <input type="hidden" id="customer_address_full" value="{{ $customerAddress }}">
                                     </td>
                                 </tr>
-
-                                {{-- Xã/Phường --}}
+                                
+                                {{-- Tỉnh/Thành phố --}}
                                 <tr>
-                                    <th>Phường/Xã:</th>
+                                    <th>Tỉnh/TP:</th>
                                     <td colspan="3">
-                                        <span id="region_ward_text" class="text-value">{{ $wardName ?? '' }}</span>
+                                        <span id="region_province_text" class="text-value">{{ $provinceName ?? '' }}</span>
                                         @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
-                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="ward" style="cursor:pointer;" title="Sửa Phường/Xã"></i>
+                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="province" style="cursor:pointer;" title="Sửa Tỉnh/TP"></i>
                                         @endif
                                     </td>
                                 </tr>
@@ -139,13 +139,13 @@
                                     </td>
                                 </tr>
                     
-                                {{-- Tỉnh/Thành phố --}}
+                                {{-- Xã/Phường --}}
                                 <tr>
-                                    <th>Tỉnh/TP:</th>
+                                    <th>Phường/Xã:</th>
                                     <td colspan="3">
-                                        <span id="region_province_text" class="text-value">{{ $provinceName ?? '' }}</span>
+                                        <span id="region_ward_text" class="text-value">{{ $wardName ?? '' }}</span>
                                         @if(($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null)
-                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="province" style="cursor:pointer;" title="Sửa Tỉnh/TP"></i>
+                                            <i class="bi bi-pencil ms-2 edit-icon region-edit-btn" data-field="ward" style="cursor:pointer;" title="Sửa Phường/Xã"></i>
                                         @endif
                                     </td>
                                 </tr>
@@ -621,38 +621,7 @@
     </div>
 </div>
 
-<!-- Modal Lịch sử thay đổi -->
-<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="historyModalLabel">
-                    <i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="historyLoading" class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
-                    </div>
-                    <p class="mt-2">Đang tải lịch sử thay đổi...</p>
-                </div>
-                <div id="historyContent" style="display: none;">
-                    <div id="historyList"></div>
-                </div>
-                <div id="historyEmpty" class="text-center py-4" style="display: none;">
-                    <i class="bi bi-inbox display-1 text-muted"></i>
-                    <p class="text-muted mt-2">Chưa có lịch sử thay đổi nào</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <p>Lưu ý các trường trống có thể là do đồng bộ từ file excel mà ko có đầy đủ thông tin của đại lý hoặc cộng tác viên</p>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-            </div>
-        </div>
-    </div>
-</div>
+@include('components.edit_ctv_history')
 
 <!-- Datalist for bank names (populated via VietQR API) -->
 <datalist id="bankList"></datalist>
@@ -1344,12 +1313,6 @@
 
         Update();
         
-        // Xử lý nút xem lịch sử
-        $('#btnViewHistory').on('click', function() {
-            loadHistory();
-            $('#historyModal').modal('show');
-        });
-
         // Nạp danh sách ngân hàng từ VietQR API vào datalist
         const banksUrl = "{{ config('services.vietqr.banks_url', 'https://api.vietqr.io/v2/banks') }}";
         window.bankNameToLogo = window.bankNameToLogo || {};
@@ -2108,212 +2071,7 @@
         validateDynamicField($input, fieldName);
     });
 
-    // Hàm load lịch sử thay đổi (không thay đổi)
-    function loadHistory() {
-        $('#historyLoading').show();
-        $('#historyContent').hide();
-        $('#historyEmpty').hide();
-        
-        let orderCode = "{{ $code }}";
-        if (!orderCode) {
-            $('#historyLoading').hide();
-            $('#historyEmpty').show();
-            return;
-        }
-        
-        $.ajax({
-            url: "{{ route('ctv.order.history', ':order_code') }}".replace(':order_code', orderCode),
-            method: "GET",
-            success: function(response) {
-                $('#historyLoading').hide();
-                if (response.success && response.data.history.length > 0) {
-                    displayHistory(response.data.history);
-                    $('#historyContent').show();
-                } else {
-                    $('#historyEmpty').show();
-                }
-            },
-            error: function(xhr, status, error) {
-                $('#historyLoading').hide();
-                $('#historyEmpty').show();
-                console.error('Lỗi khi tải lịch sử:', error);
-            }
-        });
-    }
-
-    // Hàm hiển thị lịch sử (không thay đổi)
-    function displayHistory(history) {
-        let html = '';
-        
-        history.forEach(function(item, index) {
-            html += `
-                <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-0">
-                                <i class="bi bi-${getActionIcon(item.action_type)} me-2"></i>
-                                ${item.action_type_text || item.action_type}
-                            </h6>
-                            <small class="text-muted">${item.formatted_edited_at}</small>
-                        </div>
-                        <div>
-                            <span class="badge bg-${getActionBadgeColor(item.action_type)}">${item.action_type_text || item.action_type}</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">${formatStatusComment(item.comments || 'Không có ghi chú')}</p>
-                        <p class="card-text"><strong>Người thực hiện:</strong> ${item.edited_by || 'Hệ thống'}</p>
-                        
-                        ${item.changes_detail && item.changes_detail.length > 0 ? `
-                            <div class="mt-3">
-                                <h6>Chi tiết thay đổi:</h6>
-                                
-                                ${getCtvChanges(item.changes_detail).length > 0 ? `
-                                    <div class="mb-3">
-                                        <h6 class="text-primary">
-                                            <i class="bi bi-person me-1"></i>Thông tin CTV
-                                        </h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered">
-                                                <thead class="table-primary">
-                                                    <tr>
-                                                        <th style="width: 25%;">Trường</th>
-                                                        <th style="width: 35%;">Giá trị cũ</th>
-                                                        <th style="width: 35%;">Giá trị mới</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${getCtvChanges(item.changes_detail).map(change => `
-                                                        <tr>
-                                                            <td><strong>${change.field_name}</strong></td>
-                                                            <td>
-                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
-                                                            </td>
-                                                            <td>
-                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
-                                                            </td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                ${getAgencyChanges(item.changes_detail).length > 0 ? `
-                                    <div class="mb-3">
-                                        <h6 class="text-info">
-                                            <i class="bi bi-building me-1"></i>Thông tin Đại lý
-                                        </h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered">
-                                                <thead class="table-info">
-                                                    <tr>
-                                                        <th style="width: 25%;">Trường</th>
-                                                        <th style="width: 35%;">Giá trị cũ</th>
-                                                        <th style="width: 35%;">Giá trị mới</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${getAgencyChanges(item.changes_detail).map(change => `
-                                                        <tr>
-                                                            <td><strong>${change.field_name}</strong></td>
-                                                            <td>
-                                                                <span class="text-muted">${change.old_value || 'Trống'}</span>
-                                                            </td>
-                                                            <td>
-                                                                <span class="text-success">${change.new_value || 'Trống'}</span>
-                                                            </td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        });
-        
-        $('#historyList').html(html);
-    }
-
-    // Các hàm helper cho lịch sử (không thay đổi)
-    function getActionIcon(actionType) {
-        const icons = {
-            'create': 'plus-circle',
-            'update': 'pencil-square',
-            'delete': 'trash',
-            'update_agency': 'building',
-            'switch_to_agency': 'arrow-right-circle',
-            'switch_to_ctv': 'arrow-left-circle',
-            'clear': 'x-circle',
-            'status_change': 'arrow-repeat',
-            'complete': 'check-circle',
-            'payment': 'credit-card'
-        };
-        return icons[actionType] || 'info-circle';
-    }
-
-    function getActionBadgeColor(actionType) {
-        const colors = {
-            'create': 'success',
-            'update': 'primary',
-            'delete': 'danger',
-            'update_agency': 'info',
-            'switch_to_agency': 'warning',
-            'switch_to_ctv': 'secondary',
-            'clear': 'dark',
-            'status_change': 'primary',
-            'complete': 'success',
-            'payment': 'info'
-        };
-        return colors[actionType] || 'secondary';
-    }
-
-    function getStatusColor(statusText) {
-        const colors = {
-            'Chưa điều phối': 'secondary',
-            'Đã điều phối': 'primary',
-            'Đã hoàn thành': 'success',
-            'Đã thanh toán': 'info'
-        };
-        return colors[statusText] || 'muted';
-    }
-
-    function formatStatusComment(comment) {
-        const regex = /Thay đổi trạng thái: (.+) → (.+)/;
-        const match = comment.match(regex);
-
-        if (match && match.length === 3) {
-            const oldStatusText = match[1].trim();
-            const newStatusText = match[2].trim();
-            const oldStatusColor = getStatusColor(oldStatusText);
-            const newStatusColor = getStatusColor(newStatusText);
-            return `Thay đổi trạng thái: <span class="text-${oldStatusColor} fw-bold">${oldStatusText}</span> → <span class="text-${newStatusColor} fw-bold">${newStatusText}</span>`;
-        }
-        return comment; // Return original comment if not a status change format
-    }
-
-    function getCtvChanges(changes) {
-        return changes.filter(change => 
-            change.field_name.includes('CTV') || 
-            (!change.field_name.includes('đại lý') && 
-             !change.field_name.includes('Đại lý') &&
-             !change.field_name.includes('agency'))
-        );
-    }
-
-    function getAgencyChanges(changes) {
-        return changes.filter(change => 
-            change.field_name.includes('đại lý') || 
-            change.field_name.includes('Đại lý') ||
-            change.field_name.includes('agency')
-        );
-    }
+    
 
     // Hàm kiểm tra xem có thay đổi thông tin đại lý không (không thay đổi)
     function hasAgencyChanges() {

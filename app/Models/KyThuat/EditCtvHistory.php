@@ -4,6 +4,7 @@ namespace App\Models\KyThuat;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\KyThuat\WarrantyCollaborator;
 
 /**
  * Class EditCtvHistory
@@ -29,41 +30,24 @@ class EditCtvHistory extends Model
         'old_collaborator_id' => 'int',
         'new_collaborator_id' => 'int',
         'installation_orders_id' => 'int',
-        'edited_at' => 'datetime'
+        'edited_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 
     protected $fillable = [
+        'installation_orders_id',
+        'order_code',
+        'event',
+        'changes_old',
+        'changes_new',
+        'created_at',
         'old_collaborator_id',
         'new_collaborator_id',
-        'installation_orders_id',
         'action_type',
         'edited_by',
         'comments',
         'edited_at',
-        // Thông tin CTV - Cũ và Mới
-        'old_full_name', 'new_full_name',
-        'old_phone', 'new_phone',
-        'old_province', 'new_province',
-        'old_province_id', 'new_province_id',
-        'old_district', 'new_district',
-        'old_district_id', 'new_district_id',
-        'old_ward', 'new_ward',
-        'old_ward_id', 'new_ward_id',
-        'old_address', 'new_address',
-        // Thông tin tài khoản CTV - Cũ và Mới
-        'old_sotaikhoan', 'new_sotaikhoan',
-        'old_chinhanh', 'new_chinhanh',
-        'old_cccd', 'new_cccd',
-        'old_ngaycap', 'new_ngaycap',
-        // Thông tin đại lý - Cũ và Mới
-        'old_agency_name', 'new_agency_name',
-        'old_agency_phone', 'new_agency_phone',
-        'old_agency_address', 'new_agency_address',
-        'old_agency_paynumber', 'new_agency_paynumber',
-        'old_agency_branch', 'new_agency_branch',
-        'old_agency_cccd', 'new_agency_cccd',
-        'old_agency_release_date', 'new_agency_release_date',
-        'order_code'
+        'order_code',
     ];
 
     /**
@@ -71,7 +55,7 @@ class EditCtvHistory extends Model
      */
     public function oldCollaborator()
     {
-        return $this->belongsTo(\App\Models\KyThuat\WarrantyCollaborator::class, 'old_collaborator_id', 'id');
+        return $this->belongsTo(WarrantyCollaborator::class, 'old_collaborator_id', 'id');
     }
 
     /**
@@ -79,6 +63,6 @@ class EditCtvHistory extends Model
      */
     public function newCollaborator()
     {
-        return $this->belongsTo(\App\Models\KyThuat\WarrantyCollaborator::class, 'new_collaborator_id', 'id');
+        return $this->belongsTo(WarrantyCollaborator::class, 'new_collaborator_id', 'id');
     }
 }
