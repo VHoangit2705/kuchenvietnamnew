@@ -335,7 +335,7 @@ class WarrantyController extends Controller
         ]);
 
         $quatrinh = WarrantyRequestDetail::getDetailsByRequestId($request->id);
-        if ($quatrinh->isEmpty() && $request->status == 'Đã hoàn tất') {
+        if ($quatrinh->isEmpty() && ($request->status == 'Đã hoàn tất' || $request->status == 'Chờ KH phản hồi')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa cập nhật quá trình bảo hành.'
