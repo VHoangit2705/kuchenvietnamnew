@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Http\Controllers\SaveLogController;
 use App\Enum;
+use App\Models\Kho\InstallationOrder;
 
 class CollaboratorController extends Controller
 {
@@ -26,22 +27,8 @@ class CollaboratorController extends Controller
         $this->saveLogController = new SaveLogController();
     }
 
-    /**
-     * So sánh và ghi lại các thay đổi (sử dụng updateOrCreate)
-     */
-    private function logChangesNew($collaborator, $newData, $actionType = 'update', $orderCode = null)
-    {
-        return $this->saveLogController->logChangesNew($collaborator, $newData, $actionType, $orderCode);
-    }
 
-    /**
-     * Lưu thông tin đại lý vào các cột old_* và new_*
-     */
-    private function saveAgencyDetails($history, $oldAgencyId = null, $newAgency)
-    {
-        return $this->saveLogController->saveAgencyDetails($history, $oldAgencyId, $newAgency);
-    }
-    
+
     public function Index(Request $request)
     {
         $query = WarrantyCollaborator::query();
@@ -97,7 +84,7 @@ class CollaboratorController extends Controller
             ]
         ]);
     }
-    
+
     public function getCollaboratorByID($id)
     {
         $collaborator = WarrantyCollaborator::find($id);
@@ -118,11 +105,8 @@ class CollaboratorController extends Controller
 
     public function CreateCollaborator(Request $request)
     {
-        //  bỏ Không dùng ID = 1 làm flag đại lý,
-        
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
-            // 'date_of_birth' => 'required|date',
             'phone' => 'required|digits_between:9,12',
             'province' => 'required|string',
             'province_id' => 'required|string',
@@ -132,29 +116,29 @@ class CollaboratorController extends Controller
             'ward' => 'required|string',
             'address' => 'required|string|max:1024',
         ]);
-        
-        // Kiểm tra tên không được là "Đại lý lắp đặt"
+
         $fullNameLower = mb_strtolower(trim($validated['full_name']));
         $fullNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $fullNameLower);
         $fullNameClean = preg_replace('/\s+/', ' ', $fullNameClean);
         $fullNameClean = trim($fullNameClean);
-        
+
         $flagName = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
         $flagNameLower = mb_strtolower(trim($flagName));
         $flagNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $flagNameLower);
         $flagNameClean = preg_replace('/\s+/', ' ', $flagNameClean);
         $flagNameClean = trim($flagNameClean);
-        
-        // Không cho phép tạo CTV với tên trùng hoặc chứa "Đại lý lắp đặt"
-        if ($fullNameClean === $flagNameClean || 
+
+        if (
+            $fullNameClean === $flagNameClean ||
             strpos($fullNameClean, 'đại lý lắp đặt') !== false ||
-            strpos($fullNameClean, 'đại lý tự lắp') !== false) {
+            strpos($fullNameClean, 'đại lý tự lắp') !== false
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể tạo CTV với tên "Đại lý lắp đặt" - Vui lòng sử dụng checkbox "Đại lý lắp đặt" trong form điều phối'
             ], 403);
         }
-        
+
         $validated['create_by'] = session('user');
         if ($request->id) {
             WarrantyCollaborator::where('id', $request->id)->update($validated);
@@ -166,8 +150,6 @@ class CollaboratorController extends Controller
 
     public function DeleteCollaborator($id)
     {
-        //  bỏ Không dùng ID = 1 làm flag đại lý,
-
         $item = WarrantyCollaborator::find($id);
         if ($item) {
             $item->delete();
@@ -179,8 +161,6 @@ class CollaboratorController extends Controller
     public function UpdateCollaborator(Request $request)
     {
         try {
-            //  bỏ Không dùng ID = 1 làm flag đại lý,
-            
             $validator = Validator::make($request->all(), [
                 'id' => 'required|integer',
                 'sotaikhoan' => 'nullable|string|max:255',
@@ -206,7 +186,14 @@ class CollaboratorController extends Controller
                 ], 404);
             }
 
-            // Chuẩn bị dữ liệu mới để so sánh
+            $oldCollab = [
+                'sotaikhoan' => $collab->sotaikhoan,
+                'bank_name' => $collab->bank_name,
+                'chinhanh' => $collab->chinhanh,
+                'cccd' => $collab->cccd,
+                'ngaycap' => $collab->ngaycap,
+            ];
+
             $newData = [
                 'sotaikhoan' => $request->sotaikhoan,
                 'bank_name' => $request->nganhang,
@@ -215,7 +202,6 @@ class CollaboratorController extends Controller
                 'ngaycap' => $request->ngaycap
             ];
 
-            // Cập nhật CTV trong database
             $collab->sotaikhoan = $request->sotaikhoan;
             $collab->bank_name = $request->nganhang;
             $collab->chinhanh = $request->chinhanh;
@@ -223,37 +209,32 @@ class CollaboratorController extends Controller
             $collab->ngaycap = $request->ngaycap;
             $collab->save();
 
-            // Chỉ ghi log khi có order_code (thay đổi từ đơn hàng)
             if ($request->order_code) {
-                // Tìm bản ghi hiện có để cập nhật
-                $existingHistory = EditCtvHistory::where('order_code', $request->order_code)->first();
-                
-                if ($existingHistory) {
-                    // Cập nhật bản ghi hiện có - cập nhật new_* với dữ liệu CTV mới
-                    $existingHistory->new_collaborator_id = $collab->id;
-                    $existingHistory->new_full_name = $collab->full_name;
-                    $existingHistory->new_phone = $collab->phone;
-                    $existingHistory->new_province = $collab->province;
-                    $existingHistory->new_province_id = $collab->province_id;
-                    $existingHistory->new_district = $collab->district;
-                    $existingHistory->new_district_id = $collab->district_id;
-                    $existingHistory->new_ward = $collab->ward;
-                    $existingHistory->new_ward_id = $collab->ward_id;
-                    $existingHistory->new_address = $collab->address;
-                    $existingHistory->new_sotaikhoan = $collab->sotaikhoan;
-                    $existingHistory->new_chinhanh = $collab->chinhanh;
-                    $existingHistory->new_cccd = $collab->cccd;
-                    $existingHistory->new_ngaycap = $collab->ngaycap;
-                    
-                    $existingHistory->action_type = 'update';
-                    $existingHistory->edited_by = session('user', 'system');
-                    $existingHistory->edited_at = now();
-                    $existingHistory->comments = 'Cập nhật thông tin CTV: ' . $collab->full_name;
-                    
-                    $existingHistory->save();
-                } else {
-                    // Tạo bản ghi mới nếu chưa có
-                    $this->logChangesNew($collab, $newData, 'update', $request->order_code);
+                $orderCodeRaw = (string) $request->order_code;
+                $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+                $orderCodeBase = trim((string) $orderCodeBase);
+                $installationOrdersId = InstallationOrder::query()
+                    ->where('order_code', $orderCodeRaw)
+                    ->orWhere('order_code', $orderCodeBase)
+                    ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                    ->orderByDesc('id')
+                    ->value('id');
+
+                if ($installationOrdersId) {
+                    $this->saveLogController->auditLog(
+                        (int) $installationOrdersId,
+                        $orderCodeRaw,
+                        'collaborator_finance_updated',
+                        $oldCollab,
+                        [
+                            'sotaikhoan' => $collab->sotaikhoan,
+                            'bank_name' => $collab->bank_name,
+                            'chinhanh' => $collab->chinhanh,
+                            'cccd' => $collab->cccd,
+                            'ngaycap' => $collab->ngaycap,
+                        ],
+                        'source: CollaboratorController@UpdateCollaborator'
+                    );
                 }
             }
 
@@ -284,7 +265,7 @@ class CollaboratorController extends Controller
                 'agency_release_date' => 'nullable',
                 'order_code' => 'nullable',
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -292,15 +273,26 @@ class CollaboratorController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
-            
-            // Kiểm tra nếu không có agency_phone thì không cập nhật
+
             if (empty($request->agency_phone)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Số điện thoại đại lý là bắt buộc'
                 ], 422);
             }
-            
+
+            $existingAgency = Agency::where('phone', $request->agency_phone)->first();
+            $oldAgency = $existingAgency ? [
+                'agency_name' => $existingAgency->name,
+                'agency_phone' => $existingAgency->phone,
+                'agency_address' => $existingAgency->address,
+                'agency_bank' => $existingAgency->bank_name_agency,
+                'agency_paynumber' => $existingAgency->sotaikhoan,
+                'agency_branch' => $existingAgency->chinhanh,
+                'agency_cccd' => $existingAgency->cccd,
+                'agency_release_date' => $existingAgency->ngaycap,
+            ] : [];
+
             $agency = Agency::updateOrCreate(
                 ['phone' => $request->agency_phone],
                 [
@@ -315,97 +307,40 @@ class CollaboratorController extends Controller
                     'created_ad' => now(),
                 ]
             );
-            
-            // Ghi log cho Agency nếu có order_code
+
             if ($request->order_code) {
-                // Tìm bản ghi hiện có trước
-                $existingHistory = EditCtvHistory::where('order_code', $request->order_code)->first();
-                
-                if ($existingHistory) {
-                    // Kiểm tra xem có thay đổi thực sự không
-                    $hasChanges = false;
-                    $changes = [];
-                    
-                    // So sánh từng trường để kiểm tra thay đổi
-                    $agencyFields = [
-                        'name' => ['old_agency_name', 'new_agency_name'],
-                        'phone' => ['old_agency_phone', 'new_agency_phone'],
-                        'address' => ['old_agency_address', 'new_agency_address'],
-                        'sotaikhoan' => ['old_agency_paynumber', 'new_agency_paynumber'],
-                        'chinhanh' => ['old_agency_branch', 'new_agency_branch'],
-                        'cccd' => ['old_agency_cccd', 'new_agency_cccd'],
-                        'ngaycap' => ['old_agency_release_date', 'new_agency_release_date']
+                $orderCodeRaw = (string) $request->order_code;
+                $orderCodeBase = preg_replace('/\s*\(\d+\)\s*$/u', '', $orderCodeRaw);
+                $orderCodeBase = trim((string) $orderCodeBase);
+                $installationOrdersId = InstallationOrder::query()
+                    ->where('order_code', $orderCodeRaw)
+                    ->orWhere('order_code', $orderCodeBase)
+                    ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%')
+                    ->orderByDesc('id')
+                    ->value('id');
+
+                if ($installationOrdersId) {
+                    $newAgency = [
+                        'agency_name' => $agency->name,
+                        'agency_phone' => $agency->phone,
+                        'agency_address' => $agency->address,
+                        'agency_bank' => $agency->bank_name_agency,
+                        'agency_paynumber' => $agency->sotaikhoan,
+                        'agency_branch' => $agency->chinhanh,
+                        'agency_cccd' => $agency->cccd,
+                        'agency_release_date' => $agency->ngaycap,
                     ];
-                    
-                    foreach ($agencyFields as $field => $columns) {
-                        $oldValue = $existingHistory->{$columns[0]};
-                        $newValue = $agency->$field;
-                        
-                        // Chuyển đổi về string để so sánh
-                        $oldValue = is_null($oldValue) ? null : (string) $oldValue;
-                        $newValue = is_null($newValue) ? null : (string) $newValue;
-                        
-                        if ($oldValue !== $newValue) {
-                            $hasChanges = true;
-                            $changes[] = $field;
-                        }
-                    }
-                    
-                    // CHỈ CẬP NHẬT KHI CÓ THAY ĐỔI THỰC SỰ
-                    if ($hasChanges) {
-                        // CẬP NHẬT: Đẩy dữ liệu cũ (new_*) vào old_*, dữ liệu mới vào new_*
-                        $existingHistory->old_agency_name = $existingHistory->new_agency_name;
-                        $existingHistory->new_agency_name = $agency->name;
-                        $existingHistory->old_agency_phone = $existingHistory->new_agency_phone;
-                        $existingHistory->new_agency_phone = $agency->phone;
-                        $existingHistory->old_agency_address = $existingHistory->new_agency_address;
-                        $existingHistory->new_agency_address = $agency->address;
-                        $existingHistory->old_agency_paynumber = $existingHistory->new_agency_paynumber;
-                        $existingHistory->new_agency_paynumber = $agency->sotaikhoan;
-                        $existingHistory->old_agency_branch = $existingHistory->new_agency_branch;
-                        $existingHistory->new_agency_branch = $agency->chinhanh;
-                        $existingHistory->old_agency_cccd = $existingHistory->new_agency_cccd;
-                        $existingHistory->new_agency_cccd = $agency->cccd;
-                        $existingHistory->old_agency_release_date = $existingHistory->new_agency_release_date;
-                        $existingHistory->new_agency_release_date = $agency->ngaycap;
-                        
-                        // Cập nhật thông tin chung
-                        $existingHistory->action_type = 'update_agency';
-                        $existingHistory->edited_by = session('user', 'system');
-                        $existingHistory->edited_at = now();
-                        $existingHistory->comments = 'Cập nhật thông tin đại lý';
-                        
-                        $existingHistory->save();
-                    } else {
-                        // Nếu không có thay đổi, vẫn cập nhật thời gian để ghi nhận việc truy cập
-                        $existingHistory->edited_by = session('user', 'system');
-                        $existingHistory->edited_at = now();
-                        $existingHistory->comments = 'Truy cập thông tin đại lý (không có thay đổi)';
-                        $existingHistory->save();
-                    }
-                    
-                } else {
-                    // TẠO MỚI: Lưu thông tin đại lý mới
-                    $historyData = [
-                        'collaborator_id' => null,
-                        'old_collaborator_id' => null,
-                        'new_collaborator_id' => null,
-                        'action_type' => 'update_agency',
-                        'edited_by' => session('user', 'system'),
-                        'edited_at' => now(),
-                        'order_code' => $request->order_code,
-                        'comments' => 'Cập nhật thông tin đại lý'
-                    ];
-                    
-                    $history = EditCtvHistory::create($historyData);
-                    
-                    // Lưu thông tin đại lý mới vào các cột
-                    $history = $this->saveAgencyDetails($history, null, $agency);
-                    $history->save();
-                    
+                    $this->saveLogController->auditLog(
+                        (int) $installationOrdersId,
+                        $orderCodeRaw,
+                        'agency_updated',
+                        $oldAgency,
+                        $newAgency,
+                        'source: CollaboratorController@UpdateAgency'
+                    );
                 }
             }
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Cập nhật đại lý thành công'
@@ -418,9 +353,6 @@ class CollaboratorController extends Controller
         }
     }
 
-    /**
-     * Lấy lịch sử thay đổi của cộng tác viên
-     */
     public function getCollaboratorHistory($id)
     {
         try {
@@ -432,11 +364,10 @@ class CollaboratorController extends Controller
                 ], 404);
             }
 
-            // Tìm lịch sử theo old_collaborator_id hoặc new_collaborator_id
-            $history = EditCtvHistory::where(function($query) use ($id) {
-                    $query->where('old_collaborator_id', $id)
-                          ->orWhere('new_collaborator_id', $id);
-                })
+            $history = EditCtvHistory::where(function ($query) use ($id) {
+                $query->where('old_collaborator_id', $id)
+                    ->orWhere('new_collaborator_id', $id);
+            })
                 ->orderBy('edited_at', 'desc')
                 ->get()
                 ->map(function ($item) {
@@ -449,105 +380,609 @@ class CollaboratorController extends Controller
                     'collaborator' => $collaborator,
                     'history' => $history
                 ]
-            ]);
+            ], 200, [], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
-            ], 500);
+            ], 500, [], JSON_UNESCAPED_UNICODE);
         }
     }
 
-    /**
-     * Lấy lịch sử thay đổi theo order_code
-     */
     public function getOrderHistory($orderCode)
     {
         try {
-            // Tìm lịch sử theo order_code
             $history = EditCtvHistory::where('order_code', $orderCode)
                 ->orderBy('edited_at', 'desc')
-                ->get()
-                ->map(function ($item) {
-                    return $this->formatHistoryItem($item);
-                });
+                ->get();
+
+            $groupedHistory = $this->groupHistoryByUser($history);
+
+            $formattedHistory = $groupedHistory->map(function ($item) {
+                return $this->formatHistoryItem($item);
+            });
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'order_code' => $orderCode,
-                    'history' => $history
+                    'history' => $formattedHistory
                 ]
-            ]);
+            ], 200, [], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
-            ], 500);
+            ], 500, [], JSON_UNESCAPED_UNICODE);
         }
     }
 
-    /**
-     * Format một item lịch sử để hiển thị
-     */
-    private function formatHistoryItem($item)
+    private function groupHistoryByUser($history)
     {
-        $formatted = $item->toArray();
-        
-        // Tạo danh sách thay đổi từ các cột riêng biệt
-        $changes = [];
-        $fieldMappings = [
-            // Thông tin CTV
-            'full_name' => ['old_full_name', 'new_full_name', 'Họ và tên CTV'],
-            'phone' => ['old_phone', 'new_phone', 'SĐT CTV'],
-            'province' => ['old_province', 'new_province', 'Tỉnh/Thành phố CTV'],
-            'district' => ['old_district', 'new_district', 'Quận/Huyện CTV'],
-            'ward' => ['old_ward', 'new_ward', 'Phường/Xã CTV'],
-            'address' => ['old_address', 'new_address', 'Địa chỉ CTV'],
-            'sotaikhoan' => ['old_sotaikhoan', 'new_sotaikhoan', 'Số tài khoản CTV'],
-            'chinhanh' => ['old_chinhanh', 'new_chinhanh', 'Chi nhánh CTV'],
-            'cccd' => ['old_cccd', 'new_cccd', 'CCCD CTV'],
-            'ngaycap' => ['old_ngaycap', 'new_ngaycap', 'Ngày cấp CTV'],
-            // Thông tin đại lý
-            'agency_name' => ['old_agency_name', 'new_agency_name', 'Tên đại lý'],
-            'agency_phone' => ['old_agency_phone', 'new_agency_phone', 'SĐT đại lý'],
-            'agency_address' => ['old_agency_address', 'new_agency_address', 'Địa chỉ đại lý'],
-            'agency_paynumber' => ['old_agency_paynumber', 'new_agency_paynumber', 'Số tài khoản đại lý'],
-            'agency_branch' => ['old_agency_branch', 'new_agency_branch', 'Chi nhánh đại lý'],
-            'agency_cccd' => ['old_agency_cccd', 'new_agency_cccd', 'Căn cước công dân đại lý'],
-            'agency_release_date' => ['old_agency_release_date', 'new_agency_release_date', 'Ngày cấp đại lý']
-        ];
-        
-        foreach ($fieldMappings as $field => $mapping) {
-            $oldValue = $item->{$mapping[0]};
-            $newValue = $item->{$mapping[1]};
-            
-            // HIỂN THỊ TẤT CẢ THÔNG TIN (không chỉ khi có thay đổi)
-            if (!is_null($oldValue) || !is_null($newValue)) {
-                $changes[] = [
-                    'field' => $field,
-                    'field_name' => $mapping[2],
-                    'old_value' => $oldValue ?: 'Trống',
-                    'new_value' => $newValue ?: 'Trống',
-                    'has_changed' => $oldValue !== $newValue,
-                    'change_description' => $mapping[2] . ": '" . ($oldValue ?: 'Trống') . "' → '" . ($newValue ?: 'Trống') . "'"
-                ];
+        if ($history->isEmpty()) {
+            return collect();
+        }
+
+        $grouped = collect();
+        $currentGroup = null;
+
+        foreach ($history as $item) {
+            if ($currentGroup === null) {
+                $currentGroup = $item;
+            } else {
+                $currentUser = $currentGroup->edited_by ?? 'system';
+                $itemUser = $item->edited_by ?? 'system';
+
+                if ($currentUser === $itemUser) {
+                    $currentGroup = $this->mergeHistoryItems($currentGroup, $item);
+                } else {
+                    $grouped->push($currentGroup);
+                    $currentGroup = $item;
+                }
             }
         }
-        
-        $formatted['changes_detail'] = $changes;
-        $formatted['formatted_edited_at'] = $item->edited_at ? $item->edited_at->format('d/m/Y H:i:s') : '';
-        $formatted['action_type_text'] = $this->getActionTypeText($item->action_type);
-        
-        // Thêm thông tin collaborator_id nếu có
-        if ($item->old_collaborator_id || $item->new_collaborator_id) {
-            $formatted['collaborator_changes'] = [
-                'old_collaborator_id' => $item->old_collaborator_id,
-                'new_collaborator_id' => $item->new_collaborator_id,
-                'collaborator_changed' => $item->old_collaborator_id !== $item->new_collaborator_id
+
+        if ($currentGroup !== null) {
+            $grouped->push($currentGroup);
+        }
+
+        return $grouped;
+    }
+
+    private function mergeHistoryItems($item1, $item2)
+    {
+        $mergedTime = $item1->edited_at < $item2->edited_at ? $item1->edited_at : $item2->edited_at;
+
+        $changesOld1 = is_array($item1->changes_old) ? $item1->changes_old : (json_decode($item1->changes_old ?? '[]', true) ?: []);
+        $changesNew1 = is_array($item1->changes_new) ? $item1->changes_new : (json_decode($item1->changes_new ?? '[]', true) ?: []);
+
+        $changesOld2 = is_array($item2->changes_old) ? $item2->changes_old : (json_decode($item2->changes_old ?? '[]', true) ?: []);
+        $changesNew2 = is_array($item2->changes_new) ? $item2->changes_new : (json_decode($item2->changes_new ?? '[]', true) ?: []);
+
+        $mergedOld = $changesOld1;
+
+        $mergedNew = array_merge($changesNew1, $changesNew2);
+
+        foreach ($changesOld2 as $key => $value) {
+            if (!isset($mergedOld[$key])) {
+                $mergedOld[$key] = $value;
+            }
+        }
+
+        $merged = clone $item1;
+        $merged->edited_at = $mergedTime;
+        $merged->changes_old = json_encode($mergedOld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $merged->changes_new = json_encode($mergedNew, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $priorityEvents = ['status_changed', 'ctv_dispatched', 'agency_updated', 'collaborator_finance_updated'];
+        $item1Event = $item1->event ?? $item1->action_type;
+        $item2Event = $item2->event ?? $item2->action_type;
+
+        if (in_array($item2Event, $priorityEvents) && !in_array($item1Event, $priorityEvents)) {
+            $merged->event = $item2Event;
+            $merged->action_type = $item2Event;
+        }
+
+        return $merged;
+    }
+
+    private function formatHistoryItem($item)
+    {
+        $formatted = [
+            'id' => $item->id,
+            'event' => $item->event ?? $item->action_type,
+            'edited_by' => $item->edited_by ?? 'Hệ thống',
+            'edited_at' => $item->edited_at,
+            'formatted_edited_at' => $item->edited_at ? $item->edited_at->format('d/m/Y H:i:s') : '',
+            'action_type_text' => $this->getActionTypeText($item->event ?? $item->action_type),
+        ];
+
+        $changesOld = is_array($item->changes_old) ? $item->changes_old : (json_decode($item->changes_old ?? '[]', true) ?: []);
+        $changesNew = is_array($item->changes_new) ? $item->changes_new : (json_decode($item->changes_new ?? '[]', true) ?: []);
+
+        $installationOrder = null;
+        $agency = null;
+        $oldAgency = null;
+        $collaborator = null;
+        $oldCollaborator = null;
+
+        if ($item->installation_orders_id) {
+            $installationOrder = InstallationOrder::find($item->installation_orders_id);
+
+            if ($installationOrder) {
+                $oldAgencyId = $changesOld['agency_id'] ?? null;
+                if (!$oldAgencyId && isset($changesNew['agency_id'])) {
+                    $oldAgencyId = null;
+                }
+
+                if ($oldAgencyId) {
+                    $oldAgency = Agency::find($oldAgencyId);
+                }
+
+                if ($installationOrder->agency_id) {
+                    $agency = Agency::find($installationOrder->agency_id);
+                } elseif ($installationOrder->agency_phone) {
+                    $normalizedPhone = preg_replace('/[^0-9]/', '', $installationOrder->agency_phone);
+                    if ($normalizedPhone) {
+                        $agency = Agency::where('phone', $normalizedPhone)->first();
+                    }
+                }
+
+                $oldCollaboratorId = $changesOld['collaborator_id'] ?? null;
+                $oldCollaboratorId = is_numeric($oldCollaboratorId) ? (int) $oldCollaboratorId : null;
+                
+                if ($oldCollaboratorId) {
+                    $oldCollaborator = WarrantyCollaborator::find($oldCollaboratorId);
+                }
+
+                if ($installationOrder->collaborator_id) {
+                    $collaborator = WarrantyCollaborator::find($installationOrder->collaborator_id);
+                }
+            }
+        }
+
+        $labelMap = [
+            'full_name' => 'Họ tên khách hàng',
+            'phone_number' => 'SĐT khách hàng',
+            'address' => 'Địa chỉ khách hàng',
+            'agency_name' => 'Tên đại lý',
+            'agency_phone' => 'SĐT đại lý',
+            'agency_address' => 'Địa chỉ đại lý',
+            'bank_account' => 'Chủ tài khoản ngân hàng',
+            'agency_bank' => 'Ngân hàng đại lý',
+            'agency_paynumber' => 'Số tài khoản đại lý',
+            'agency_branch' => 'Chi nhánh đại lý',
+            'agency_cccd' => 'CCCD đại lý',
+            'agency_release_date' => 'Ngày cấp đại lý',
+            'sotaikhoan' => 'Số tài khoản CTV',
+            'bank_name' => 'Ngân hàng CTV',
+            'chinhanh' => 'Chi nhánh CTV',
+            'cccd' => 'CCCD CTV',
+            'ngaycap' => 'Ngày cấp CTV',
+            'status_install' => 'Trạng thái',
+            'install_cost' => 'Phí lắp đặt',
+            'product' => 'Sản phẩm',
+            'type' => 'Loại',
+            'zone' => 'Khu vực',
+            'successed_at' => 'Thời gian hoàn thành',
+            'dispatched_at' => 'Thời gian điều phối',
+            'paid_at' => 'Thời gian thanh toán',
+            'order_code' => 'Mã đơn hàng',
+        ];
+
+        $fieldsToSkip = ['agency_id', 'province_id', 'district_id', 'ward_id', 'collaborator_id', 'agency_at'];
+
+        $formatStatusValue = function ($value) {
+            if ($value === null || $value === '' || $value === '0' || $value === 0) {
+                return 'Chưa điều phối';
+            }
+            switch ((string)$value) {
+                case '1':
+                    return 'Đã điều phối';
+                case '2':
+                    return 'Đã hoàn thành';
+                case '3':
+                    return 'Đã thanh toán';
+                default:
+                    return $value;
+            }
+        };
+
+        $formatDate = function ($value) {
+            if (!$value) return null;
+            if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}/', $value)) {
+                try {
+                    $date = \Carbon\Carbon::parse($value);
+                    return $date->format('d/m/Y');
+                } catch (\Exception $e) {
+                    return $value;
+                }
+            }
+            if (is_object($value) && method_exists($value, 'format')) {
+                return $value->format('d/m/Y');
+            }
+            return $value;
+        };
+
+        $changes = [];
+
+        $keys = array_unique(array_merge(array_keys($changesOld), array_keys($changesNew)));
+
+        foreach ($keys as $field) {
+            if (in_array($field, $fieldsToSkip)) {
+                continue;
+            }
+
+            $oldValue = $changesOld[$field] ?? null;
+
+            $newValue = null;
+
+            if ($installationOrder) {
+                switch ($field) {
+                    case 'full_name':
+                        $newValue = $installationOrder->full_name;
+                        break;
+                    case 'phone_number':
+                        $newValue = $installationOrder->phone_number;
+                        break;
+                    case 'address':
+                        $newValue = $installationOrder->address;
+                        break;
+
+                    case 'agency_name':
+                        $newValue = $installationOrder->agency_name;
+                        break;
+                    case 'agency_phone':
+                        $newValue = $installationOrder->agency_phone;
+                        break;
+                    case 'agency_address':
+                        $newValue = $installationOrder->agency_address;
+                        break;
+
+                    case 'order_code':
+                        $newValue = $installationOrder->order_code;
+                        break;
+                    case 'product':
+                        $newValue = $installationOrder->product;
+                        break;
+                    case 'status_install':
+                        $newValue = $installationOrder->status_install;
+                        break;
+                    case 'install_cost':
+                        $newValue = $installationOrder->install_cost;
+                        break;
+                    case 'dispatched_at':
+                        $newValue = $installationOrder->dispatched_at;
+                        break;
+                }
+            }
+
+            if ($agency && in_array($field, ['agency_address', 'agency_bank', 'bank_account', 'agency_paynumber', 'agency_branch', 'agency_cccd', 'agency_release_date'])) {
+                switch ($field) {
+                    case 'agency_address':
+                        $newValue = $agency->address;
+                        break;
+                    case 'agency_bank':
+                        $newValue = $agency->bank_name_agency;
+                        break;
+                    case 'bank_account':
+                        $newValue = $agency->bank_account;
+                        break;
+                    case 'agency_paynumber':
+                        $newValue = $agency->sotaikhoan;
+                        break;
+                    case 'agency_branch':
+                        $newValue = $agency->chinhanh;
+                        break;
+                    case 'agency_cccd':
+                        $newValue = $agency->cccd;
+                        break;
+                    case 'agency_release_date':
+                        $newValue = $agency->ngaycap;
+                        break;
+                }
+            }
+
+            if ($oldAgency && in_array($field, ['agency_address', 'agency_bank', 'bank_account', 'agency_paynumber', 'agency_branch', 'agency_cccd', 'agency_release_date'])) {
+                if ($oldValue === null) {
+                    switch ($field) {
+                        case 'agency_address':
+                            $oldValue = $oldAgency->address;
+                            break;
+                        case 'agency_bank':
+                            $oldValue = $oldAgency->bank_name_agency;
+                            break;
+                        case 'bank_account':
+                            $oldValue = $oldAgency->bank_account;
+                            break;
+                        case 'agency_paynumber':
+                            $oldValue = $oldAgency->sotaikhoan;
+                            break;
+                        case 'agency_branch':
+                            $oldValue = $oldAgency->chinhanh;
+                            break;
+                        case 'agency_cccd':
+                            $oldValue = $oldAgency->cccd;
+                            break;
+                        case 'agency_release_date':
+                            $oldValue = $oldAgency->ngaycap;
+                            break;
+                    }
+                }
+            }
+
+            if ($collaborator && in_array($field, ['sotaikhoan', 'bank_name', 'chinhanh', 'cccd', 'ngaycap'])) {
+                switch ($field) {
+                    case 'sotaikhoan':
+                        $newValue = $collaborator->sotaikhoan;
+                        break;
+                    case 'bank_name':
+                        $newValue = $collaborator->bank_name;
+                        break;
+                    case 'chinhanh':
+                        $newValue = $collaborator->chinhanh;
+                        break;
+                    case 'cccd':
+                        $newValue = $collaborator->cccd;
+                        break;
+                    case 'ngaycap':
+                        $newValue = $collaborator->ngaycap;
+                        break;
+                }
+            }
+
+            if ($oldCollaborator && in_array($field, ['sotaikhoan', 'bank_name', 'chinhanh', 'cccd', 'ngaycap'])) {
+                if ($oldValue === null) {
+                    switch ($field) {
+                        case 'sotaikhoan':
+                            $oldValue = $oldCollaborator->sotaikhoan;
+                            break;
+                        case 'bank_name':
+                            $oldValue = $oldCollaborator->bank_name;
+                            break;
+                        case 'chinhanh':
+                            $oldValue = $oldCollaborator->chinhanh;
+                            break;
+                        case 'cccd':
+                            $oldValue = $oldCollaborator->cccd;
+                            break;
+                        case 'ngaycap':
+                            $oldValue = $oldCollaborator->ngaycap;
+                            break;
+                    }
+                }
+            }
+
+            if ($newValue === null) {
+                $newValue = $changesNew[$field] ?? null;
+            }
+
+            $fieldName = $labelMap[$field] ?? $field;
+
+            if ($field === 'status_install') {
+                $oldValue = $formatStatusValue($oldValue);
+                $newValue = $formatStatusValue($newValue);
+            }
+
+            if (in_array($field, ['agency_release_date', 'dispatched_at', 'ngaycap'])) {
+                $oldValue = $formatDate($oldValue);
+                $newValue = $formatDate($newValue);
+            }
+
+            $changes[] = [
+                'field' => $field,
+                'field_name' => $fieldName,
+                'old_value' => ($oldValue === null || $oldValue === '') ? 'Trống' : $oldValue,
+                'new_value' => ($newValue === null || $newValue === '') ? 'Trống' : $newValue,
             ];
         }
-        
+
+        if ($agency) {
+            $agencyFieldsMap = [
+                'agency_address' => ['value' => $agency->address, 'label' => 'Địa chỉ đại lý'],
+                'agency_bank' => ['value' => $agency->bank_name_agency, 'label' => 'Ngân hàng đại lý'],
+                'bank_account' => ['value' => $agency->bank_account, 'label' => 'Chủ tài khoản ngân hàng'],
+                'agency_paynumber' => ['value' => $agency->sotaikhoan, 'label' => 'Số tài khoản đại lý'],
+                'agency_branch' => ['value' => $agency->chinhanh, 'label' => 'Chi nhánh đại lý'],
+                'agency_cccd' => ['value' => $agency->cccd, 'label' => 'CCCD đại lý'],
+                'agency_release_date' => ['value' => $agency->ngaycap, 'label' => 'Ngày cấp đại lý'],
+            ];
+
+            foreach ($agencyFieldsMap as $field => $data) {
+                $existsInChanges = false;
+                foreach ($changes as $change) {
+                    if ($change['field'] === $field) {
+                        $existsInChanges = true;
+                        break;
+                    }
+                }
+
+                if (!$existsInChanges && ($data['value'] !== null && $data['value'] !== '')) {
+                    $oldValue = null;
+                    if ($oldAgency) {
+                        switch ($field) {
+                            case 'agency_address':
+                                $oldValue = $oldAgency->address;
+                                break;
+                            case 'agency_bank':
+                                $oldValue = $oldAgency->bank_name_agency;
+                                break;
+                            case 'bank_account':
+                                $oldValue = $oldAgency->bank_account;
+                                break;
+                            case 'agency_paynumber':
+                                $oldValue = $oldAgency->sotaikhoan;
+                                break;
+                            case 'agency_branch':
+                                $oldValue = $oldAgency->chinhanh;
+                                break;
+                            case 'agency_cccd':
+                                $oldValue = $oldAgency->cccd;
+                                break;
+                            case 'agency_release_date':
+                                $oldValue = $oldAgency->ngaycap;
+                                break;
+                        }
+                    }
+
+                    $displayValue = $data['value'];
+                    if ($field === 'agency_release_date') {
+                        $displayValue = $formatDate($displayValue);
+                        $oldValue = $formatDate($oldValue);
+                    }
+
+                    $changes[] = [
+                        'field' => $field,
+                        'field_name' => $data['label'],
+                        'old_value' => ($oldValue === null || $oldValue === '') ? 'Trống' : $oldValue,
+                        'new_value' => ($displayValue === null || $displayValue === '') ? 'Trống' : $displayValue,
+                    ];
+                }
+            }
+        }
+
+        if ($collaborator) {
+            $collaboratorFieldsMap = [
+                'sotaikhoan' => ['value' => $collaborator->sotaikhoan, 'label' => 'Số tài khoản CTV'],
+                'bank_name' => ['value' => $collaborator->bank_name, 'label' => 'Ngân hàng CTV'],
+                'chinhanh' => ['value' => $collaborator->chinhanh, 'label' => 'Chi nhánh CTV'],
+                'cccd' => ['value' => $collaborator->cccd, 'label' => 'CCCD CTV'],
+                'ngaycap' => ['value' => $collaborator->ngaycap, 'label' => 'Ngày cấp CTV'],
+            ];
+
+            foreach ($collaboratorFieldsMap as $field => $data) {
+                $existsInChanges = false;
+                foreach ($changes as $change) {
+                    if ($change['field'] === $field) {
+                        $existsInChanges = true;
+                        break;
+                    }
+                }
+
+                if (!$existsInChanges && ($data['value'] !== null && $data['value'] !== '')) {
+                    $oldValue = null;
+                    if ($oldCollaborator) {
+                        switch ($field) {
+                            case 'sotaikhoan':
+                                $oldValue = $oldCollaborator->sotaikhoan;
+                                break;
+                            case 'bank_name':
+                                $oldValue = $oldCollaborator->bank_name;
+                                break;
+                            case 'chinhanh':
+                                $oldValue = $oldCollaborator->chinhanh;
+                                break;
+                            case 'cccd':
+                                $oldValue = $oldCollaborator->cccd;
+                                break;
+                            case 'ngaycap':
+                                $oldValue = $oldCollaborator->ngaycap;
+                                break;
+                        }
+                    }
+
+                    $displayValue = $data['value'];
+                    if ($field === 'ngaycap') {
+                        $displayValue = $formatDate($displayValue);
+                        $oldValue = $formatDate($oldValue);
+                    }
+
+                    $changes[] = [
+                        'field' => $field,
+                        'field_name' => $data['label'],
+                        'old_value' => ($oldValue === null || $oldValue === '') ? 'Trống' : $oldValue,
+                        'new_value' => ($displayValue === null || $displayValue === '') ? 'Trống' : $displayValue,
+                    ];
+                }
+            }
+        }
+
+        if ($installationOrder) {
+            $customerFieldsMap = [
+                'full_name' => ['value' => $installationOrder->full_name, 'label' => 'Họ tên khách hàng'],
+                'phone_number' => ['value' => $installationOrder->phone_number, 'label' => 'SĐT khách hàng'],
+                'address' => ['value' => $installationOrder->address, 'label' => 'Địa chỉ khách hàng'],
+            ];
+
+            foreach ($customerFieldsMap as $field => $data) {
+                $existsInChanges = false;
+                foreach ($changes as $change) {
+                    if ($change['field'] === $field) {
+                        $existsInChanges = true;
+                        break;
+                    }
+                }
+
+                if (!$existsInChanges && ($data['value'] !== null && $data['value'] !== '')) {
+                    $oldValue = $changesOld[$field] ?? null;
+                    $changes[] = [
+                        'field' => $field,
+                        'field_name' => $data['label'],
+                        'old_value' => ($oldValue === null || $oldValue === '') ? 'Trống' : $oldValue,
+                        'new_value' => ($data['value'] === null || $data['value'] === '') ? 'Trống' : $data['value'],
+                    ];
+                }
+            }
+        }
+
+        if ($installationOrder) {
+            $orderFieldsMap = [
+                'order_code' => ['value' => $installationOrder->order_code, 'label' => 'Mã đơn hàng'],
+                'product' => ['value' => $installationOrder->product, 'label' => 'Sản phẩm'],
+                'status_install' => ['value' => $installationOrder->status_install, 'label' => 'Trạng thái'],
+                'install_cost' => ['value' => $installationOrder->install_cost, 'label' => 'Phí lắp đặt'],
+                'dispatched_at' => ['value' => $installationOrder->dispatched_at, 'label' => 'Thời gian điều phối'],
+            ];
+
+            foreach ($orderFieldsMap as $field => $data) {
+                $existsInChanges = false;
+                foreach ($changes as $change) {
+                    if ($change['field'] === $field) {
+                        $existsInChanges = true;
+                        break;
+                    }
+                }
+
+                if (!$existsInChanges && ($data['value'] !== null && $data['value'] !== '')) {
+                    $oldValue = $changesOld[$field] ?? null;
+
+                    // Format status_install
+                    if ($field === 'status_install') {
+                        $oldValue = $formatStatusValue($oldValue);
+                        $newValue = $formatStatusValue($data['value']);
+                    } else {
+                        $newValue = $data['value'];
+                    }
+
+                    // Format dispatched_at
+                    if ($field === 'dispatched_at') {
+                        $oldValue = $formatDate($oldValue);
+                        $newValue = $formatDate($newValue);
+                    }
+
+                    $changes[] = [
+                        'field' => $field,
+                        'field_name' => $data['label'],
+                        'old_value' => ($oldValue === null || $oldValue === '') ? 'Trống' : $oldValue,
+                        'new_value' => ($newValue === null || $newValue === '') ? 'Trống' : $newValue,
+                    ];
+                }
+            }
+        }
+
+        $formatted['changes_detail'] = $changes;
+
+        // Xác định source dựa trên event
+        $event = $item->event ?? $item->action_type ?? '';
+        $sourceMap = [
+            'installation_order_updated' => 'Cập nhật thông tin đơn lắp đặt',
+            'agency_updated' => 'Cập nhật thông tin đại lý',
+            'collaborator_finance_updated' => 'Cập nhật thông tin tài khoản CTV',
+            'ctv_dispatched' => 'Điều phối CTV',
+            'status_changed' => 'Thay đổi trạng thái đơn hàng',
+        ];
+        $formatted['source'] = $sourceMap[$event] ?? 'Cập nhật thông tin';
+
         return $formatted;
     }
 
@@ -563,9 +998,14 @@ class CollaboratorController extends Controller
             'update_agency' => 'Cập nhật đại lý',
             'clear' => 'Xóa dữ liệu CTV',
             'switch_to_agency' => 'Chuyển sang Đại lý lắp đặt',
-            'switch_to_ctv' => 'Chuyển về CTV'
+            'switch_to_ctv' => 'Chuyển về CTV',
+            'installation_order_updated' => 'Cập nhật điều phối/lắp đặt',
+            'agency_updated' => 'Cập nhật thông tin đại lý',
+            'collaborator_finance_updated' => 'Cập nhật thông tin tài khoản CTV',
+            'ctv_dispatched' => 'Điều phối CTV',
+            'status_changed' => 'Thay đổi trạng thái',
         ];
-        
+
         return $actionTypes[$actionType] ?? $actionType;
     }
 
@@ -587,19 +1027,10 @@ class CollaboratorController extends Controller
                 ], 422);
             }
 
-            $result = $this->saveLogController->clearCollaborator($request->order_code);
-
-            if ($result) {
             return response()->json([
                 'success' => true,
                 'message' => 'Đã chuyển sang "Đại lý lắp đặt" thành công'
             ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Có lỗi xảy ra khi chuyển sang "Đại lý lắp đặt"'
-                ], 500);
-            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -626,19 +1057,10 @@ class CollaboratorController extends Controller
                 ], 422);
             }
 
-            $result = $this->saveLogController->switchToCtv($request->order_code);
-
-            if ($result) {
             return response()->json([
                 'success' => true,
                 'message' => 'Đã chuyển về CTV thành công'
             ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Có lỗi xảy ra khi chuyển về CTV'
-                ], 500);
-            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -646,5 +1068,4 @@ class CollaboratorController extends Controller
             ], 500);
         }
     }
-
 }
