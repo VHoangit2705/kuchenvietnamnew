@@ -147,7 +147,7 @@
                             </tr>
                             <tr>
                                 <td colspan="10" style="font-style: italic; font-weight: bold; padding: 10px;">
-                                    Bằng chữ: {{ $sheet5AmountInWords ?? 'không đồng' }}
+                                    Bằng chữ: {{ $sheet1AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
@@ -206,17 +206,17 @@
                             @endforelse
                             @if(count($sheet2Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="7" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="8" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet2Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td colspan="8" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet2AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="6"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>
@@ -270,18 +270,18 @@
                             @endforelse
                             @if(count($sheet3Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="5" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="6" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet3Total ?? 0, 0, ',', '.') }}</td>
                                 <td colspan="3"></td>
                             </tr>
                             <tr>
-                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                <td colspan="10" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet3AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="7"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>
@@ -333,7 +333,7 @@
                             @endforelse
                             @if(count($sheet4Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="6" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="8" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet4Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
@@ -343,7 +343,7 @@
                             </tr>
                             <tr>
                                 <td colspan="5"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>

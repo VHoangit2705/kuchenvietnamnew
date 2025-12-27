@@ -165,6 +165,7 @@ class CollaboratorController extends Controller
                 'id' => 'required|integer',
                 'sotaikhoan' => 'nullable|string|max:255',
                 'nganhang' => 'nullable|string|max:255',
+                'bank_account' => 'nullable|string|max:255',
                 'chinhanh' => 'nullable|string|max:255',
                 'cccd' => 'nullable|string|max:20',
                 'ngaycap' => 'nullable|date'
@@ -189,6 +190,7 @@ class CollaboratorController extends Controller
             $oldCollab = [
                 'sotaikhoan' => $collab->sotaikhoan,
                 'bank_name' => $collab->bank_name,
+                'bank_account' => $collab->bank_account ?? null,
                 'chinhanh' => $collab->chinhanh,
                 'cccd' => $collab->cccd,
                 'ngaycap' => $collab->ngaycap,
@@ -197,6 +199,7 @@ class CollaboratorController extends Controller
             $newData = [
                 'sotaikhoan' => $request->sotaikhoan,
                 'bank_name' => $request->nganhang,
+                'bank_account' => $request->bank_account ?? ($request->chutaikhoan ?? null),
                 'chinhanh' => $request->chinhanh,
                 'cccd' => $request->cccd,
                 'ngaycap' => $request->ngaycap
@@ -204,6 +207,9 @@ class CollaboratorController extends Controller
 
             $collab->sotaikhoan = $request->sotaikhoan;
             $collab->bank_name = $request->nganhang;
+            if ($request->filled('bank_account')) {
+                $collab->bank_account = $request->bank_account;
+            }
             $collab->chinhanh = $request->chinhanh;
             $collab->cccd = $request->cccd;
             $collab->ngaycap = $request->ngaycap;
@@ -229,6 +235,7 @@ class CollaboratorController extends Controller
                         [
                             'sotaikhoan' => $collab->sotaikhoan,
                             'bank_name' => $collab->bank_name,
+                            'bank_account' => $collab->bank_account ?? null,
                             'chinhanh' => $collab->chinhanh,
                             'cccd' => $collab->cccd,
                             'ngaycap' => $collab->ngaycap,
