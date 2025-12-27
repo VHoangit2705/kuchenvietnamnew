@@ -8,6 +8,7 @@ use App\Models\KyThuat\District;
 use App\Models\KyThuat\Wards;
 use Illuminate\Http\Request;
 use App\Models\Kho\Agency;
+use App\Models\KyThuat\RequestAgency;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\KyThuat\EditCtvHistory;
@@ -242,6 +243,17 @@ class CollaboratorController extends Controller
                         ],
                         'source: CollaboratorController@UpdateCollaborator'
                     );
+
+                    // Update related RequestAgency rows to reference this collaborator when dispatching
+                    try {
+                        RequestAgency::where(function($q) use ($orderCodeRaw, $orderCodeBase) {
+                            $q->where('order_code', $orderCodeRaw)
+                              ->orWhere('order_code', $orderCodeBase)
+                              ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%');
+                        })->update(['collaborator_id' => $collab->id]);
+                    } catch (\Exception $ex) {
+                        Log::warning('Failed to update RequestAgency.collaborator_id: ' . $ex->getMessage());
+                    }
                 }
             }
 

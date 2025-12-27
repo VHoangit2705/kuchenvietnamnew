@@ -23,6 +23,7 @@ class RequestAgency extends Model
         'received_at',
         'received_by',
         'assigned_to',
+        'collaborator_id',
     ];
 
     protected $casts = [
@@ -45,6 +46,14 @@ class RequestAgency extends Model
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agency_id', 'id');
+    }
+
+    /**
+     * Quan hệ: RequestAgency belongsTo WarrantyCollaborator
+     */
+    public function collaborator()
+    {
+        return $this->belongsTo(\App\Models\KyThuat\WarrantyCollaborator::class, 'collaborator_id', 'id');
     }
 
     /**
