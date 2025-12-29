@@ -1700,10 +1700,6 @@
                                     $.when(collabReq, agencyReq).done(function() {
                                         location.reload();
                                         loadTableData();
-                                    }).fail(function() {
-                                        Swal.fire({ icon: 'error', title: 'Lỗi khi cập nhật thông tin CTV/Đại lý', text: 'Vui lòng thử lại.' }).then(() => {
-                                            location.reload();
-                                        });
                                     });
                                 });
                             } else {
