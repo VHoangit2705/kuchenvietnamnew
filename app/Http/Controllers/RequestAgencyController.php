@@ -438,6 +438,10 @@ class RequestAgencyController extends Controller
         }
 
         $requestAgency->status = $request->status;
+        if ($request->has('collaborator_id')) {
+            $requestAgency->collaborator_id = $request->collaborator_id;
+        }
+
         $requestAgency->save();
 
         return response()->json([

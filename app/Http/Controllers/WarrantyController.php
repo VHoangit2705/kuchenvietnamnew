@@ -824,6 +824,58 @@ class WarrantyController extends Controller
                         ]);
                     }
                 }
+                // Validate full name
+                if($type == 'full_name'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng không được để trống.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    if(strlen($value) > 100){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng tối đa 100 ký tự.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    // Allow letters (unicode), spaces, dot, comma, hyphen, apostrophe
+                    if(!preg_match('/^[\p{L}\s\.,\'\-]+$/u', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng chứa ký tự không hợp lệ.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                }
+                // Validate phone number
+                if($type == 'phone_number'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không được để trống.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // allow digits, spaces, +, -
+                    if(!preg_match('/^[0-9\s\+\-]+$/', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại chỉ được gồm chữ số, khoảng trắng, '+' và '-'.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // count digits only
+                    $digits = preg_replace('/\D+/', '', $value);
+                    if(strlen($digits) < 7 || strlen($digits) > 15){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không hợp lệ.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                }
                 $detail->update($data);
                 return response()->json(['success' => true, 'message' => "Cập nhật thành công"]);
             }

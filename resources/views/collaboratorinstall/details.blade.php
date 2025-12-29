@@ -209,6 +209,17 @@
                                     </td>
                                 </tr>
                                 <tr class="ctv_row">
+                                    <th>Chủ TK:</th>
+                                    <td id="bank_account" data-field="bank_account">
+                                        @php
+                                        $bankNameAccount = $ctv->bank_account ?? $ctv->bank_account ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $bankNameAccount }}</span>
+                                        <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
+                                        @if (empty($bankNameAccount))
+                                        <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
+                                        @endif
+                                    </td>
                                     <th>Chi nhánh:</th>
                                     <td id="chinhanh" data-field="chinhanh" colspan="3">
                                         @php
@@ -1260,6 +1271,8 @@
                     updateField("nganhang", bankName);
                     // Đảm bảo cập nhật logo ngay lập tức
                     updateBankLogoForCell($("#nganhang"));
+                    updateField("bank_account", res.bank_account || res.chutaikhoan || '');
+                    updateBankLogoForCell($("#bank_account"));
                     updateField("cccd", res.cccd);
                     updateField("ngaycap", res.ngaycap);
 
@@ -1454,16 +1467,49 @@
             data[field] = value;
         });
 
-        $.ajax({
+        // Ensure bank_account is sent when the UI field is 'chutaikhoan'
+        if (!data.bank_account && data.chutaikhoan) {
+            data.bank_account = data.chutaikhoan;
+        }
+
+        return $.ajax({
             url: "{{ route('ctv.update') }}",
             method: "POST",
             data: data,
             success: function(response) {
-                // Collaborator updated successfully
+                if (response && response.success) {
+                    const collab = response.data || {};
+                    const map = {
+                        nganhang: collab.bank_name || '',
+                        sotaikhoan: collab.sotaikhoan || '',
+                        chutaikhoan: collab.bank_account || collab.chutaikhoan || '',
+                        bank_account: collab.bank_account || collab.chutaikhoan || '',
+                        chinhanh: collab.chinhanh || '',
+                        cccd: collab.cccd || '',
+                        ngaycap: collab.ngaycap || ''
+                    };
+
+                    Object.keys(map).forEach(function(field) {
+                        const $td = $('td[data-field="' + field + '"]');
+                        if ($td.length) {
+                            let val = map[field];
+                            if (field === 'ngaycap' && val) {
+                                const parts = String(val).split('-');
+                                if (parts.length === 3) val = parts[2] + '/' + parts[1] + '/' + parts[0];
+                            }
+                            $td.find('.text-value').text(val);
+                            if ($td.find('input').length) {
+                                $td.find('input').val(val);
+                            }
+                        }
+                    });
+
+                    // Update top-level collaborator metadata if present
+                    if (collab.id) $('#ctv_id').val(collab.id);
+                    if (collab.full_name) $('#ctv_name').text(collab.full_name);
+                    if (collab.phone) $('#ctv_phone').text(collab.phone);
+                }
             },
-            error: function(xhr, status, error) {
-                // Error updating collaborator
-            }
         });
     }
 
@@ -1507,10 +1553,10 @@
         
         // Kiểm tra nếu không có agency_phone
         if (!agencyPhone) {
-            return;
+            return $.Deferred().resolve().promise();
         }
-        
-        $.ajax({
+
+        return $.ajax({
             url: "{{ route('agency.update') }}",
             method: "POST",
             data: data,
@@ -1647,12 +1693,18 @@
                                     timer: 1500,
                                     showConfirmButton: false
                                 }).then(() => {
-                                    UpdateCollaborator();
-                                    if (hasAgencyChanges()) {
-                                        UpdateAgency();
-                                    }
-                                    location.reload();
-                                    loadTableData();
+                                    // Wait for collaborator and agency updates before reloading
+                                    const collabReq = UpdateCollaborator();
+                                    const agencyReq = hasAgencyChanges() ? UpdateAgency() : $.Deferred().resolve().promise();
+
+                                    $.when(collabReq, agencyReq).done(function() {
+                                        location.reload();
+                                        loadTableData();
+                                    }).fail(function() {
+                                        Swal.fire({ icon: 'error', title: 'Lỗi khi cập nhật thông tin CTV/Đại lý', text: 'Vui lòng thử lại.' }).then(() => {
+                                            location.reload();
+                                        });
+                                    });
                                 });
                             } else {
                                 Swal.fire({
