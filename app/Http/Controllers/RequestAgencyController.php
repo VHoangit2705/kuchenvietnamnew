@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\KyThuat\RequestAgency;
 use App\Models\Kho\InstallationOrder;
 use App\Models\Kho\Agency;
+use App\Models\Kho\Order;
+use App\Models\Kho\OrderProduct;
 use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -584,5 +586,70 @@ class RequestAgencyController extends Controller
 
         return redirect()->route('requestagency.manage-agencies')
             ->with('success', 'Xác nhận đại lý thành công!');
+    }
+
+    /**
+     * Tìm InstallationOrder từ order_code và product_name để chuyển đến trang chi tiết điều phối
+     */
+    public function findInstallationOrder(Request $request)
+    {
+        $orderCode = $request->input('order_code');
+        $productName = $request->input('product_name');
+
+        if (empty($orderCode)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã đơn hàng không được để trống'
+            ], 400);
+        }
+
+        // Tìm InstallationOrder theo order_code và product_name (nếu có)
+        $installationOrder = InstallationOrder::where('order_code', $orderCode)
+            ->when($productName, function($q) use ($productName) {
+                return $q->where('product', $productName);
+            })
+            ->first();
+
+        if ($installationOrder) {
+            // Tìm thấy InstallationOrder, trả về URL chi tiết
+            return response()->json([
+                'success' => true,
+                'url' => route('dieuphoi.detail', ['id' => $installationOrder->id, 'type' => ''])
+            ]);
+        }
+
+        // Không tìm thấy InstallationOrder, thử tìm Order hoặc OrderProduct
+        $order = Order::where('order_code2', $orderCode)
+            ->orWhere('order_code1', $orderCode)
+            ->first();
+
+        if ($order) {
+            // Tìm OrderProduct nếu có product_name
+            if ($productName) {
+                $orderProduct = OrderProduct::where('order_id', $order->id)
+                    ->where('product_name', $productName)
+                    ->where('install', 1)
+                    ->first();
+
+                if ($orderProduct) {
+                    return response()->json([
+                        'success' => true,
+                        'url' => route('dieuphoi.detail', ['id' => $orderProduct->id, 'type' => 'donhang'])
+                    ]);
+                }
+            }
+
+            // Nếu không có product_name hoặc không tìm thấy OrderProduct, trả về với order_id
+            return response()->json([
+                'success' => true,
+                'url' => route('dieuphoi.detail', ['id' => $order->id, 'type' => 'donhang'])
+            ]);
+        }
+
+        // Không tìm thấy gì cả
+        return response()->json([
+            'success' => false,
+            'message' => 'Không tìm thấy đơn hàng trong hệ thống điều phối'
+        ], 404);
     }
 }

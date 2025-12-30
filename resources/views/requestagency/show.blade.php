@@ -109,7 +109,14 @@
                 </div>
             </div>
             @endif
-
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label text-muted">Ngày cấp:</label>
+                    <div class="form-control-plaintext">
+                        {{ $request->agency->ngaycap ? \Carbon\Carbon::parse($request->agency->ngaycap)->format('d/m/Y') : '-' }}
+                    </div>
+                </div>
+            </div>
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label class="form-label text-muted">Người tiếp nhận</label>

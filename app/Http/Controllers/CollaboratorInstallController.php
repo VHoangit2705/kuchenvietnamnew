@@ -968,6 +968,8 @@ class CollaboratorInstallController extends Controller
             
             if ($newStatusInstall == 2 && $oldStatus != 2) {
                 $successedAt = $request->successed_at ?? $now;
+            } elseif ($newStatusInstall == 2 && $oldStatus == 2 && $request->filled('successed_at')) {
+                $successedAt = $request->successed_at;
             }
             
             if ($newStatusInstall == 3 && $oldStatus != 3) {
