@@ -1439,13 +1439,90 @@
         return true; // Tất cả đều hợp lệ
     }
 
+    // Function để cập nhật UI trạng thái sau khi cập nhật thành công
+    function updateStatusUI(action) {
+        let newStatus = null;
+        let statusText = '';
+        let statusClass = '';
+        
+        // Lấy status hiện tại từ badge
+        const $statusBadge = $('.d-flex.justify-content-between span:last-child');
+        let currentStatusText = $statusBadge.length ? $statusBadge.text().trim() : '';
+        let currentStatus = null;
+        
+        // Xác định status hiện tại dựa trên text
+        if (currentStatusText === 'Đã Thanh Toán') {
+            currentStatus = 3;
+        } else if (currentStatusText === 'Đã Hoàn Thành') {
+            currentStatus = 2;
+        } else if (currentStatusText === 'Đã Điều Phối') {
+            currentStatus = 1;
+        } else {
+            currentStatus = 0;
+        }
+        
+        // Xác định trạng thái mới dựa trên action
+        if (action === 'complete') {
+            newStatus = 2;
+            statusText = 'Đã Hoàn Thành';
+            statusClass = 'bg-success fw-bold p-1 rounded-2';
+        } else if (action === 'payment') {
+            newStatus = 3;
+            statusText = 'Đã Thanh Toán';
+            statusClass = 'bg-info fw-bold p-1 rounded-2';
+        } else if (action === 'update') {
+            if (currentStatus === 3) {
+                $('#btnUpdate').show();
+                $('#btnComplete').hide();
+                $('#btnPay').hide();
+                return;
+            }
+            newStatus = 1;
+            statusText = 'Đã Điều Phối';
+            statusClass = 'bg-warning fw-bold p-1 rounded-2';
+        }
+        
+        if (newStatus !== null) {
+            // Cập nhật badge trạng thái
+            if ($statusBadge.length) {
+                $statusBadge.removeClass('bg-warning bg-success bg-info bg-secondary')
+                           .addClass(statusClass)
+                           .text(statusText);
+            }
+            
+            // Cập nhật button visibility
+            if (newStatus === 2) {
+                // Đã hoàn thành: ẩn btnUpdate, hiện btnComplete và btnPay
+                $('#btnUpdate').hide();
+                $('#btnComplete').show();
+                $('#btnPay').show();
+            } else if (newStatus === 3) {
+                // Đã thanh toán: chỉ hiện btnUpdate
+                $('#btnUpdate').show();
+                $('#btnComplete').hide();
+                $('#btnPay').hide();
+            } else if (newStatus === 1) {
+                // Đã điều phối: hiện tất cả button
+                $('#btnUpdate').show();
+                $('#btnComplete').show();
+                $('#btnPay').show();
+            }
+        }
+    }
 
     function UpdateCollaborator() {
         let id = $("#ctv_id").val();
+        
+        // Kiểm tra nếu không có id hợp lệ, không gửi request
+        if (!id || id === '' || id === null || id === undefined) {
+            console.log('UpdateCollaborator: Không có ctv_id, bỏ qua cập nhật');
+            return $.Deferred().resolve().promise();
+        }
+        
         let orderCode = "{{ $code }}"; // Lấy order_code từ PHP
         let data = {
             _token: $('meta[name="csrf-token"]').attr("content"),
-            id: id,
+            id: parseInt(id), // Đảm bảo id là số nguyên
             order_code: orderCode
         };
         $("td[data-field]").each(function() {
@@ -1510,6 +1587,31 @@
                     if (collab.phone) $('#ctv_phone').text(collab.phone);
                 }
             },
+            error: function(xhr) {
+                let errorMessage = 'Có lỗi xảy ra khi cập nhật thông tin cộng tác viên';
+                if (xhr.status === 422) {
+                    const response = xhr.responseJSON;
+                    if (response && response.errors) {
+                        const errors = Object.values(response.errors).flat();
+                        errorMessage = errors.length > 0 ? errors[0] : (response.message || errorMessage);
+                    } else if (response && response.message) {
+                        errorMessage = response.message;
+                    }
+                } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: errorMessage,
+                        confirmButtonText: 'Đóng'
+                    });
+                } else {
+                    alert(errorMessage);
+                }
+            }
         });
     }
 
@@ -1687,19 +1789,22 @@
                         success: function(res) {
                             CloseWaitBox();
                             if (res.success) {
+                                // Cập nhật trạng thái button và badge ngay lập tức
+                                updateStatusUI(action);
+                                
                                 Swal.fire({
                                     icon: 'success',
                                     title: res.message,
                                     timer: 1500,
                                     showConfirmButton: false
                                 }).then(() => {
-                                    // Wait for collaborator and agency updates before reloading
-                                    const collabReq = UpdateCollaborator();
+                                    const ctvId = $("#ctv_id").val();
+                                    const collabReq = (ctvId && ctvId !== '' && ctvId !== null) 
+                                        ? UpdateCollaborator() 
+                                        : $.Deferred().resolve().promise();
                                     const agencyReq = hasAgencyChanges() ? UpdateAgency() : $.Deferred().resolve().promise();
 
                                     $.when(collabReq, agencyReq).done(function() {
-                                        location.reload();
-                                        loadTableData();
                                     });
                                 });
                             } else {
