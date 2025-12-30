@@ -7,6 +7,7 @@ use App\Models\Kho\InstallationOrder;
 use App\Models\Kho\Agency;
 use App\Models\Kho\Order;
 use App\Models\Kho\OrderProduct;
+use App\Services\NotificationService;
 use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -55,11 +56,19 @@ class RequestAgencyController extends Controller
 
                 // Chỉ cập nhật nếu trạng thái khác nhau
                 if ($newStatus != $requestAgency->status) {
+                    $oldStatus = $requestAgency->status;
                     $requestAgency->status = $newStatus;
                     if (!$requestAgency->assigned_to) {
                         $requestAgency->assigned_to = session('user', 'system');
                     }
                     $requestAgency->save();
+                    
+                    // Gửi thông báo cho đại lý khi trạng thái thay đổi
+                    NotificationService::sendStatusChangeNotification(
+                        $requestAgency,
+                        $oldStatus,
+                        $newStatus
+                    );
                 }
             }
         }
@@ -433,6 +442,9 @@ class RequestAgencyController extends Controller
             ], 422);
         }
 
+        // Lưu trạng thái cũ trước khi cập nhật
+        $oldStatus = $requestAgency->status;
+
         // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
         if ($request->status === RequestAgency::STATUS_DA_XAC_NHAN_AGENCY && !$requestAgency->received_at) {
             $requestAgency->received_at = now();
@@ -445,6 +457,15 @@ class RequestAgencyController extends Controller
         }
 
         $requestAgency->save();
+
+        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+        if ($oldStatus !== $requestAgency->status) {
+            NotificationService::sendStatusChangeNotification(
+                $requestAgency,
+                $oldStatus,
+                $requestAgency->status
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -572,6 +593,9 @@ class RequestAgencyController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        // Lưu trạng thái cũ trước khi cập nhật
+        $oldStatus = $requestAgency->status;
+
         // Cập nhật trạng thái và thông tin xác nhận
         $requestAgency->status = RequestAgency::STATUS_DA_XAC_NHAN_AGENCY;
         $requestAgency->received_at = now();
@@ -583,6 +607,15 @@ class RequestAgencyController extends Controller
         }
         
         $requestAgency->save();
+
+        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+        if ($oldStatus !== $requestAgency->status) {
+            NotificationService::sendStatusChangeNotification(
+                $requestAgency,
+                $oldStatus,
+                $requestAgency->status
+            );
+        }
 
         return redirect()->route('requestagency.manage-agencies')
             ->with('success', 'Xác nhận đại lý thành công!');

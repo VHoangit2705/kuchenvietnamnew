@@ -10,6 +10,7 @@ use App\Models\KyThuat\District;
 use App\Models\KyThuat\Wards;
 use App\Models\KyThuat\WarrantyCollaborator;
 use App\Models\KyThuat\WarrantyRequest;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -1116,6 +1117,12 @@ class CollaboratorInstallController extends Controller
                         $requestAgency->assigned_to = session('user', 'system');
                         $requestAgency->save();
                         
+                        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+                        NotificationService::sendStatusChangeNotification(
+                            $requestAgency,
+                            $oldRequestAgencyStatus,
+                            $newRequestAgencyStatus
+                        );
                     }
                 }
                 
