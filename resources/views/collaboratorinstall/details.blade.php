@@ -332,6 +332,7 @@
                         data-agency-phone="{{ $requestAgencyAgency->phone ?? '' }}"
                         data-agency-address="{{ $requestAgencyAgency->address ?? '' }}"
                         data-agency-bank="{{ $requestAgencyAgency->bank_name_agency ?? '' }}"
+                        data-agency-bank-account="{{ $requestAgencyAgency->bank_account ?? '' }}"
                         data-agency-paynumber="{{ $requestAgencyAgency->sotaikhoan ?? '' }}"
                         data-agency-branch="{{ $requestAgencyAgency->chinhanh ?? '' }}"
                         data-agency-cccd="{{ $requestAgencyAgency->cccd ?? '' }}"
@@ -380,13 +381,22 @@
                     <div class="table-responsive col-12">
                         <table class="table table-striped">
                             <tbody>
+                                @php
+                                    $isAgencyInstall = !empty($installationOrder->agency_name) && empty($installationOrder->collaborator_id);
+                                    $shouldLoadFromRequestAgency = ((string)$requestAgencyType !== '0') || $isAgencyInstall;
+                                    $isAgencyFromRequest = ($agency && $requestAgencyAgency && $agency->id == $requestAgencyAgency->id);
+                                    $shouldLoadFromAgency = $shouldLoadFromRequestAgency || !$isAgencyFromRequest;
+                                @endphp
                                 <tr>
                                     <th class="w-50">Tên đại lý:</th>
                                     <td class="w-50" data-agency="agency_name">
-                                        {{-- Ưu tiên: agency từ request_agency (agency_id) > installation_order > order > data gốc --}}
-                                        <span class="text-value">{{ $requestAgencyAgency->name ?? $installationOrder->agency_name ?? $data->order->agency_name ?? $data->agency_name ?? ''}}</span>
                                         @php
-                                            $hasAgencyName = !empty($requestAgencyAgency->name ?? $installationOrder->agency_name ?? $data->order->agency_name ?? $data->agency_name ?? '');
+                                            $agencyNameValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->name ?? null) : null;
+                                            $agencyNameValue = $agencyNameValue ?? $installationOrder->agency_name ?? $data->order->agency_name ?? $data->agency_name ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $agencyNameValue }}</span>
+                                        @php
+                                            $hasAgencyName = !empty($agencyNameValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
                                         @if($hasAgencyName && $canEditAgency)
@@ -399,10 +409,13 @@
                                 <tr>
                                     <th>Số điện thoại đại lý:</th>
                                     <td data-agency="agency_phone">
-                                        {{-- Ưu tiên: agency từ request_agency (agency_id) > installation_order > order > data gốc --}}
-                                        <span class="text-value">{{ $requestAgencyAgency->phone ?? $installationOrder->agency_phone ?? $data->order->agency_phone ?? $data->agency_phone ?? '' }}</span>
                                         @php
-                                            $hasAgencyPhone = !empty($requestAgencyAgency->phone ?? $installationOrder->agency_phone ?? $data->order->agency_phone ?? $data->agency_phone ?? '');
+                                            $agencyPhoneValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->phone ?? null) : null;
+                                            $agencyPhoneValue = $agencyPhoneValue ?? $installationOrder->agency_phone ?? $data->order->agency_phone ?? $data->agency_phone ?? '';
+                                        @endphp
+                                        <span class="text-value">{{ $agencyPhoneValue }}</span>
+                                        @php
+                                            $hasAgencyPhone = !empty($agencyPhoneValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
                                         @if($hasAgencyPhone && $canEditAgency)
@@ -415,12 +428,16 @@
                                 <tr>
                                     <th>Địa chỉ đại lý:</th>
                                     <td data-agency="agency_address">
-                                        <span class="text-value">{{ $agency->address ?? '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyAddressValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->address ?? null) : null;
+                                            $agencyAddressValue = $agencyAddressValue ?? $installationOrder->agency_address ?? $data->order->agency_address ?? $data->agency_address ?? ($shouldLoadFromAgency ? ($agency->address ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyAddressValue }}</span>
+                                        @php
+                                            $hasAgencyAddress = !empty($agencyAddressValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyAddress && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -430,12 +447,16 @@
                                 <tr>
                                     <th>Chủ tài khoản ngân hàng:</th>
                                     <td data-agency="bank_account">
-                                        <span class="text-value">{{ $agency->bank_account ?? '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyBankAccountValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->bank_account ?? null) : null;
+                                            $agencyBankAccountValue = $agencyBankAccountValue ?? $installationOrder->bank_account ?? $data->order->bank_account ?? $data->bank_account ?? ($shouldLoadFromAgency ? ($agency->bank_account ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyBankAccountValue }}</span>
+                                        @php
+                                            $hasAgencyBankAccount = !empty($agencyBankAccountValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyBankAccount && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -445,13 +466,17 @@
                                 <tr>
                                     <th>Ngân hàng:</th>
                                     <td data-agency="agency_bank">
-                                        <span class="text-value">{{ $agency->bank_name_agency ?? $agency->nganhang ?? '' }}</span>
+                                        @php
+                                            $agencyBankValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->bank_name_agency ?? null) : null;
+                                            $agencyBankValue = $agencyBankValue ?? $installationOrder->agency_bank ?? $data->order->agency_bank ?? $data->agency_bank ?? ($shouldLoadFromAgency ? ($agency->bank_name_agency ?? $agency->nganhang ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyBankValue }}</span>
                                         <img class="bank-logo ms-2" alt="logo ngân hàng" style="height:45px; display:none;"/>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $hasAgencyBank = !empty($agencyBankValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyBank && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -461,12 +486,16 @@
                                 <tr>
                                     <th>Số tài khoản:</th>
                                     <td data-agency="agency_paynumber">
-                                        <span class="text-value">{{ $agency->sotaikhoan ?? '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyPaynumberValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->sotaikhoan ?? null) : null;
+                                            $agencyPaynumberValue = $agencyPaynumberValue ?? $installationOrder->agency_paynumber ?? $data->order->agency_paynumber ?? $data->agency_paynumber ?? ($shouldLoadFromAgency ? ($agency->sotaikhoan ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyPaynumberValue }}</span>
+                                        @php
+                                            $hasAgencyPaynumber = !empty($agencyPaynumberValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyPaynumber && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -476,12 +505,16 @@
                                 <tr>
                                     <th>Chi nhánh:</th>
                                     <td data-agency="agency_branch">
-                                        <span class="text-value">{{ $agency->chinhanh ?? '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyBranchValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->chinhanh ?? null) : null;
+                                            $agencyBranchValue = $agencyBranchValue ?? $installationOrder->agency_branch ?? $data->order->agency_branch ?? $data->agency_branch ?? ($shouldLoadFromAgency ? ($agency->chinhanh ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyBranchValue }}</span>
+                                        @php
+                                            $hasAgencyBranch = !empty($agencyBranchValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyBranch && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -491,12 +524,16 @@
                                 <tr>
                                     <th>Căn cước công dân:</th>
                                     <td data-agency="agency_cccd">
-                                        <span class="text-value">{{ $agency->cccd ?? '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyCccdValue = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->cccd ?? null) : null;
+                                            $agencyCccdValue = $agencyCccdValue ?? $installationOrder->agency_cccd ?? $data->order->agency_cccd ?? $data->agency_cccd ?? ($shouldLoadFromAgency ? ($agency->cccd ?? '') : '');
+                                        @endphp
+                                        <span class="text-value">{{ $agencyCccdValue }}</span>
+                                        @php
+                                            $hasAgencyCccd = !empty($agencyCccdValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyCccd && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -506,12 +543,17 @@
                                 <tr>
                                     <th>Ngày cấp:</th>
                                     <td data-agency="agency_release_date">
-                                        <span class="text-value">{{ optional($agency)->ngaycap ? \Carbon\Carbon::parse($agency->ngaycap)->format('d/m/Y') : '' }}</span>
                                         @php
-                                            $hasAgencyData = !empty($data->order->agency_phone ?? $data->agency_phone);
+                                            $agencyReleaseDate = $shouldLoadFromRequestAgency ? ($requestAgencyAgency->ngaycap ?? null) : null;
+                                            $agencyReleaseDate = $agencyReleaseDate ?? $installationOrder->agency_release_date ?? $data->order->agency_release_date ?? $data->agency_release_date ?? ($shouldLoadFromAgency ? ($agency->ngaycap ?? '') : '');
+                                            $agencyReleaseDateFormatted = $agencyReleaseDate ? (is_string($agencyReleaseDate) ? \Carbon\Carbon::parse($agencyReleaseDate)->format('d/m/Y') : '') : '';
+                                        @endphp
+                                        <span class="text-value">{{ $agencyReleaseDateFormatted }}</span>
+                                        @php
+                                            $hasAgencyReleaseDate = !empty($agencyReleaseDate);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyData && $canEditAgency)
+                                        @if($hasAgencyReleaseDate && $canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -1067,6 +1109,7 @@
                     let agencyPhone = $requestAgencyData.data('agency-phone') || '';
                     let agencyAddress = $requestAgencyData.data('agency-address') || '';
                     let agencyBank = $requestAgencyData.data('agency-bank') || '';
+                    let agencyBankAccount = $requestAgencyData.data('agency-bank-account') || '';
                     let agencyPayNumber = $requestAgencyData.data('agency-paynumber') || '';
                     let agencyBranch = $requestAgencyData.data('agency-branch') || '';
                     let agencyCccd = $requestAgencyData.data('agency-cccd') || '';
@@ -1105,6 +1148,13 @@
                         let currentAgencyBank = $("td[data-agency='agency_bank'] .text-value").text().trim();
                         if (agencyBank !== currentAgencyBank) {
                             $("td[data-agency='agency_bank'] .text-value").text(agencyBank);
+                            hasChanges = true;
+                        }
+                    }
+                    if (agencyBankAccount) {
+                        let currentAgencyBankAccount = $("td[data-agency='bank_account'] .text-value").text().trim();
+                        if (agencyBankAccount !== currentAgencyBankAccount) {
+                            $("td[data-agency='bank_account'] .text-value").text(agencyBankAccount);
                             hasChanges = true;
                         }
                     }
@@ -1210,36 +1260,77 @@
 
         // Khi trang load, nếu đã tích "Đại lý lắp đặt" và có request_agency, điền thông tin
         // LOGIC: Tự động điền thông tin từ request_agency khi đã tích checkbox
+        // CHỈ load từ request_agency nếu requestAgencyType != '0' hoặc checkbox đã được tích
         if ($("#isInstallAgency").is(":checked")) {
             // Hiển thị icon chỉnh sửa cho các trường đại lý
             $(".agency-edit-icon").show();
             
             let $requestAgencyData = $("#request_agency_data");
             if ($requestAgencyData.length) {
-                let agencyName = $requestAgencyData.data('agency-name') || '';
-                let agencyPhone = $requestAgencyData.data('agency-phone') || '';
-                let installationAddress = $requestAgencyData.data('installation-address') || '';
-                let productName = $requestAgencyData.data('product-name') || '';
+                let agencyType = $requestAgencyData.data('agency-type') || '';
+                // Chỉ load từ request_agency nếu không phải đại lý tự lắp đặt (type != '0') hoặc checkbox đã được tích
+                let shouldLoadFromRequestAgency = (agencyType !== '0') || $("#isInstallAgency").is(":checked");
                 
-                // Cập nhật thông tin đại lý (ưu tiên từ request_agency)
-                if (agencyName) {
-                    $("td[data-agency='agency_name'] .text-value").text(agencyName);
-                }
-                if (agencyPhone) {
-                    $("td[data-agency='agency_phone'] .text-value").text(agencyPhone);
-                }
-                
-                // Cập nhật địa chỉ lắp đặt
-                // TRÁNH nhân đôi địa chỉ: dùng trực tiếp installationAddress
-                if (installationAddress) {
-                    let fullAddressText = installationAddress;
-                    $("td[data-field='customer_address'] .text-value").text(fullAddressText);
-                    $("#customer_address_full").val(fullAddressText);
-                }
-                
-                // Cập nhật tên sản phẩm
-                if (productName && $("#product_name").length) {
-                    $("#product_name").val(productName);
+                if (shouldLoadFromRequestAgency) {
+                    let agencyName = $requestAgencyData.data('agency-name') || '';
+                    let agencyPhone = $requestAgencyData.data('agency-phone') || '';
+                    let agencyAddress = $requestAgencyData.data('agency-address') || '';
+                    let agencyBank = $requestAgencyData.data('agency-bank') || '';
+                    let agencyBankAccount = $requestAgencyData.data('agency-bank-account') || '';
+                    let agencyPayNumber = $requestAgencyData.data('agency-paynumber') || '';
+                    let agencyBranch = $requestAgencyData.data('agency-branch') || '';
+                    let agencyCccd = $requestAgencyData.data('agency-cccd') || '';
+                    let agencyReleaseDate = $requestAgencyData.data('agency-release-date') || '';
+                    let installationAddress = $requestAgencyData.data('installation-address') || '';
+                    let productName = $requestAgencyData.data('product-name') || '';
+                    
+                    // Cập nhật thông tin đại lý (ưu tiên từ request_agency)
+                    if (agencyName) {
+                        $("td[data-agency='agency_name'] .text-value").text(agencyName);
+                    }
+                    if (agencyPhone) {
+                        $("td[data-agency='agency_phone'] .text-value").text(agencyPhone);
+                    }
+                    if (agencyAddress) {
+                        $("td[data-agency='agency_address'] .text-value").text(agencyAddress);
+                    }
+                    if (agencyBankAccount) {
+                        $("td[data-agency='bank_account'] .text-value").text(agencyBankAccount);
+                    }
+                    if (agencyBank) {
+                        $("td[data-agency='agency_bank'] .text-value").text(agencyBank);
+                    }
+                    if (agencyPayNumber) {
+                        $("td[data-agency='agency_paynumber'] .text-value").text(agencyPayNumber);
+                    }
+                    if (agencyBranch) {
+                        $("td[data-agency='agency_branch'] .text-value").text(agencyBranch);
+                    }
+                    if (agencyCccd) {
+                        $("td[data-agency='agency_cccd'] .text-value").text(agencyCccd);
+                    }
+                    if (agencyReleaseDate) {
+                        // Format ngày từ YYYY-MM-DD sang dd/mm/YYYY
+                        let formattedReleaseDate = agencyReleaseDate;
+                        if (agencyReleaseDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            let parts = agencyReleaseDate.split('-');
+                            formattedReleaseDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        }
+                        $("td[data-agency='agency_release_date'] .text-value").text(formattedReleaseDate);
+                    }
+                    
+                    // Cập nhật địa chỉ lắp đặt
+                    // TRÁNH nhân đôi địa chỉ: dùng trực tiếp installationAddress
+                    if (installationAddress) {
+                        let fullAddressText = installationAddress;
+                        $("td[data-field='customer_address'] .text-value").text(fullAddressText);
+                        $("#customer_address_full").val(fullAddressText);
+                    }
+                    
+                    // Cập nhật tên sản phẩm
+                    if (productName && $("#product_name").length) {
+                        $("#product_name").val(productName);
+                    }
                 }
             }
             
