@@ -36,6 +36,10 @@
         background-color: #0DCAEF;
         color: #fff;
     }
+    .status-cho_kiem_tra {
+        background-color: #17a2b8;
+        color: #fff;
+    }
     /* Đảm bảo cột trạng thái không bị vỡ */
     table th:nth-child(11),
     table td:nth-child(11) {
@@ -193,6 +197,12 @@
             <a class="nav-link {{ request('status') == 'da_thanh_toan' ? 'active' : '' }}" 
                 href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'da_thanh_toan'])) }}">
                 Đã thanh toán <span class="badge bg-secondary">({{ $counts['da_thanh_toan'] }})</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {{ request('status') == 'cho_kiem_tra' ? 'active' : '' }}" 
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'cho_kiem_tra'])) }}">
+                Chờ kiểm tra <span class="badge bg-info">({{ $counts['cho_kiem_tra'] }})</span>
             </a>
         </li>
     </ul>

@@ -172,6 +172,7 @@ class RequestAgencyController extends Controller
             'da_dieu_phoi' => RequestAgency::where('status', RequestAgency::STATUS_DA_DIEU_PHOI)->count(),
             'hoan_thanh' => RequestAgency::where('status', RequestAgency::STATUS_HOAN_THANH)->count(),
             'da_thanh_toan' => RequestAgency::where('status', RequestAgency::STATUS_DA_THANH_TOAN)->count(),
+            'cho_kiem_tra' => RequestAgency::where('status', RequestAgency::STATUS_CHO_KIEM_TRA)->count(),
         ];
 
         $hasFirstTimePendingAgencies = RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)

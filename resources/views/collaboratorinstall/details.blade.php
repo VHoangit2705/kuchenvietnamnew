@@ -573,6 +573,37 @@
                                                 Đại lý lắp đặt
                                             </label>
                                         </div>
+                                        @if(isset($allRequestAgencies) && $allRequestAgencies->count() > 1)
+                                        <div class="alert alert-info mt-2 mb-0" id="multiple-agencies-alert" style="display: {{ $isAgencyInstall ? 'block' : 'none' }};">
+                                            <strong><i class="bi bi-info-circle me-2"></i>Có {{ $allRequestAgencies->count() }} đại lý gửi yêu cầu cho đơn hàng này:</strong>
+                                            <ul class="mb-0 mt-2">
+                                                @foreach($allRequestAgencies as $index => $reqAgency)
+                                                    @php
+                                                        $reqAgencyAgency = $reqAgency->agency ?? null;
+                                                        $isFirst = $index === 0;
+                                                        $statusBadge = match($reqAgency->status) {
+                                                            \App\Models\KyThuat\RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY => 'bg-secondary',
+                                                            \App\Models\KyThuat\RequestAgency::STATUS_DA_XAC_NHAN_AGENCY => 'bg-warning',
+                                                            \App\Models\KyThuat\RequestAgency::STATUS_CHO_KIEM_TRA => 'bg-info',
+                                                            default => 'bg-secondary'
+                                                        };
+                                                    @endphp
+                                                    <li class="mb-1">
+                                                        <strong>{{ $isFirst ? '✓ ' : '' }}{{ $reqAgencyAgency->name ?? 'N/A' }}</strong> 
+                                                        ({{ $reqAgencyAgency->phone ?? 'N/A' }})
+                                                        - <span class="badge {{ $statusBadge }}">{{ $reqAgency->status_name }}</span>
+                                                        @if($isFirst)
+                                                            <span class="text-success">(Đại lý đầu tiên - Đang sử dụng)</span>
+                                                        @elseif($reqAgency->status === \App\Models\KyThuat\RequestAgency::STATUS_CHO_KIEM_TRA)
+                                                            <span class="text-info">(Chờ kiểm tra)</span>
+                                                        @endif
+                                                        <br>
+                                                        <small class="text-muted">Yêu cầu lúc: {{ $reqAgency->created_at->format('d/m/Y H:i') }}</small>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr class="installCostRow" style="display: none;">
@@ -1092,6 +1123,15 @@
             // NÂNG CẤP: Xóa tất cả cờ lỗi và chạy lại validation
             validationErrors = {};
             $('.validation-error').remove();
+            
+            // Hiển thị/ẩn thông báo nhiều đại lý
+            if ($("#multiple-agencies-alert").length) {
+                if ($(this).is(":checked")) {
+                    $("#multiple-agencies-alert").slideDown();
+                } else {
+                    $("#multiple-agencies-alert").slideUp();
+                }
+            }
             
             if ($(this).is(":checked")) {
                 // Clear các trường CTV (không lưu giá trị hiện tại)
