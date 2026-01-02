@@ -90,8 +90,18 @@
                         <a href="#" id="toggleFormUser">Thêm tài khoản mới</a>
                         <div class="d-none mt-3" id="formCreateUser">
                             <div class="mb-2">
-                                <label class="form-label" for="full_name">Tên đẩy đủ <span class="text-danger">*</span></label>
-                                <input type="text" class="error form-control" name="full_name" id="full_name" placeholder="Tên tài khoản">
+                                <label class="form-label" for="username">Tên đăng nhập <span class="text-danger">*</span></label>
+                                <input type="text" class="error form-control" name="username" id="username" placeholder="Tên đăng nhập">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label" for="email">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="error form-control" name="email" id="email" placeholder="Email">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label" for="full_name">Tên đầy đủ <span class="text-danger">*</span></label>
+                                <input type="text" class="error form-control" name="full_name" id="full_name" placeholder="Tên đầy đủ">
                             </div>
                             <div class="mb-2">
                                 <label class="form-label" for="password">Mật khẩu <span class="text-danger">*</span></label>
@@ -99,7 +109,7 @@
                             </div>
                             <div class="mb-2">
                                 <label class="form-label" for="repassword">Xác nhận mật khẩu <span class="text-danger">*</span></label>
-                                <input type="password" class="error form-control" name="repassword" id="repassword" placeholder="Mật khẩu">
+                                <input type="password" class="error form-control" name="repassword" id="repassword" placeholder="Xác nhận mật khẩu">
                             </div>
                             <div class="mb-2">
                                 <label class="form-label" for="zone">Chi nhánh <span class="text-danger">*</span></label>
@@ -185,38 +195,89 @@
             icon.classList.toggle('fa-minus');
         }
 
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
         function Validate() {
+            $username = $('#username').val().trim();
+            $email = $('#email').val().trim();
             $full_name = $('#full_name').val().trim();
             $password = $('#password').val().trim();
             $repassword = $('#repassword').val().trim();
             $zone = $('#zone').val().trim();
             $('.error').removeClass('is-invalid');
+            $('.invalid-feedback').text('');
             let isvalid = true;
+            
+            if (!$username) {
+                $('#username').addClass('is-invalid');
+                $('#username').next('.invalid-feedback').text('Vui lòng nhập tên đăng nhập.');
+                if (isvalid) $('#username').focus();
+                isvalid = false;
+            } else {
+                // Validate username: không được có dấu tiếng Việt và không được có dấu cách
+                // Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-)
+                const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                if (!usernameRegex.test($username)) {
+                    $('#username').addClass('is-invalid');
+                    $('#username').next('.invalid-feedback').text('Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).');
+                    if (isvalid) $('#username').focus();
+                    isvalid = false;
+                }
+            }
+            
+            if (!$email) {
+                $('#email').addClass('is-invalid');
+                $('#email').next('.invalid-feedback').text('Vui lòng nhập email.');
+                if (isvalid) $('#email').focus();
+                isvalid = false;
+            } else {
+                // Validate email format using the provided function
+                if (!validateEmail($email)) {
+                    $('#email').addClass('is-invalid');
+                    $('#email').next('.invalid-feedback').text('Email không đúng định dạng.');
+                    if (isvalid) $('#email').focus();
+                    isvalid = false;
+                }
+            }
+            
             if (!$full_name) {
                 $('#full_name').addClass('is-invalid');
-                $('#full_name').focus();
+                if (isvalid) $('#full_name').focus();
                 isvalid = false;
             }
+            
             if (!$password) {
                 $('#password').addClass('is-invalid');
-                $('#password').focus();
+                if (isvalid) $('#password').focus();
+                isvalid = false;
+            } else if ($password.length < 6) {
+                $('#password').addClass('is-invalid');
+                if (isvalid) $('#password').focus();
                 isvalid = false;
             }
+            
             if (!$repassword) {
                 $('#repassword').addClass('is-invalid');
-                $('#repassword').focus();
+                if (isvalid) $('#repassword').focus();
                 isvalid = false;
             }
-            if (!$zone) {
-                $('#zone').addClass('is-invalid');
-                $('#zone').focus();
-                isvalid = false;
-            }
-            if ($password !== $repassword) {
+            
+            if ($password && $repassword && $password !== $repassword) {
                 $('#password').addClass('is-invalid');
                 $('#repassword').addClass('is-invalid');
-                $('#password').focus();
+                if (isvalid) $('#password').focus();
+                isvalid = false;
             }
+            
+            if (!$zone) {
+                $('#zone').addClass('is-invalid');
+                if (isvalid) $('#zone').focus();
+                isvalid = false;
+            }
+            
             return isvalid;
         }
 
@@ -265,6 +326,50 @@
             $('#toggleFormUser').on('click', function(e) {
                 e.preventDefault();
                 $('#formCreateUser').toggleClass('d-none');
+                // Reset validation khi ẩn/hiện form
+                if (!$('#formCreateUser').hasClass('d-none')) {
+                    $('.error').removeClass('is-invalid');
+                    $('.invalid-feedback').text('');
+                }
+            });
+
+            // Real-time validation for username
+            $('#username').on('input', function() {
+                const $username = $(this);
+                const username = $username.val().trim();
+                const $feedback = $username.next('.invalid-feedback');
+                $username.removeClass('is-invalid');
+                $feedback.text('');
+                
+                if (username) {
+                    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+                    if (!usernameRegex.test(username)) {
+                        $username.addClass('is-invalid');
+                        $feedback.text('Tên đăng nhập không được chứa dấu tiếng Việt và không được có dấu cách. Chỉ cho phép chữ cái, số, dấu gạch dưới (_) và dấu gạch ngang (-).');
+                    }
+                } else {
+                    $username.removeClass('is-invalid');
+                    $feedback.text('');
+                }
+            });
+
+            // Real-time validation for email
+            $('#email').on('input', function() {
+                const $email = $(this);
+                const email = $email.val().trim();
+                const $feedback = $email.next('.invalid-feedback');
+                $email.removeClass('is-invalid');
+                $feedback.text('');
+                
+                if (email) {
+                    if (!validateEmail(email)) {
+                        $email.addClass('is-invalid');
+                        $feedback.text('Email không đúng định dạng.');
+                    }
+                } else {
+                    $email.removeClass('is-invalid');
+                    $feedback.text('');
+                }
             });
 
             // Xử lý khi dropdown user thay đổi
@@ -283,17 +388,27 @@
             $('#btnCreateUser').on('click', function(e) {
                 e.preventDefault();
                 if (!Validate()) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi validation!',
+                        text: 'Vui lòng kiểm tra lại các trường bắt buộc và định dạng email.',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
+                const username = $('#username').val().trim();
+                const email = $('#email').val().trim();
                 const full_name = $('#full_name').val().trim();
                 const password = $('#password').val().trim();
                 const repassword = $('#repassword').val().trim();
                 const zone = $('#zone').val().trim();
-                debugger;
+                
                 $.ajax({
                     url: '{{ route("roles.createuser") }}',
                     method: 'POST',
                     data: {
+                        username: username,
+                        email: email,
                         full_name: full_name,
                         password: password,
                         zone: zone,
@@ -334,10 +449,52 @@
                                 });
                                 return;
                             }
+                            
+                            // Xử lý lỗi validation
+                            let errorMessage = 'Đã xảy ra lỗi khi tạo tài khoản';
+                            if (xhr.responseJSON) {
+                                if (xhr.responseJSON.message) {
+                                    errorMessage = xhr.responseJSON.message;
+                                } else if (xhr.responseJSON.errors) {
+                                    // Hiển thị tất cả lỗi validation
+                                    const errors = xhr.responseJSON.errors;
+                                    const errorList = Object.keys(errors).map(key => errors[key][0]).join('\n');
+                                    errorMessage = errorList || errorMessage;
+                                }
+                            }
+                            
+                            // Highlight các trường bị lỗi và hiển thị thông báo
+                            if (xhr.responseJSON && xhr.responseJSON.errors) {
+                                const errors = xhr.responseJSON.errors;
+                                $('.error').removeClass('is-invalid');
+                                $('.invalid-feedback').text('');
+                                
+                                if (errors.username) {
+                                    $('#username').addClass('is-invalid');
+                                    $('#username').next('.invalid-feedback').text(errors.username[0]);
+                                }
+                                if (errors.email) {
+                                    $('#email').addClass('is-invalid');
+                                    $('#email').next('.invalid-feedback').text(errors.email[0]);
+                                }
+                                if (errors.full_name) {
+                                    $('#full_name').addClass('is-invalid');
+                                    $('#full_name').next('.invalid-feedback').text(errors.full_name[0]);
+                                }
+                                if (errors.password) {
+                                    $('#password').addClass('is-invalid');
+                                    $('#password').next('.invalid-feedback').text(errors.password[0]);
+                                }
+                                if (errors.zone) {
+                                    $('#zone').addClass('is-invalid');
+                                    $('#zone').next('.invalid-feedback').text(errors.zone[0]);
+                                }
+                            }
+                            
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Lỗi!',
-                                text: 'Đã xảy ra lỗi khi tạo tài khoản',
+                                text: errorMessage,
                                 confirmButtonText: 'OK'
                             });
                     }

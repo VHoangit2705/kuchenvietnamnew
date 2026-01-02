@@ -13,10 +13,20 @@ use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\RequestAgencyController;
+use App\Http\Controllers\UserAgencyController;
+use App\Http\Middleware\CheckBrandSession;
+use App\Http\Middleware\CheckCookieLogin;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
+
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
 
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
@@ -39,14 +49,19 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/chitiet/{id}', [WarrantyController::class, 'Details'])->name("warranty.detail");
     Route::post('/baohanh/chitiet/capnhat', [WarrantyController::class, 'UpdateDetail'])->name("warranty.updatedetail");
     Route::post('/baohanh/chitiet/xoa', [WarrantyController::class, 'DeleteDetail'])->name("warranty.delete");
+    Route::post('/baohanh/congsuachua', [WarrantyController::class, 'saveRepairJob'])->name('warranty.repairjobs.save');
+    Route::get('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'showRepairJob'])->name('warranty.repairjobs.show');
+    Route::delete('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'deleteRepairJob'])->name('warranty.repairjobs.delete');
     Route::post('/baohanh/chitiet/capnhatseri', [WarrantyController::class, 'UpdateSerial'])->name("warranty.updateserial");
     Route::post('/baohanh/chitiet/uploadphoto', [WarrantyController::class, 'UploadPhoto'])->name('photo.upload');  // tải ảnh lên
     Route::post('/baohanh/chitiet/uploadvideo', [WarrantyController::class, 'UploadVideo'])->name('video.upload');  // tải video lên
     Route::get('/baohanh/phieuin/{id}', [WarrantyController::class, 'GeneratePdf'])->name('warranty.pdf');
     Route::get('/baohanh/dowloadpdf/{id}', [WarrantyController::class, 'DowloadPdf'])->name('warranty.dowloadpdf');
+    Route::get('/baohanh/qr/{id}', [WarrantyController::class, 'GetPaymentQr'])->name('warranty.qr');
     Route::get('/baohanh/request/{id}', [WarrantyController::class, 'Request'])->name('warranty.request');
     Route::get('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'CheckWarranty'])->name("warranty.check");
     Route::post('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'FindWarranty'])->name("warranty.find"); // tra cứu
+    Route::post('/baohanh/kiemtrabaohanh/order', [WarrantyController::class, 'FindWarrantyByOrderCode'])->name("warranty.findbyorder"); // tra cứu theo mã đơn hàng
     Route::post('/baohanh/kiemtranhanh', [WarrantyController::class, 'FindWarrantyQR'])->name("warranty.findqr"); // tra cứu qr
     Route::post('/baohanh/kiemtrabaohanhold', [WarrantyController::class, 'findWarantyOld'])->name("warranty.findold");
     Route::match(['GET', 'POST'], '/baohanh/phieubaohanh', [WarrantyController::class, 'FormWarrantyCard'])->name('warranty.formcard');
@@ -55,6 +70,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/themanhsanpham', [WarrantyController::class, 'TakePhotoWarranty'])->name("warranty.takephoto");
     Route::post('/baohanh/savemedia', [WarrantyController::class, 'StoreMedia'])->name('warranty.storemedia');
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
+    //Cảnh báo khóa nhập hộ ca bảo hành
+    Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
+    Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');
+    Route::post('/baohanh/anomaly-alerts/{id}/resolve', [WarrantyController::class, 'resolveAnomalyAlert'])->name('warranty.anomaly.resolve');
+    Route::post('/baohanh/anomaly-alerts/{id}/unblock', [WarrantyController::class, 'unblockStaff'])->name('warranty.anomaly.unblock');
+    Route::delete('/baohanh/anomaly-alerts/{id}', [WarrantyController::class, 'deleteAnomalyAlert'])->name('warranty.anomaly.delete');
 });
 
 // Collaborator
@@ -119,6 +140,26 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/phanquyennhom', [PermissionController::class, 'IndexRole'])->name('permission.roles');
     Route::get('/admin/phanquyennhom/chinhsua/{manhom}', [PermissionController::class, 'Detail'])->name('permission.detail');
     Route::delete('/admin/phanquyennhom/xoa/{id}', [PermissionController::class, 'Delete'])->name('permission.delete');
+});
+
+// Request Agency (Yêu cầu lắp đặt đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    // Quản lý xác nhận đại lý lần đầu - Phải đặt trước resource để tránh conflict
+    Route::get('/requestagency/manage-agencies', [RequestAgencyController::class, 'manageAgencies'])->name('requestagency.manage-agencies');
+    Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
+    Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
+    Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
+    
+    // Resource routes
+    Route::resource('requestagency', RequestAgencyController::class);
+    Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
+});
+
+// User Agency (Quản lý tài khoản đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    Route::post('/useragency/{id}/reset-password', [UserAgencyController::class, 'resetPassword'])->name('useragency.reset-password');
+    Route::post('/useragency/{id}/toggle-status', [UserAgencyController::class, 'toggleStatus'])->name('useragency.toggle-status');
+    Route::resource('useragency', UserAgencyController::class);
 });
 
 // hỗ trợ

@@ -9,6 +9,7 @@ namespace App\Models\Kho;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use App\Enum;
 use App\Models\KyThuat\WarrantyCollaborator;
 
 /**
@@ -106,7 +107,13 @@ class Order extends Model
 	
 	public function getCollaboratorAttribute()
 	{
-		return WarrantyCollaborator::on('mysql') 
-			->find($this->collaborator_id);
+		$collaboratorId = $this->collaborator_id;
+
+		if (empty($collaboratorId)) {
+			return null;
+		}
+
+		return WarrantyCollaborator::on('mysql')
+			->find($collaboratorId);
 	}
 }
