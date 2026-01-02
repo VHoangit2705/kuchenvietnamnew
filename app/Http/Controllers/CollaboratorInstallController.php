@@ -10,6 +10,7 @@ use App\Models\KyThuat\District;
 use App\Models\KyThuat\Wards;
 use App\Models\KyThuat\WarrantyCollaborator;
 use App\Models\KyThuat\WarrantyRequest;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -514,20 +515,48 @@ class CollaboratorInstallController extends Controller
         
         $requestAgency = null;
         $requestAgencyAgency = null;
+        $allRequestAgencies = collect([]);
+        
         if ($orderCode) {
-            $requestAgency = RequestAgency::where('order_code', $orderCode)
+            // Lấy tất cả các requestAgency cùng order_code và product_name
+            $allRequestAgencies = RequestAgency::where('order_code', $orderCode)
                 ->when($productName, function($q) use ($productName) {
                     $q->where(function($sub) use ($productName) {
                         $sub->whereNull('product_name')
                             ->orWhere('product_name', $productName);
                     });
                 })
-                ->whereIn('status', [
-                    RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY,
-                    RequestAgency::STATUS_DA_XAC_NHAN_AGENCY
-                ])
-                ->orderByDesc('created_at')
-                ->first();
+                ->orderBy('created_at', 'asc') // Sắp xếp theo thời gian tạo (sớm nhất trước)
+                ->get();
+            
+            // Logic tự động cập nhật status: Đại lý đầu tiên giữ nguyên, các đại lý sau -> cho_kiem_tra
+            if ($allRequestAgencies->count() > 1) {
+                $firstRequest = $allRequestAgencies->first();
+                $otherRequests = $allRequestAgencies->skip(1);
+                
+                // Cập nhật các đại lý sau thành "Chờ kiểm tra"
+                // Kể cả khi chúng đã có status "Đã xác nhận đại lý" (vì chúng không phải đại lý đầu tiên)
+                foreach ($otherRequests as $otherRequest) {
+                    // Chỉ cập nhật nếu status hiện tại chưa phải là các status đã xử lý hoàn toàn
+                    // (da_dieu_phoi, hoan_thanh, da_thanh_toan) - những status này không nên thay đổi
+                    // Nhưng nếu là "Đã xác nhận đại lý" (da_xac_nhan_daily) thì vẫn cập nhật thành "Chờ kiểm tra"
+                    // vì đây là yêu cầu gửi sau, không phải đại lý đầu tiên
+                    if (!in_array($otherRequest->status, [
+                        RequestAgency::STATUS_DA_DIEU_PHOI,
+                        RequestAgency::STATUS_HOAN_THANH,
+                        RequestAgency::STATUS_DA_THANH_TOAN
+                    ])) {
+                        // Cập nhật thành "Chờ kiểm tra" nếu chưa phải
+                        if ($otherRequest->status !== RequestAgency::STATUS_CHO_KIEM_TRA) {
+                            $otherRequest->status = RequestAgency::STATUS_CHO_KIEM_TRA;
+                            $otherRequest->save();
+                        }
+                    }
+                }
+            }
+            
+            // Lấy requestAgency đầu tiên (để tương thích với code cũ)
+            $requestAgency = $allRequestAgencies->first();
             
             if ($requestAgency) {
                 if (!empty($requestAgency->agency_id)) {
@@ -605,6 +634,7 @@ class CollaboratorInstallController extends Controller
             'order',
             'orderCode',
             'statusInstall',
+            'allRequestAgencies',
             'requestAgency',
             'requestAgencyAgency'
         ));
@@ -968,6 +998,8 @@ class CollaboratorInstallController extends Controller
             
             if ($newStatusInstall == 2 && $oldStatus != 2) {
                 $successedAt = $request->successed_at ?? $now;
+            } elseif ($newStatusInstall == 2 && $oldStatus == 2 && $request->filled('successed_at')) {
+                $successedAt = $request->successed_at;
             }
             
             if ($newStatusInstall == 3 && $oldStatus != 3) {
@@ -1114,6 +1146,12 @@ class CollaboratorInstallController extends Controller
                         $requestAgency->assigned_to = session('user', 'system');
                         $requestAgency->save();
                         
+                        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+                        NotificationService::sendStatusChangeNotification(
+                            $requestAgency,
+                            $oldRequestAgencyStatus,
+                            $newRequestAgencyStatus
+                        );
                     }
                 }
                 
