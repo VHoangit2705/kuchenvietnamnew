@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\KyThuat\RequestAgency;
 use App\Models\Kho\InstallationOrder;
 use App\Models\Kho\Agency;
+use App\Models\Kho\Order;
+use App\Models\Kho\OrderProduct;
+use App\Services\NotificationService;
 use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -53,11 +56,19 @@ class RequestAgencyController extends Controller
 
                 // Chỉ cập nhật nếu trạng thái khác nhau
                 if ($newStatus != $requestAgency->status) {
+                    $oldStatus = $requestAgency->status;
                     $requestAgency->status = $newStatus;
                     if (!$requestAgency->assigned_to) {
                         $requestAgency->assigned_to = session('user', 'system');
                     }
                     $requestAgency->save();
+                    
+                    // Gửi thông báo cho đại lý khi trạng thái thay đổi
+                    NotificationService::sendStatusChangeNotification(
+                        $requestAgency,
+                        $oldStatus,
+                        $newStatus
+                    );
                 }
             }
         }
@@ -161,6 +172,7 @@ class RequestAgencyController extends Controller
             'da_dieu_phoi' => RequestAgency::where('status', RequestAgency::STATUS_DA_DIEU_PHOI)->count(),
             'hoan_thanh' => RequestAgency::where('status', RequestAgency::STATUS_HOAN_THANH)->count(),
             'da_thanh_toan' => RequestAgency::where('status', RequestAgency::STATUS_DA_THANH_TOAN)->count(),
+            'cho_kiem_tra' => RequestAgency::where('status', RequestAgency::STATUS_CHO_KIEM_TRA)->count(),
         ];
 
         $hasFirstTimePendingAgencies = RequestAgency::where('status', RequestAgency::STATUS_CHUA_XAC_NHAN_AGENCY)
@@ -431,6 +443,9 @@ class RequestAgencyController extends Controller
             ], 422);
         }
 
+        // Lưu trạng thái cũ trước khi cập nhật
+        $oldStatus = $requestAgency->status;
+
         // Nếu chuyển sang trạng thái "đã xác nhận đại lý", tự động set received_at và received_by
         if ($request->status === RequestAgency::STATUS_DA_XAC_NHAN_AGENCY && !$requestAgency->received_at) {
             $requestAgency->received_at = now();
@@ -438,7 +453,20 @@ class RequestAgencyController extends Controller
         }
 
         $requestAgency->status = $request->status;
+        if ($request->has('collaborator_id')) {
+            $requestAgency->collaborator_id = $request->collaborator_id;
+        }
+
         $requestAgency->save();
+
+        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+        if ($oldStatus !== $requestAgency->status) {
+            NotificationService::sendStatusChangeNotification(
+                $requestAgency,
+                $oldStatus,
+                $requestAgency->status
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -566,6 +594,9 @@ class RequestAgencyController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        // Lưu trạng thái cũ trước khi cập nhật
+        $oldStatus = $requestAgency->status;
+
         // Cập nhật trạng thái và thông tin xác nhận
         $requestAgency->status = RequestAgency::STATUS_DA_XAC_NHAN_AGENCY;
         $requestAgency->received_at = now();
@@ -578,7 +609,81 @@ class RequestAgencyController extends Controller
         
         $requestAgency->save();
 
+        // Gửi thông báo cho đại lý khi trạng thái thay đổi
+        if ($oldStatus !== $requestAgency->status) {
+            NotificationService::sendStatusChangeNotification(
+                $requestAgency,
+                $oldStatus,
+                $requestAgency->status
+            );
+        }
+
         return redirect()->route('requestagency.manage-agencies')
             ->with('success', 'Xác nhận đại lý thành công!');
+    }
+
+    /**
+     * Tìm InstallationOrder từ order_code và product_name để chuyển đến trang chi tiết điều phối
+     */
+    public function findInstallationOrder(Request $request)
+    {
+        $orderCode = $request->input('order_code');
+        $productName = $request->input('product_name');
+
+        if (empty($orderCode)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã đơn hàng không được để trống'
+            ], 400);
+        }
+
+        // Tìm InstallationOrder theo order_code và product_name (nếu có)
+        $installationOrder = InstallationOrder::where('order_code', $orderCode)
+            ->when($productName, function($q) use ($productName) {
+                return $q->where('product', $productName);
+            })
+            ->first();
+
+        if ($installationOrder) {
+            // Tìm thấy InstallationOrder, trả về URL chi tiết
+            return response()->json([
+                'success' => true,
+                'url' => route('dieuphoi.detail', ['id' => $installationOrder->id, 'type' => ''])
+            ]);
+        }
+
+        // Không tìm thấy InstallationOrder, thử tìm Order hoặc OrderProduct
+        $order = Order::where('order_code2', $orderCode)
+            ->orWhere('order_code1', $orderCode)
+            ->first();
+
+        if ($order) {
+            // Tìm OrderProduct nếu có product_name
+            if ($productName) {
+                $orderProduct = OrderProduct::where('order_id', $order->id)
+                    ->where('product_name', $productName)
+                    ->where('install', 1)
+                    ->first();
+
+                if ($orderProduct) {
+                    return response()->json([
+                        'success' => true,
+                        'url' => route('dieuphoi.detail', ['id' => $orderProduct->id, 'type' => 'donhang'])
+                    ]);
+                }
+            }
+
+            // Nếu không có product_name hoặc không tìm thấy OrderProduct, trả về với order_id
+            return response()->json([
+                'success' => true,
+                'url' => route('dieuphoi.detail', ['id' => $order->id, 'type' => 'donhang'])
+            ]);
+        }
+
+        // Không tìm thấy gì cả
+        return response()->json([
+            'success' => false,
+            'message' => 'Không tìm thấy đơn hàng trong hệ thống điều phối'
+        ], 404);
     }
 }

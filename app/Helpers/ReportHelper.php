@@ -283,23 +283,43 @@ class ReportHelper
      */
     public static function addTotalRow($sheet, $row, $lastCol, $totalCost, $mergeColsBefore, $amountCol)
     {
-        // Total row
+        // ====== TỔNG CỘNG ======
         $mergeStart = Coordinate::stringFromColumnIndex(1);
-        $mergeEnd = Coordinate::stringFromColumnIndex($mergeColsBefore);
+        $mergeEnd   = Coordinate::stringFromColumnIndex($mergeColsBefore);
+
         $sheet->mergeCells("{$mergeStart}{$row}:{$mergeEnd}{$row}");
         $sheet->setCellValue("{$mergeStart}{$row}", 'TỔNG CỘNG');
-        $sheet->setCellValue("{$amountCol}{$row}", $totalCost);
-        $sheet->getStyle("{$mergeStart}{$row}:{$lastCol}{$row}")->getFont()->setName('Times New Roman')->setBold(true);
-        $sheet->getStyle("{$amountCol}{$row}")->getNumberFormat()->setFormatCode('#,##0');
+
+        // Ghi số tiền
+        $sheet->setCellValue("{$amountCol}{$row}", (int)$totalCost);
+        $sheet->getStyle("{$amountCol}{$row}")
+            ->getNumberFormat()
+            ->setFormatCode('#,##0');
+
+        $sheet->getStyle("{$mergeStart}{$row}:{$lastCol}{$row}")
+            ->getFont()
+            ->setName('Times New Roman')
+            ->setBold(true);
+
+        // Lưu lại vị trí cell tổng tiền
+        $totalCell = "{$amountCol}{$row}";
         $row++;
-        
-        // Amount in words
-        $amountInWords = self::numberToWords($totalCost);
+
+        // ====== BẰNG CHỮ (ĐỌC TỪ CELL EXCEL) ======
+        $excelTotalValue = (int) $sheet->getCell($totalCell)->getCalculatedValue();
+        $amountInWords   = self::numberToWords($excelTotalValue);
+
         $sheet->mergeCells("A{$row}:{$lastCol}{$row}");
-        $sheet->setCellValue("A{$row}", "Bằng chữ: $amountInWords");
-        $sheet->getStyle("A{$row}")->getFont()->setName('Times New Roman')->setBold(true)->setItalic(true);
+        $sheet->setCellValue("A{$row}", "Bằng chữ: {$amountInWords}");
+
+        $sheet->getStyle("A{$row}")
+            ->getFont()
+            ->setName('Times New Roman')
+            ->setBold(true)
+            ->setItalic(true);
+
         $row++;
-        
+
         return $row;
     }
 

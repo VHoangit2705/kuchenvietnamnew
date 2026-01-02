@@ -51,6 +51,7 @@ class WarrantyCollaborator extends Model
 		'avatar',
 		'created_at', // Sửa từ create_at thành created_at
 		'create_by',
+		'bank_account',
 		'bank_name',
 		'sotaikhoan',
 		'chinhanh',

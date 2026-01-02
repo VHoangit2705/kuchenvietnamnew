@@ -207,11 +207,27 @@
                                     </tr>
                                     <tr>
                                         <th>Tên khách hàng:</th>
-                                        <td>{{ $data->full_name }}</td>
+                                        <td data-type="full_name" data-id="{{ $data->id }}">
+                                            <span class="serial-text">{{ $data->full_name }}</span>
+                                            <input type="text" class="serial-input form-control form-control-sm d-none"
+                                                value="{{ $data->full_name }}"
+                                                style="width: 150px; display: inline-block;">
+                                            <img src="{{ asset('icons/pen.png') }}" alt="Chỉnh sửa tên khách hàng"
+                                                title="Chỉnh sửa tên khách hàng" class="edit-serial-icon"
+                                                style="height: 13px; cursor: pointer; margin-left: 5px;">
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Số điện thoại:</th>
-                                        <td>{{ $data->phone_number }}</td>
+                                        <td data-type="phone_number" data-id="{{ $data->id }}">
+                                            <span class="serial-text">{{ $data->phone_number }}</span>
+                                            <input type="text" class="serial-input form-control form-control-sm d-none"
+                                                value="{{ $data->phone_number }}"
+                                                style="width: 150px; display: inline-block;">
+                                            <img src="{{ asset('icons/pen.png') }}" alt="Chỉnh sửa số điện thoại"
+                                                title="Chỉnh sửa số điện thoại" class="edit-serial-icon"
+                                                style="height: 13px; cursor: pointer; margin-left: 5px;">
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Địa chỉ:</th>
@@ -1778,6 +1794,48 @@
             return true;
         }
 
+        // 5. Validate tên khách hàng (unicode letters, spaces, dot, comma, hyphen, apostrophe, max 100)
+        function validateFullName(input) {
+            const value = input.val();
+            hideError(input);
+            if (!value || value.trim() === '') {
+                showError(input, "Tên khách hàng không được để trống.");
+                return false;
+            }
+            if (value.length > 100) {
+                showError(input, "Tối đa 100 ký tự.");
+                return false;
+            }
+            // allow unicode letters, spaces, dot, comma, hyphen, apostrophe
+            const regex = /^[\p{L}\s\.,'\-]+$/u;
+            if (!regex.test(value)) {
+                showError(input, "Tên khách hàng chứa ký tự không hợp lệ.");
+                return false;
+            }
+            return true;
+        }
+
+        // 6. Validate số điện thoại (digits, spaces, +, -, 7-15 digits)
+        function validatePhoneNumber(input) {
+            const value = input.val();
+            hideError(input);
+            if (!value || value.trim() === '') {
+                showError(input, "Số điện thoại không được để trống.");
+                return false;
+            }
+            const regex = /^[0-9\s\+\-]+$/;
+            if (!regex.test(value)) {
+                showError(input, "Số điện thoại chỉ được gồm chữ số, khoảng trắng, '+' và '-'.");
+                return false;
+            }
+            const digits = value.replace(/\D/g, '');
+            if (digits.length < 7 || digits.length > 15) {
+                showError(input, "Số điện thoại không hợp lệ.");
+                return false;
+            }
+            return true;
+        }
+
         $(document).ready(function() {
             const componentList = {!! json_encode($linhkien) !!}; // view = 2
             const productList = {!! json_encode($sanpham) !!}; // view = 1 hoặc 3
@@ -2099,6 +2157,12 @@
                 case 'address':
                     isValid = validateAddress(input);
                     break;
+                case 'full_name':
+                    isValid = validateFullName(input);
+                    break;
+                case 'phone_number':
+                    isValid = validatePhoneNumber(input);
+                    break;
             }
         });
 
@@ -2124,6 +2188,12 @@
                     break;
                 case 'address':
                     isValid = validateAddress(input);
+                    break;
+                case 'full_name':
+                    isValid = validateFullName(input);
+                    break;
+                case 'phone_number':
+                    isValid = validatePhoneNumber(input);
                     break;
             }
 
