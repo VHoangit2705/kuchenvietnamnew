@@ -112,6 +112,9 @@
         $form.find('select').prop('selectedIndex', 0);
         $form.find('.error').text('');
         $form.find('.form-control').css('border-color', '');
+        $('#id').val(''); // Reset hidden id field
+        $('#tieude').text('Thêm mới cộng tác viên'); // Reset title
+        $('#hoantat').text('Thêm mới'); // Reset button text
         state.errors = {};
         updateSubmitButtonState();
     }
@@ -198,7 +201,13 @@
             district: $('#districtForm option:selected').text(),
             ward_id: $('#wardForm').val(),
             ward: $('#wardForm option:selected').text(),
-            address: $('#address').val().trim()
+            address: $('#address').val().trim(),
+            bank_account: $('#bank_account').val().trim(),
+            bank_name: $('#bank_name').val().trim(),
+            sotaikhoan: $('#sotaikhoan').val().trim(),
+            chinhanh: $('#chinhanh').val().trim(),
+            cccd: $('#cccd').val().trim(),
+            ngaycap: $('#ngaycap').val() || null
         };
 
         $.ajax({

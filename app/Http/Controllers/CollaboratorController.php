@@ -116,6 +116,12 @@ class CollaboratorController extends Controller
             'ward_id' => 'required',
             'ward' => 'required|string',
             'address' => 'required|string|max:1024',
+            'bank_account' => 'nullable|string|max:255',
+            'bank_name' => 'nullable|string|max:255',
+            'sotaikhoan' => 'nullable|string|max:255',
+            'chinhanh' => 'nullable|string|max:255',
+            'cccd' => 'nullable|string|max:20',
+            'ngaycap' => 'nullable|date',
         ]);
 
         $fullNameLower = mb_strtolower(trim($validated['full_name']));
@@ -141,6 +147,16 @@ class CollaboratorController extends Controller
         }
 
         $validated['create_by'] = session('user');
+        
+        // Set giá trị mặc định cho các trường mới nếu không có
+        $validated['bank_account'] = $request->input('bank_account', '');
+        $validated['bank_name'] = $request->input('bank_name', '');
+        $validated['sotaikhoan'] = $request->input('sotaikhoan', '');
+        $validated['chinhanh'] = $request->input('chinhanh', '');
+        $validated['cccd'] = $request->input('cccd', '');
+        $validated['ngaycap'] = $request->input('ngaycap', null);
+        $validated['created_at'] = $request->input('created_at', now());
+        
         if ($request->id) {
             WarrantyCollaborator::where('id', $request->id)->update($validated);
             return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);

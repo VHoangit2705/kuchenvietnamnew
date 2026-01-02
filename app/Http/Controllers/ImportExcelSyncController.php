@@ -571,6 +571,8 @@ class ImportExcelSyncController extends Controller
                                                             $collaborator->phone = $collabPhone;
                                                             $collaborator->sotaikhoan = $collabAccount;
                                                             $collaborator->chinhanh = $bank;
+                                                            $collaborator->bank_account = ''; // Set giá trị mặc định
+                                                            $collaborator->bank_name = ''; // Set giá trị mặc định
                                                             $collaborator->created_at = now();
                                                             $collaborator->save();
 

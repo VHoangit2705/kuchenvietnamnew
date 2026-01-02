@@ -78,6 +78,24 @@
         $('#provinceForm').val(item.province_id);
         $('#address').val(item.address);
         $('#id').val(item.id);
+        
+        // Populate các trường thông tin ngân hàng
+        $('#bank_account').val(item.bank_account || '');
+        $('#bank_name').val(item.bank_name || '');
+        $('#sotaikhoan').val(item.sotaikhoan || '');
+        $('#chinhanh').val(item.chinhanh || '');
+        
+        // Populate các trường CCCD/CMND
+        $('#cccd').val(item.cccd || '');
+        if (item.ngaycap) {
+            // Format ngày cấp nếu có
+            const ngaycap = window.CollaboratorShared && window.CollaboratorShared.formatDateToInput
+                ? window.CollaboratorShared.formatDateToInput(item.ngaycap)
+                : item.ngaycap;
+            $('#ngaycap').val(ngaycap);
+        } else {
+            $('#ngaycap').val('');
+        }
     }
 
     function registerEditHandler() {
