@@ -61,7 +61,6 @@
 </div>
 
 <script>
-
     // Biến toàn cục để theo dõi trạng thái lỗi của form
     let formValidationErrors = {};
     // Hàm hiển thị lỗi
@@ -98,7 +97,7 @@
         const $input = $('#full_nameForm');
         const name = $input.val().trim();
         const nameRegex = /^[a-zA-ZàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]*$/;
-        
+
         if (name.length === 0) {
             showFormError($input, "Trường này là bắt buộc.");
         } else if (name.length > 50) {
@@ -117,44 +116,35 @@
 
         if (phoneTrimmed.length === 0) {
             showFormError($input, "Trường này là bắt buộc.");
-        } 
-        else if (/\s/.test(phoneRaw)) {
+        } else if (/\s/.test(phoneRaw)) {
             showFormError($input, "Số điện thoại không được chứa dấu cách.");
-        }
-        else if (!/^\d+$/.test(phoneTrimmed)) {
+        } else if (!/^\d+$/.test(phoneTrimmed)) {
             showFormError($input, "Số điện thoại chỉ được chứa số.");
-        } 
-        else if (phoneTrimmed.length < 9 || phoneTrimmed.length > 10) {
+        } else if (phoneTrimmed.length < 9 || phoneTrimmed.length > 10) {
             showFormError($input, "Số điện thoại phải có từ 9 đến 10 chữ số.");
-        } 
-        else {
+        } else {
             hideFormError($input);
         }
     }
     // Hàm validate cho Địa chỉ
     function validateAddress() {
-        const $input = $('#address');
-        const address = $input.val().trim();
-        const addressRegex = /^[a-zA-Z0-9àáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s\.,\/-]*$/;
+        const i = $('#address'),
+            v = i.val().trim(),
+            r = /^[a-zA-Z0-9À-ỹ\s,]+$/;
 
-        if (address.length === 0) {
-            showFormError($input, "Trường này là bắt buộc.");
-        } else if (address.length > 80) {
-            showFormError($input, "Địa chỉ không được vượt quá 80 ký tự.");
-        } else if (!addressRegex.test(address)) {
-            // Sửa lại: chỉ kiểm tra regex nếu có nội dung
-            showFormError($input, "Địa chỉ chỉ chứa chữ, số và các ký tự .,-/");
-        } else {
-            // Chỉ ẩn lỗi khi tất cả điều kiện trên đều sai (tức là hợp lệ)
-            hideFormError($input);
-        }
+        if (!v) return showFormError(i, 'Trường này là bắt buộc.');
+        if (v.length > 80) return showFormError(i, 'Địa chỉ không được vượt quá 80 ký tự.');
+        if (!r.test(v)) return showFormError(i, 'Chỉ cho phép chữ, số, khoảng trắng và dấu phẩy (,).');
+
+        hideFormError(i);
     }
+
 
     // Hàm validate cho các trường select bắt buộc
     function validateSelectFields() {
         $('#formCreateCollaborator select[required]').each(function() {
             const $field = $(this);
-            
+
             // Nếu giá trị là rỗng (chưa chọn)
             if (!$field.val()) {
                 showFormError($field, "Trường này là bắt buộc.");
@@ -165,68 +155,68 @@
     }
 
     $(document).ready(function() {
-    
-    // Hàm validate các trường select bắt buộc (đã bỏ vì validate riêng từng trường đã xử lý)
+
+        // Hàm validate các trường select bắt buộc (đã bỏ vì validate riêng từng trường đã xử lý)
 
         $('#addCollaboratorModal').on('hidden.bs.modal', function() {
-        const $form = $('#formCreateCollaborator');
-        $form.find('input[type="text"], input[type="date"], input[type="number"], textarea').val('');
-        $form.find('select').prop('selectedIndex', 0);
-        $form.find('.error').text('');
-        // Reset lại border và trạng thái lỗi
-        $form.find('.form-control').css('border-color', '');
-        formValidationErrors = {};
-        updateSubmitButtonState();
-    });
+            const $form = $('#formCreateCollaborator');
+            $form.find('input[type="text"], input[type="date"], input[type="number"], textarea').val('');
+            $form.find('select').prop('selectedIndex', 0);
+            $form.find('.error').text('');
+            // Reset lại border và trạng thái lỗi
+            $form.find('.form-control').css('border-color', '');
+            formValidationErrors = {};
+            updateSubmitButtonState();
+        });
 
-    // Load combobox quận huyện
-    $('#provinceForm').on('change', function() {
-        let provinceId = $(this).val();
-        let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', provinceId);
-        if (provinceId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $district = $('#districtForm');
-                    $district.empty();
-                    $district.append('<option value="" disabled selected>Quận/Huyện</option>');
-                    data.forEach(function(item) {
-                        $district.append('<option value="' + item.district_id + '">' + item.name + '</option>');
-                    });
-                },
-                complete: function() {
-                    // Sau khi load xong quận/huyện, validate lại form
-                    validateSelectFields();
-                }
-            });
-        }
-    });
-    //load combobox xã phường
-    $('#districtForm').on('change', function() {
-        let districtId = $(this).val();
-        let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', districtId);
-        if (districtId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $ward = $('#wardForm');
-                    $ward.empty();
-                    $ward.append('<option value="" disabled selected>Xã/Phường</option>');
-                    data.forEach(function(item) {
-                        $ward.append('<option value="' + item.wards_id + '">' + item.name + '</option>');
-                    });
-                },
-                complete: function() {
-                    // Sau khi load xong xã/phường, validate lại form
-                    validateSelectFields();
-                }
-            });
-        }
-    });
+        // Load combobox quận huyện
+        $('#provinceForm').on('change', function() {
+            let provinceId = $(this).val();
+            let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', provinceId);
+            if (provinceId) {
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        let $district = $('#districtForm');
+                        $district.empty();
+                        $district.append('<option value="" disabled selected>Quận/Huyện</option>');
+                        data.forEach(function(item) {
+                            $district.append('<option value="' + item.district_id + '">' + item.name + '</option>');
+                        });
+                    },
+                    complete: function() {
+                        // Sau khi load xong quận/huyện, validate lại form
+                        validateSelectFields();
+                    }
+                });
+            }
+        });
+        //load combobox xã phường
+        $('#districtForm').on('change', function() {
+            let districtId = $(this).val();
+            let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', districtId);
+            if (districtId) {
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        let $ward = $('#wardForm');
+                        $ward.empty();
+                        $ward.append('<option value="" disabled selected>Xã/Phường</option>');
+                        data.forEach(function(item) {
+                            $ward.append('<option value="' + item.wards_id + '">' + item.name + '</option>');
+                        });
+                    },
+                    complete: function() {
+                        // Sau khi load xong xã/phường, validate lại form
+                        validateSelectFields();
+                    }
+                });
+            }
+        });
 
-    $('#hoantat').on('click', function(e) {
+        $('#hoantat').on('click', function(e) {
             e.preventDefault();
 
             // 1. Chạy tất cả các hàm validation một lần cuối
