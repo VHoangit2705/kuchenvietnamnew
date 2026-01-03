@@ -8,6 +8,7 @@ use App\Models\KyThuat\District;
 use App\Models\KyThuat\Wards;
 use Illuminate\Http\Request;
 use App\Models\Kho\Agency;
+use App\Models\KyThuat\RequestAgency;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\KyThuat\EditCtvHistory;
@@ -115,6 +116,12 @@ class CollaboratorController extends Controller
             'ward_id' => 'required',
             'ward' => 'required|string',
             'address' => 'required|string|max:1024',
+            'bank_account' => 'nullable|string|max:255',
+            'bank_name' => 'nullable|string|max:255',
+            'sotaikhoan' => 'nullable|string|max:255',
+            'chinhanh' => 'nullable|string|max:255',
+            'cccd' => 'nullable|string|max:20',
+            'ngaycap' => 'nullable|date',
         ]);
 
         $fullNameLower = mb_strtolower(trim($validated['full_name']));
@@ -140,6 +147,16 @@ class CollaboratorController extends Controller
         }
 
         $validated['create_by'] = session('user');
+        
+        // Set giá trị mặc định cho các trường mới nếu không có
+        $validated['bank_account'] = $request->input('bank_account', '');
+        $validated['bank_name'] = $request->input('bank_name', '');
+        $validated['sotaikhoan'] = $request->input('sotaikhoan', '');
+        $validated['chinhanh'] = $request->input('chinhanh', '');
+        $validated['cccd'] = $request->input('cccd', '');
+        $validated['ngaycap'] = $request->input('ngaycap', null);
+        $validated['created_at'] = $request->input('created_at', now());
+        
         if ($request->id) {
             WarrantyCollaborator::where('id', $request->id)->update($validated);
             return response()->json(['success' => true, 'message' => 'Cập nhật thành công']);
@@ -165,6 +182,7 @@ class CollaboratorController extends Controller
                 'id' => 'required|integer',
                 'sotaikhoan' => 'nullable|string|max:255',
                 'nganhang' => 'nullable|string|max:255',
+                'bank_account' => 'nullable|string|max:255',
                 'chinhanh' => 'nullable|string|max:255',
                 'cccd' => 'nullable|string|max:20',
                 'ngaycap' => 'nullable|date'
@@ -189,6 +207,7 @@ class CollaboratorController extends Controller
             $oldCollab = [
                 'sotaikhoan' => $collab->sotaikhoan,
                 'bank_name' => $collab->bank_name,
+                'bank_account' => $collab->bank_account ?? null,
                 'chinhanh' => $collab->chinhanh,
                 'cccd' => $collab->cccd,
                 'ngaycap' => $collab->ngaycap,
@@ -197,6 +216,7 @@ class CollaboratorController extends Controller
             $newData = [
                 'sotaikhoan' => $request->sotaikhoan,
                 'bank_name' => $request->nganhang,
+                'bank_account' => $request->bank_account ?? ($request->chutaikhoan ?? null),
                 'chinhanh' => $request->chinhanh,
                 'cccd' => $request->cccd,
                 'ngaycap' => $request->ngaycap
@@ -204,6 +224,9 @@ class CollaboratorController extends Controller
 
             $collab->sotaikhoan = $request->sotaikhoan;
             $collab->bank_name = $request->nganhang;
+            if ($request->filled('bank_account')) {
+                $collab->bank_account = $request->bank_account;
+            }
             $collab->chinhanh = $request->chinhanh;
             $collab->cccd = $request->cccd;
             $collab->ngaycap = $request->ngaycap;
@@ -229,12 +252,24 @@ class CollaboratorController extends Controller
                         [
                             'sotaikhoan' => $collab->sotaikhoan,
                             'bank_name' => $collab->bank_name,
+                            'bank_account' => $collab->bank_account ?? null,
                             'chinhanh' => $collab->chinhanh,
                             'cccd' => $collab->cccd,
                             'ngaycap' => $collab->ngaycap,
                         ],
                         'source: CollaboratorController@UpdateCollaborator'
                     );
+
+                    // Update related RequestAgency rows to reference this collaborator when dispatching
+                    try {
+                        RequestAgency::where(function($q) use ($orderCodeRaw, $orderCodeBase) {
+                            $q->where('order_code', $orderCodeRaw)
+                              ->orWhere('order_code', $orderCodeBase)
+                              ->orWhere('order_code', 'like', '%' . $orderCodeBase . '%');
+                        })->update(['collaborator_id' => $collab->id]);
+                    } catch (\Exception $ex) {
+                        Log::warning('Failed to update RequestAgency.collaborator_id: ' . $ex->getMessage());
+                    }
                 }
             }
 

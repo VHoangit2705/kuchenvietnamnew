@@ -335,7 +335,7 @@ class WarrantyController extends Controller
         ]);
 
         $quatrinh = WarrantyRequestDetail::getDetailsByRequestId($request->id);
-        if ($quatrinh->isEmpty() && ($request->status == 'Đã hoàn tất' || $request->status == 'Chờ KH phản hồi')) {
+        if ($quatrinh->isEmpty() && in_array($request->status, ['Đã hoàn tất', 'Chờ KH phản hồi'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa cập nhật quá trình bảo hành.'
@@ -821,6 +821,58 @@ class WarrantyController extends Controller
                             'success' => false,
                             'message' => "Chỉ cho phép chữ, số và các ký tự '().,-'",
                             'old_value' => $detail->address,
+                        ]);
+                    }
+                }
+                // Validate full name
+                if($type == 'full_name'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng không được để trống.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    if(strlen($value) > 100){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng tối đa 100 ký tự.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    // Allow letters (unicode), spaces, dot, comma, hyphen, apostrophe
+                    if(!preg_match('/^[\p{L}\s\.,\'\-]+$/u', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng chứa ký tự không hợp lệ.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                }
+                // Validate phone number
+                if($type == 'phone_number'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không được để trống.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // allow digits, spaces, +, -
+                    if(!preg_match('/^[0-9\s\+\-]+$/', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại chỉ được gồm chữ số, khoảng trắng, '+' và '-'.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // count digits only
+                    $digits = preg_replace('/\D+/', '', $value);
+                    if(strlen($digits) < 7 || strlen($digits) > 15){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không hợp lệ.",
+                            'old_value' => $detail->phone_number,
                         ]);
                     }
                 }

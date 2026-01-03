@@ -3,10 +3,18 @@
 @section('content')
 <style>
     .status-badge {
+        display: inline-block;
         padding: 4px 12px;
         border-radius: 12px;
         font-size: 12px;
         font-weight: 500;
+        white-space: nowrap;
+        text-align: center;
+        min-width: fit-content;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;
     }
     .status-chua_xac_nhan_daily {
         background-color: #ff0000;
@@ -27,6 +35,21 @@
     .status-da_thanh_toan {
         background-color: #0DCAEF;
         color: #fff;
+    }
+    .status-cho_kiem_tra {
+        background-color: #17a2b8;
+        color: #fff;
+    }
+    /* Đảm bảo cột trạng thái không bị vỡ */
+    table th:nth-child(11),
+    table td:nth-child(11) {
+        min-width: 150px;
+        max-width: 200px;
+        word-wrap: break-word;
+    }
+    table td:nth-child(11) {
+        text-align: center;
+        vertical-align: middle;
     }
     .nav-tabs .nav-link.active {
         background-color: #666666 !important;
@@ -176,6 +199,12 @@
                 Đã thanh toán <span class="badge bg-secondary">({{ $counts['da_thanh_toan'] }})</span>
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link {{ request('status') == 'cho_kiem_tra' ? 'active' : '' }}" 
+                href="{{ route('requestagency.index', array_merge(request()->except(['status','page']), ['status' => 'cho_kiem_tra'])) }}">
+                Chờ kiểm tra <span class="badge bg-info">({{ $counts['cho_kiem_tra'] }})</span>
+            </a>
+        </li>
     </ul>
 
     <!-- Bảng dữ liệu -->
@@ -190,11 +219,12 @@
                             <th style="min-width: 200px;">Tên sản phẩm</th>
                             <th style="min-width: 150px;">Khách hàng</th>
                             <th style="min-width: 100px;">SĐT</th>
-                            <th style="min-width: 200px;">Đại lý</th>
+                            <th style="min-width: 150px;">Đại lý</th>
                             <th style="min-width: 120px;">SĐT đại lý</th>
                             <th style="min-width: 120px;">CCCD đại lý</th>
                             <th style="min-width: 250px;">Địa chỉ lắp đặt</th>
-                            <th style="min-width: 120px;">Trạng thái</th>
+                            <th style="min-width: 150px;">Loại yêu cầu</th>
+                            <th style="min-width: 150px; text-align: center;">Trạng thái</th>
                             <th style="min-width: 100px;">Ngày tạo</th>
                             <th style="min-width: 50px;">Thao tác</th>
                         </tr>
@@ -204,7 +234,11 @@
                         <tr>
                             <td>{{ $requests->firstItem() + $index }}</td>
                             <td>
-                                <strong style="{{ isset($hasOtherAgencyFlags[$request->id]) && $hasOtherAgencyFlags[$request->id] ? 'background-color: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px;' : '' }}">
+                                <strong class="order-code-link" 
+                                    style="{{ isset($hasOtherAgencyFlags[$request->id]) && $hasOtherAgencyFlags[$request->id] ? 'background-color: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px; cursor: pointer;' : 'color: #0d6efd; cursor: pointer; text-decoration: underline;' }}"
+                                    data-order-code="{{ $request->order_code }}"
+                                    data-product-name="{{ $request->product_name }}"
+                                    title="Click để xem chi tiết trong điều phối">
                                     {{ $request->order_code }}
                                 </strong>
                             </td>
@@ -239,7 +273,10 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="status-badge status-{{ $request->status }}">
+                                {{ $request->type == 0 ? 'Đại lý tự lắp đặt' : ($request->type == 1 ? 'Kuchen cử nhân viên lắp đặt' : 'Yêu cầu đại lý') }}
+                            </td>
+                            <td style="text-align: center; vertical-align: middle;">
+                                <span class="status-badge status-{{ $request->status }}" title="{{ $request->status_name }}">
                                     {{ $request->status_name }}
                                 </span>
                             </td>
@@ -287,6 +324,77 @@
 </div>
 
 <script>
+    // Xử lý click vào mã đơn hàng để chuyển đến trang chi tiết điều phối
+    document.addEventListener('DOMContentLoaded', function() {
+        const orderCodeLinks = document.querySelectorAll('.order-code-link');
+        
+        orderCodeLinks.forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const orderCode = this.getAttribute('data-order-code');
+                const productName = this.getAttribute('data-product-name');
+                
+                // Hiển thị loading
+                const originalText = this.textContent;
+                const originalStyle = this.style.cssText;
+                this.textContent = 'Đang tìm...';
+                this.style.pointerEvents = 'none';
+                this.style.opacity = '0.6';
+                
+                // Gọi API để tìm InstallationOrder
+                const url = '{{ route("requestagency.find-installation-order") }}?order_code=' + 
+                           encodeURIComponent(orderCode) + 
+                           (productName ? '&product_name=' + encodeURIComponent(productName) : '');
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.url) {
+                            window.location.href = data.url;
+                        } else {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Thông báo',
+                                    text: data.message || 'Không tìm thấy đơn hàng trong hệ thống điều phối',
+                                    confirmButtonText: 'Đóng'
+                                }).then(() => {
+                                    this.textContent = originalText;
+                                    this.style.cssText = originalStyle;
+                                    this.style.pointerEvents = 'auto';
+                                });
+                            } else {
+                                alert(data.message || 'Không tìm thấy đơn hàng trong hệ thống điều phối');
+                                this.textContent = originalText;
+                                this.style.cssText = originalStyle;
+                                this.style.pointerEvents = 'auto';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi',
+                                text: 'Có lỗi xảy ra khi tìm kiếm đơn hàng',
+                                confirmButtonText: 'Đóng'
+                            }).then(() => {
+                                this.textContent = originalText;
+                                this.style.cssText = originalStyle;
+                                this.style.pointerEvents = 'auto';
+                            });
+                        } else {
+                            alert('Có lỗi xảy ra khi tìm kiếm đơn hàng');
+                            this.textContent = originalText;
+                            this.style.cssText = originalStyle;
+                            this.style.pointerEvents = 'auto';
+                        }
+                    });
+            });
+        });
+    });
+
     function deleteRequest(id) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({

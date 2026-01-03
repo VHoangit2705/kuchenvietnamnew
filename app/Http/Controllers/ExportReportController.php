@@ -156,7 +156,7 @@ class ExportReportController extends Controller
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('CTV TỔNG HỢP');
         
-        $columns2 = ['STT', 'HỌ VÀ TÊN', 'SỐ ĐIỆN THOẠI', 'ĐỊA CHỈ', 'SỐ TÀI KHOẢN CTV', 'NGÂN HÀNG - CHI NHÁNH', 'SỐ CA', 'SỐ TIỀN'];
+        $columns2 = ['STT', 'HỌ VÀ TÊN', 'SỐ ĐIỆN THOẠI', 'ĐỊA CHỈ', 'CHỦ TÀI KHOẢN', 'SỐ TÀI KHOẢN CTV', 'NGÂN HÀNG - CHI NHÁNH', 'SỐ CA', 'SỐ TIỀN'];
         $lastCol2 = Coordinate::stringFromColumnIndex(count($columns2));
         
         ReportHelper::setupSheetHeader(
@@ -201,16 +201,18 @@ class ExportReportController extends Controller
             
             $total = $items->sum('install_cost');
             $totalCost2 += $total;
-            $sheet2->fromArray([[
+                $sheet2->fromArray([[
                 $stt,
                 ReportHelper::cleanString($collaborator->full_name ?? ''),
                 ReportHelper::normalizePhone($phone),
                 ReportHelper::cleanString($collaborator->address ?? ''),
+                ReportHelper::cleanString($collaborator->bank_account ?? ''),
                 ReportHelper::cleanString($collaborator->sotaikhoan ?? ''),
                 $bankInfo,
                 $items->count(),
                 $total
             ]], NULL, "A$row");
+            $sheet2->setCellValueExplicit('F' . $row, ReportHelper::cleanString($collaborator->sotaikhoan ?? ''), DataType::TYPE_STRING);
             $stt++;
             $row++;
         }
@@ -224,7 +226,7 @@ class ExportReportController extends Controller
         
         $row = ReportHelper::addTotalRow($sheet2, $row, $lastCol2, $totalCost2, 7, 'H');
         ReportHelper::forceTextColumn($sheet2, 'C', 6, $row - 2);
-        ReportHelper::forceTextColumn($sheet2, 'E', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet2, 'F', 6, $row - 2);
         ReportHelper::applyTableBorders($sheet2, 5, $row - 2, $lastCol2);
         $row = ReportHelper::addDateLocation($sheet2, $row, $lastCol2, 'E', 'G');
         ReportHelper::addSignatureSection($sheet2, $row, $lastCol2, [[1, 2], [3, 4], [5, 6], [7, 8]]);
@@ -304,7 +306,7 @@ class ExportReportController extends Controller
         $sheet4 = $spreadsheet->createSheet();
         $sheet4->setTitle('ĐẠI LÝ TỔNG HỢP');
         
-        $columns4 = ['STT', 'HỌ VÀ TÊN', 'SĐT', 'SỐ TK CÁ NHÂN', 'NGÂN HÀNG - CHI NHÁNH', 'SỐ CA', 'SỐ TIỀN'];
+        $columns4 = ['STT', 'HỌ VÀ TÊN', 'SĐT', 'CHỦ TÀI KHOẢN', 'SỐ TK CÁ NHÂN', 'NGÂN HÀNG - CHI NHÁNH', 'SỐ CA', 'SỐ TIỀN'];
         $lastCol4 = Coordinate::stringFromColumnIndex(count($columns4));
         
         ReportHelper::setupSheetHeader(
@@ -316,16 +318,18 @@ class ExportReportController extends Controller
         );
 
         $sheet4->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
-        $sheet4->getStyle('D:D')->getNumberFormat()->setFormatCode('@'); // Account
+        $sheet4->getStyle('D:D')->getNumberFormat()->setFormatCode('@'); // Account holder
+        $sheet4->getStyle('E:E')->getNumberFormat()->setFormatCode('@'); // Account number
 
-        // Set column widths and disable auto width for sheet 4 (7 columns: A-G)
+        // Set column widths and disable auto width for sheet 4 (8 columns: A-H)
         $sheet4->getColumnDimension('A')->setWidth(5.00)->setAutoSize(false); // STT
         $sheet4->getColumnDimension('B')->setWidth(17.00)->setAutoSize(false); // HỌ VÀ TÊN
         $sheet4->getColumnDimension('C')->setWidth(11.00)->setAutoSize(false); // SĐT
-        $sheet4->getColumnDimension('D')->setWidth(18.00)->setAutoSize(false); // SỐ TK CÁ NHÂN
-        $sheet4->getColumnDimension('E')->setWidth(27.00)->setAutoSize(false); // NGÂN HÀNG - CHI NHÁNH
-        $sheet4->getColumnDimension('F')->setWidth(8.00)->setAutoSize(false); // SỐ CA
-        $sheet4->getColumnDimension('G')->setWidth(15.00)->setAutoSize(false); // SỐ TIỀN
+        $sheet4->getColumnDimension('D')->setWidth(18.00)->setAutoSize(false); // CHỦ TÀI KHOẢN
+        $sheet4->getColumnDimension('E')->setWidth(18.00)->setAutoSize(false); // SỐ TK CÁ NHÂN
+        $sheet4->getColumnDimension('F')->setWidth(27.00)->setAutoSize(false); // NGÂN HÀNG - CHI NHÁNH
+        $sheet4->getColumnDimension('G')->setWidth(8.00)->setAutoSize(false); // SỐ CA
+        $sheet4->getColumnDimension('H')->setWidth(15.00)->setAutoSize(false); // SỐ TIỀN
 
         // Enable text wrapping for header row (row 5)
         $sheet4->getStyle("A5:{$lastCol4}5")->getAlignment()->setWrapText(true);
@@ -351,17 +355,19 @@ class ExportReportController extends Controller
                 $stt,
                 ReportHelper::cleanString($agency->name ?? ''),
                 ReportHelper::normalizePhone($phone),
+                ReportHelper::cleanString($agency->bank_account ?? ''),
                 ReportHelper::cleanString($agency->sotaikhoan ?? ''),
                 $bankInfoAgency,
                 $items->count(),
                 $total
             ]], NULL, "A$row");
-            // Force TEXT for account
-            $sheet4->setCellValueExplicit('D' . $row, ReportHelper::cleanString($agency->sotaikhoan ?? ''), DataType::TYPE_STRING);
+            // Force TEXT for account holder and account number
+            $sheet4->setCellValueExplicit('D' . $row, ReportHelper::cleanString($agency->bank_account ?? ''), DataType::TYPE_STRING);
+            $sheet4->setCellValueExplicit('E' . $row, ReportHelper::cleanString($agency->sotaikhoan ?? ''), DataType::TYPE_STRING);
             $stt++;
             $row++;
         }
-        $sheet4->getStyle("G6:G" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
+        $sheet4->getStyle("H6:H" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
         
         // Enable text wrapping for data rows (Excel will auto-adjust row height when opened)
         $sheet4->getStyle("A6:{$lastCol4}" . ($row - 1))->getAlignment()->setWrapText(true);
@@ -369,14 +375,100 @@ class ExportReportController extends Controller
         // Align left for column A (STT) from row 6
         $sheet4->getStyle("A6:A" . ($row - 1))->getAlignment()->setHorizontal('left');
         
-        $row = ReportHelper::addTotalRow($sheet4, $row, $lastCol4, $totalCost4, 6, 'G');
+        $row = ReportHelper::addTotalRow($sheet4, $row, $lastCol4, $totalCost4, 7, 'H');
         ReportHelper::forceTextColumn($sheet4, 'C', 6, $row - 2);
         ReportHelper::forceTextColumn($sheet4, 'D', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet4, 'E', 6, $row - 2);
         ReportHelper::applyTableBorders($sheet4, 5, $row - 2, $lastCol4);
-        $row = ReportHelper::addDateLocation($sheet4, $row, $lastCol4, 'E', 'G');
+        $row = ReportHelper::addDateLocation($sheet4, $row, $lastCol4, 'F', 'H');
         // Center header titles for sheet 4
         $sheet4->getStyle("A5:{$lastCol4}5")->getAlignment()->setHorizontal('center');
         ReportHelper::addSignatureSection($sheet4, $row, $lastCol4, [[1, 2], [3, 4], [5, 6], [7, 7]]);
+
+        // ================= SHEET 5: TỔNG HỢP TRẢ TIỀN ĐẠI LÝ =================
+        $sheet5 = $spreadsheet->createSheet();
+        $sheet5->setTitle('ĐẠI LÝ TỔNG HỢP');
+        
+        $columns5 = ['STT', 'HỌ VÀ TÊN', 'SĐT', 'CCCD', 'NGÀY CẤP', 'SỐ TK CÁ NHÂN', 'NGÂN HÀNG - CHI NHÁNH', 'SỐ TIỀN', 'ĐỊA CHỈ'];
+        $lastCol5 = Coordinate::stringFromColumnIndex(count($columns5));
+        
+        ReportHelper::setupSheetHeader(
+            $sheet5,
+            'BẢNG TỔNG HỢP TRẢ TIỀN ĐẠI LÝ',
+            $fromDateFormatted,
+            $toDateFormatted,
+            $columns5
+        );
+
+        $sheet5->getStyle('C:C')->getNumberFormat()->setFormatCode('@'); // Phone
+        $sheet5->getStyle('D:D')->getNumberFormat()->setFormatCode('@'); // CCCD
+        $sheet5->getStyle('F:F')->getNumberFormat()->setFormatCode('@'); // Account number
+
+        // Set column widths and disable auto width for sheet 5 (9 columns: A-I)
+        $sheet5->getColumnDimension('A')->setWidth(5.00)->setAutoSize(false); // STT
+        $sheet5->getColumnDimension('B')->setWidth(17.00)->setAutoSize(false); // HỌ VÀ TÊN
+        $sheet5->getColumnDimension('C')->setWidth(11.00)->setAutoSize(false); // SĐT
+        $sheet5->getColumnDimension('D')->setWidth(15.00)->setAutoSize(false); // CCCD
+        $sheet5->getColumnDimension('E')->setWidth(12.00)->setAutoSize(false); // NGÀY CẤP
+        $sheet5->getColumnDimension('F')->setWidth(18.00)->setAutoSize(false); // SỐ TK CÁ NHÂN
+        $sheet5->getColumnDimension('G')->setWidth(27.00)->setAutoSize(false); // NGÂN HÀNG - CHI NHÁNH
+        $sheet5->getColumnDimension('H')->setWidth(15.00)->setAutoSize(false); // SỐ TIỀN
+        $sheet5->getColumnDimension('I')->setWidth(25.00)->setAutoSize(false); // ĐỊA CHỈ
+
+        // Enable text wrapping for header row (row 5)
+        $sheet5->getStyle("A5:{$lastCol5}5")->getAlignment()->setWrapText(true);
+
+        $dataAgencyGrouped = collect($dataAgency)->groupBy(fn($i) => $i->agency->phone ?? 'N/A');
+        // Sắp xếp nhóm theo tên ngân hàng
+        $dataAgencyGrouped = $dataAgencyGrouped->sortBy(function ($items) {
+            $a = $items->first()->agency ?? null;
+            $bankKey = ReportHelper::bankSortKey($a->bank_name_agency ?? null, $a->chinhanh ?? null);
+            $nameKey = ReportHelper::cleanString($a->name ?? '');
+            return $bankKey . '|' . $nameKey;
+        });
+
+        $row = 6;
+        $stt = 1;
+        $totalCost5 = 0;
+        foreach ($dataAgencyGrouped as $phone => $items) {
+            $agency = $items->first()->agency ?? null;
+            $total = $items->sum('install_cost');
+            $totalCost5 += $total;
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name_agency ?? null, $agency->chinhanh ?? null);
+            $sheet5->setCellValue('A'.$row, $stt);
+            $sheet5->setCellValue('B'.$row, ReportHelper::cleanString($agency->name ?? 'N/A'));
+            $sheet5->setCellValue('C'.$row, ReportHelper::normalizePhone($phone));
+            $sheet5->setCellValue('D'.$row, ReportHelper::cleanString($agency->cccd ?? 'N/A'));
+            $sheet5->setCellValue('E'.$row, ReportHelper::formatDate($agency->ngaycap ?? null));
+            $sheet5->setCellValue('F'.$row, ReportHelper::cleanString($agency->sotaikhoan ?? 'N/A'));
+            $sheet5->setCellValue('G'.$row, $bankInfoAgency);
+            $sheet5->setCellValue('H'.$row, $total);
+            $sheet5->setCellValue('I'.$row, ReportHelper::cleanString($agency->address ?? ''));
+            // Force TEXT for phone, cccd, account number
+            $sheet5->setCellValueExplicit('C' . $row, ReportHelper::normalizePhone($phone), DataType::TYPE_STRING);
+            $sheet5->setCellValueExplicit('D' . $row, ReportHelper::cleanString($agency->cccd ?? 'N/A'), DataType::TYPE_STRING);
+            $sheet5->setCellValueExplicit('F' . $row, ReportHelper::cleanString($agency->sotaikhoan ?? 'N/A'), DataType::TYPE_STRING);
+            $stt++;
+            $row++;
+        }
+        $sheet5->getStyle("H6:H" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
+
+        // Enable text wrapping for data rows (Excel will auto-adjust row height when opened)
+        $sheet5->getStyle("A6:{$lastCol5}" . ($row - 1))->getAlignment()->setWrapText(true);
+
+        // Align left for column A (STT) from row 6
+        $sheet5->getStyle("A6:A" . ($row - 1))->getAlignment()->setHorizontal('left');
+        
+        $row = ReportHelper::addTotalRow($sheet5, $row, $lastCol5, $totalCost5, 8, 'H');
+        ReportHelper::forceTextColumn($sheet5, 'C', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet5, 'D', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet5, 'F', 6, $row - 2);
+        ReportHelper::forceTextColumn($sheet5, 'I', 6, $row - 2);
+        ReportHelper::applyTableBorders($sheet5, 5, $row - 2, $lastCol5);
+        $row = ReportHelper::addDateLocation($sheet5, $row, $lastCol5, 'G', 'I');
+        // Center header titles for sheet 5
+        $sheet5->getStyle("A5:{$lastCol5}5")->getAlignment()->setHorizontal('center');
+        ReportHelper::addSignatureSection($sheet5, $row, $lastCol5, [[1, 2], [3, 4], [5, 6], [7, 7]]);
 
         // ================= EXPORT FILE =================
         $writer = new Xlsx($spreadsheet);
@@ -487,6 +579,7 @@ class ExportReportController extends Controller
                 'name' => ReportHelper::cleanString($collaborator->full_name ?? ''),
                 'phone' => ReportHelper::cleanString($phone),
                 'address' => ReportHelper::cleanString($collaborator->address ?? ''),
+                'bank_account' => ReportHelper::cleanString($collaborator->bank_account ?? ''),
                 'account' => ReportHelper::cleanString($collaborator->sotaikhoan ?? ''),
                 'bank' => $bankInfo,
                 'count' => $items->count(),
@@ -537,6 +630,7 @@ class ExportReportController extends Controller
                 'stt' => $stt++,
                 'name' => ReportHelper::cleanString($agency->name ?? ''),
                 'phone' => ReportHelper::cleanString($phone),
+                'account_holder' => ReportHelper::cleanString($agency->bank_account ?? ''),
                 'account' => ReportHelper::cleanString($agency->sotaikhoan ?? ''),
                 'bank' => $bankInfoAgency,
                 'count' => $items->count(),
@@ -545,11 +639,35 @@ class ExportReportController extends Controller
         }
         $sheet4AmountInWords = ReportHelper::numberToWords($sheet4Total);
 
+        $sheet5Data = [];
+        $stt = 1;
+        $sheet5Total = 0;
+        foreach ($dataAgencyGrouped as $phone => $items) {
+            $agency = $items->first()->agency ?? null;
+            $total = $items->sum('install_cost');
+            $sheet5Total += $total;
+            $bankInfoAgency = ReportHelper::formatBankInfo($agency->bank_name_agency ?? null, $agency->chinhanh ?? null);
+            $sheet5Data[] = [
+                'stt' => $stt++,
+                'name' => ReportHelper::cleanString($agency->name ?? ''),
+                'address' => ReportHelper::cleanString($agency->address ?? ''),
+                'phone' => ReportHelper::cleanString($phone),
+                'account_holder' => ReportHelper::cleanString($agency->bank_account ?? ''),
+                'cccd' => ReportHelper::cleanString($agency->cccd ?? ''),
+                'cccd_date' => ReportHelper::formatDate($agency->ngaycap ?? null),
+                'account' => ReportHelper::cleanString($agency->sotaikhoan ?? ''),
+                'bank' => $bankInfoAgency,
+                'total' => $total
+            ];
+        }
+        $sheet5AmountInWords = ReportHelper::numberToWords($sheet5Total);
+
         return view('collaboratorinstall.preview', compact(
             'sheet1Data',
             'sheet2Data',
             'sheet3Data',
             'sheet4Data',
+            'sheet5Data',
             'fromDateFormatted',
             'toDateFormatted',
             'sheet1Total',
@@ -559,7 +677,9 @@ class ExportReportController extends Controller
             'sheet3Total',
             'sheet3AmountInWords',
             'sheet4Total',
-            'sheet4AmountInWords'
+            'sheet4AmountInWords',
+            'sheet5Total',
+            'sheet5AmountInWords'
         ));
     }
 }

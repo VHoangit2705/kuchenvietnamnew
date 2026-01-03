@@ -39,6 +39,7 @@ class Agency extends Model
 		'name',
 		'address',
 		'phone',
+		'email',
 		'birthday',
 		'bank_account',
 		'bank_name_agency',
