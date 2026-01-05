@@ -399,7 +399,7 @@
                                             $hasAgencyName = !empty($agencyNameValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyName && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -418,7 +418,7 @@
                                             $hasAgencyPhone = !empty($agencyPhoneValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyPhone && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -437,7 +437,7 @@
                                             $hasAgencyAddress = !empty($agencyAddressValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyAddress && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -456,7 +456,7 @@
                                             $hasAgencyBankAccount = !empty($agencyBankAccountValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyBankAccount && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -476,7 +476,7 @@
                                             $hasAgencyBank = !empty($agencyBankValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyBank && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -495,7 +495,7 @@
                                             $hasAgencyPaynumber = !empty($agencyPaynumberValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyPaynumber && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -514,7 +514,7 @@
                                             $hasAgencyBranch = !empty($agencyBranchValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyBranch && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -533,7 +533,7 @@
                                             $hasAgencyCccd = !empty($agencyCccdValue);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyCccd && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
@@ -553,7 +553,7 @@
                                             $hasAgencyReleaseDate = !empty($agencyReleaseDate);
                                             $canEditAgency = ($statusInstall ?? 0) != 0 && ($statusInstall ?? null) !== null;
                                         @endphp
-                                        @if($hasAgencyReleaseDate && $canEditAgency)
+                                        @if($canEditAgency)
                                         <i class="bi bi-pencil ms-2 edit-icon" style="cursor:pointer;"></i>
                                         @elseif((($statusInstall ?? 0) == 0 || ($statusInstall ?? null) === null))
                                         <i class="bi bi-pencil ms-2 edit-icon agency-edit-icon" style="cursor:pointer; display:none;"></i>
