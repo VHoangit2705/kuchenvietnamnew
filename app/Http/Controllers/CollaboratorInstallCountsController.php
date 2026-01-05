@@ -91,8 +91,28 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getBaoHanhCount($view, $request)
     {
+        // Chỉ đếm các WarrantyRequest chưa điều phối
+        // Kiểm tra status_install trong bảng installation_orders (connection mysql3)
+        // Loại trừ các đơn đã có InstallationOrder với status_install >= 1
+        $db3Name = config('database.connections.mysql3.database');
         $query = WarrantyRequest::where('type', 'agent_component')
-            ->where('view', $view);
+            ->where('view', $view)
+            ->whereNotExists(function ($subQuery) use ($db3Name) {
+                // Loại trừ các WarrantyRequest đã có InstallationOrder với status_install >= 1
+                // Tìm InstallationOrder từ connection mysql3 dựa trên full_name, phone_number, product
+                $subQuery->select(DB::raw(1))
+                         ->from(DB::raw("`{$db3Name}`.`installation_orders` as `io`"))
+                         ->whereColumn('io.full_name', 'warranty_requests.full_name')
+                         ->whereColumn('io.phone_number', 'warranty_requests.phone_number')
+                         ->whereColumn('io.product', 'warranty_requests.product')
+                         ->where('io.status_install', '>=', 1)
+                         ->whereNotNull('warranty_requests.full_name')
+                         ->whereNotNull('warranty_requests.phone_number')
+                         ->whereNotNull('warranty_requests.product')
+                         ->where('warranty_requests.full_name', '!=', '')
+                         ->where('warranty_requests.phone_number', '!=', '')
+                         ->where('warranty_requests.product', '!=', '');
+            });
 
         return $this->applyCommonFiltersToWarranty($query, $request)
             ->count();

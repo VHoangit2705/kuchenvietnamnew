@@ -14,6 +14,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Kho\Agency;
 use App\Http\Controllers\SaveLogController;
@@ -188,8 +189,28 @@ class CollaboratorInstallController extends Controller
                     ->orderByDesc('orders.created_at');
             },
             'dieuphoibaohanh' => function () use ($view) {
+                // Chỉ hiển thị các WarrantyRequest chưa điều phối
+                // Kiểm tra status_install trong bảng installation_orders (connection mysql3)
+                // Loại trừ các đơn đã có InstallationOrder với status_install >= 1
+                $db3Name = config('database.connections.mysql3.database');
                 return WarrantyRequest::where('type', 'agent_component')
-                    ->where('view', $view);
+                    ->where('view', $view)
+                    ->whereNotExists(function ($query) use ($db3Name) {
+                        // Loại trừ các WarrantyRequest đã có InstallationOrder với status_install >= 1
+                        // Tìm InstallationOrder từ connection mysql3 dựa trên full_name, phone_number, product
+                        $query->select(DB::raw(1))
+                              ->from(DB::raw("`{$db3Name}`.`installation_orders` as `io`"))
+                              ->whereColumn('io.full_name', 'warranty_requests.full_name')
+                              ->whereColumn('io.phone_number', 'warranty_requests.phone_number')
+                              ->whereColumn('io.product', 'warranty_requests.product')
+                              ->where('io.status_install', '>=', 1)
+                              ->whereNotNull('warranty_requests.full_name')
+                              ->whereNotNull('warranty_requests.phone_number')
+                              ->whereNotNull('warranty_requests.product')
+                              ->where('warranty_requests.full_name', '!=', '')
+                              ->where('warranty_requests.phone_number', '!=', '')
+                              ->where('warranty_requests.product', '!=', '');
+                    });
             },
             'dadieuphoi' => function () use ($view) {
                 return InstallationOrder::leftJoin('products as p', function($join){
@@ -414,6 +435,7 @@ class CollaboratorInstallController extends Controller
             $orderCode = null;
             $statusInstall = null;
             $productName = null;
+            $warrantyRequestId = null; // Khởi tạo biến để dùng cho type baohanh
             
             if ($request->type == 'donhang') {
                 $data = OrderProduct::with('order')->findOrFail($request->id);
@@ -443,26 +465,43 @@ class CollaboratorInstallController extends Controller
             $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $order->agency_phone) : $order->agency_phone;
             
         } else if ($request->type == 'baohanh') {
-            $data = WarrantyRequest::findOrFail($request->id);
-            $orderCode = $data->serial_number ?? null;
+            $warrantyRequest = WarrantyRequest::findOrFail($request->id);
+            $orderCode = null; // Với type baohanh, không dùng orderCode để tìm InstallationOrder
             $installationOrder = null;
+            $productName = $warrantyRequest->product ?? null;
             
-            if ($orderCode) {
-                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+            $warrantyRequestId = $warrantyRequest->id;
+            
+            // Tìm InstallationOrder dựa trên full_name, phone_number và product
+            // Vì nhiều đơn hàng không có serial_number, nên phải tìm theo thông tin khách hàng
+            if (!empty($warrantyRequest->full_name) && !empty($warrantyRequest->phone_number) && !empty($warrantyRequest->product)) {
+                $installationOrder = InstallationOrder::where('full_name', $warrantyRequest->full_name)
+                    ->where('phone_number', $warrantyRequest->phone_number)
+                    ->where('product', $warrantyRequest->product)
+                    ->first();
+                
                 if ($installationOrder) {
-                    $data = $installationOrder;
+                    // Nếu tìm thấy InstallationOrder, lấy orderCode từ đó
+                    $orderCode = $installationOrder->order_code ?? null;
                     $statusInstall = $installationOrder->status_install ?? null;
+                    // Ghi đè $data bằng InstallationOrder để ưu tiên dữ liệu từ InstallationOrder
+                    $data = $installationOrder;
                 } else {
-                    $statusInstall = $data->status_install ?? null;
+                    // Không tìm thấy InstallationOrder, dùng dữ liệu từ WarrantyRequest
+                    $data = $warrantyRequest;
+                    $statusInstall = $warrantyRequest->status_install ?? null;
                 }
             } else {
-                $statusInstall = $data->status_install ?? null;
+                // Thiếu thông tin để tìm, dùng dữ liệu từ WarrantyRequest
+                $data = $warrantyRequest;
+                $statusInstall = $warrantyRequest->status_install ?? null;
             }
             
-            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $data->province_id ?? null) : ($data->province_id ?? null);
-            $districtId = $installationOrder ? ($installationOrder->district_id ?? $data->district_id ?? null) : ($data->district_id ?? null);
-            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $data->ward_id ?? null) : ($data->ward_id ?? null);
-            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $data->agency_phone) : $data->agency_phone;
+            // Lấy thông tin địa chỉ: ưu tiên từ InstallationOrder, nếu không có thì lấy từ WarrantyRequest
+            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $warrantyRequest->province_id ?? null) : ($warrantyRequest->province_id ?? null);
+            $districtId = $installationOrder ? ($installationOrder->district_id ?? $warrantyRequest->district_id ?? null) : ($warrantyRequest->district_id ?? null);
+            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $warrantyRequest->ward_id ?? null) : ($warrantyRequest->ward_id ?? null);
+            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $warrantyRequest->agency_phone) : ($warrantyRequest->agency_phone ?? null);
             
         } else {
             $data = InstallationOrder::find($request->id);
@@ -636,7 +675,8 @@ class CollaboratorInstallController extends Controller
             'statusInstall',
             'allRequestAgencies',
             'requestAgency',
-            'requestAgencyAgency'
+            'requestAgencyAgency',
+            'warrantyRequestId'
         ));
         } catch (\Exception $e) {
             throw $e;

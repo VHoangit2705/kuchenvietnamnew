@@ -25,12 +25,60 @@
                                     <th>Mã đơn hàng</th>
                                     <td colspan="3">
                                         @php
-                                        // Ưu tiên lấy từ installation_order, nếu không có mới lấy từ order/warranty_request
-                                        $code = $installationOrder->order_code ?? $orderCode ?? $order->order_code2 ?? $order->order_code1 ?? $data->serial_number ?? $data->order_code ?? '';
+                                        // Xác định type trước
+                                        $type = isset($data->VAT) ? 'donhang' : (isset($data->warranty_end) ? 'baohanh' : 'danhsach');
+                                        
+                                        // Logic hiển thị mã đơn hàng:
+                                        // 1. Ưu tiên installation_order->order_code (nếu có)
+                                        // 2. Với type baohanh: 
+                                        //    - Nếu không có InstallationOrder và serial_number không phải "HÀNG KHÔNG CÓ MÃ SERI" -> dùng serial_number
+                                        //    - Nếu serial_number là "HÀNG KHÔNG CÓ MÃ SERI" hoặc rỗng -> dùng ID (HÀNG KHÔNG CÓ MÃ SERI - {id})
+                                        // 3. Với type khác: Ưu tiên order_code từ order
+                                        
+                                        if ($installationOrder && $installationOrder->order_code) {
+                                            $code = $installationOrder->order_code;
+                                        } elseif ($orderCode) {
+                                            $code = $orderCode;
+                                        } elseif ($order && ($order->order_code2 || $order->order_code1)) {
+                                            $code = $order->order_code2 ?? $order->order_code1;
+                                        } elseif ($type == 'baohanh') {
+                                            $serialNumber = $warrantySerialNumber ?? ($data->serial_number ?? '');
+                                            
+                                            $isNoSerial = empty($serialNumber) || 
+                                                          strtoupper(trim($serialNumber)) === 'HÀNG KHÔNG CÓ MÃ SERI' ||
+                                                          strtoupper(trim($serialNumber)) === 'HANG KHONG CO MA SERI';
+                                            
+                                            // Đảm bảo lấy ID từ WarrantyRequest, không phải từ InstallationOrder
+                                            $displayId = $warrantyRequestId ?? null;
+                                            
+                                            // Nếu không có warrantyRequestId (trường hợp hiếm), thử lấy từ $data
+                                            // Nhưng chỉ khi $data là WarrantyRequest (không phải InstallationOrder)
+                                            if (empty($displayId) && !$installationOrder && isset($data->id)) {
+                                                $displayId = $data->id;
+                                            }
+                                            
+                                            if ($isNoSerial && !empty($displayId)) {
+                                                // Nếu serial_number là "HÀNG KHÔNG CÓ MÃ SERI", dùng ID của WarrantyRequest để đảm bảo duy nhất
+                                                // Format: "HÀNG KHÔNG CÓ MÃ SERI - {id}" 
+                                                $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $displayId;
+                                            } elseif (!empty($serialNumber) && !$isNoSerial) {
+                                                // Nếu có serial_number hợp lệ (không phải "HÀNG KHÔNG CÓ MÃ SERI"), dùng serial_number
+                                                $code = $serialNumber;
+                                            } elseif (!empty($displayId)) {
+                                                // Fallback: Nếu serial_number rỗng nhưng có warrantyRequestId
+                                                $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $displayId;
+                                            } else {
+                                                // Cuối cùng: Fallback (trường hợp này hiếm khi xảy ra)
+                                                // Nếu vẫn không có ID, hiển thị thông báo
+                                                $code = 'BH-N/A';
+                                            }
+                                        } else {
+                                            $code = $data->serial_number ?? $data->order_code ?? '';
+                                        }
+                                        
                                         $zone = $installationOrder->zone ?? $order->zone ?? $data->zone ?? '';
                                         $created_at = $installationOrder->created_at ?? $order->created_at ?? $data->received_date ?? $data->created_at ?? null;
                                         $statusInstall = $installationOrder->status_install ?? $order->status_install ?? $data->status_install ?? 0;
-                                        $type = isset($data->VAT) ? 'donhang' : (isset($data->warranty_end) ? 'baohanh' : 'danhsach');
                                         @endphp
                                         <script>const CREATION_DATE = '{{ $created_at }}';</script>
                                         <div class="d-flex justify-content-between">
@@ -103,8 +151,15 @@
                                     <th>Địa chỉ:</th>
                                     <td colspan="3" data-field="customer_address">
                                         @php
-                                        // CHỈ hiển thị trường address trong bảng installation_orders
-                                        $customerAddress = $installationOrder->address ?? '';
+                                        // Với type baohanh: Ưu tiên installation_order->address, nếu không có thì lấy từ WarrantyRequest->address
+                                        // Với type khác: CHỈ hiển thị trường address trong bảng installation_orders
+                                        if ($type == 'baohanh' && !$installationOrder) {
+                                            // Nếu là type baohanh và không có InstallationOrder, lấy từ WarrantyRequest (data gốc)
+                                            $customerAddress = $data->address ?? '';
+                                        } else {
+                                            // Với InstallationOrder hoặc type khác, chỉ lấy từ InstallationOrder
+                                            $customerAddress = $installationOrder->address ?? '';
+                                        }
                                         @endphp
 
                                         <span class="text-value">{{ $customerAddress }}</span>
