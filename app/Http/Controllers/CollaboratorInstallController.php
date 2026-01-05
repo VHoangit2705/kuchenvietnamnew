@@ -20,6 +20,8 @@ use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Models\KyThuat\RequestAgency;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\DB;
+
 class CollaboratorInstallController extends Controller
 {
     static $pageSize = 50;
@@ -53,13 +55,24 @@ class CollaboratorInstallController extends Controller
         try {
             $tab = $request->get('tab', 'donhang');
             $view = session('brand') === 'hurom' ? 3 : 1;
+            // ✅ CHỈ LẤY KHI LÀ TAB BẢO HÀNH
+            $dispatchedSerials = [];
 
-            $mainQuery = $this->buildTabQuery($tab, $view);
+            if ($tab === 'dieuphoibaohanh') {
+                $dispatchedSerials = DB::connection('mysql3')
+                    ->table('installation_orders')
+                    ->where('type', 'baohanh')
+                    ->whereNotNull('order_code')
+                    ->pluck('order_code')
+                    ->filter()
+                    ->toArray();
+            }
+            $mainQuery = $this->buildTabQuery($tab, $view, $dispatchedSerials);
             $mainQuery = $this->applyTabFilters($mainQuery, $tab, $request);
             if ($tab === 'dieuphoibaohanh') {
                 $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
             } elseif (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
-                $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();               
+                $data = $mainQuery->orderByDesc('orders.created_at')->orderByDesc('order_products.id')->paginate(50)->withQueryString();
             } elseif ($tab === 'dadieuphoi') {
                 $data = $mainQuery->orderByDesc('installation_orders.dispatched_at')
                     ->orderByDesc('installation_orders.created_at')
@@ -87,7 +100,7 @@ class CollaboratorInstallController extends Controller
             $startRender = microtime(true);
             $html = view('collaboratorinstall.tablecontent', compact('data', 'tab'))->render();
             $renderTime = round((microtime(true) - $startRender) * 1000, 2);
-            
+
             return response()->json([
                 'table' => $html,
             ]);
@@ -103,144 +116,148 @@ class CollaboratorInstallController extends Controller
     /**
      * Build query cho từng tab
      */
-    private function buildTabQuery($tab, $view)
+    private function buildTabQuery($tab, $view, array $dispatchedSerials = [])
     {
         try {
             $queryBuilders = [
-            'donhang' => function () use ($view) {
-                return OrderProduct::join('products as p', function($join) {
+                'donhang' => function () use ($view) {
+                    return OrderProduct::join('products as p', function ($join) {
                         $join->on('order_products.product_name', '=', 'p.product_name');
                     })
-                    ->join('orders', 'order_products.order_id', '=', 'orders.id')
-                    ->leftJoin('installation_orders as io', function($join) {
-                        $join->on(function($q) {
-                            $q->whereColumn('io.order_code', 'orders.order_code2')
-                              ->orWhereColumn('io.order_code', 'orders.order_code1');
+                        ->join('orders', 'order_products.order_id', '=', 'orders.id')
+                        ->leftJoin('installation_orders as io', function ($join) {
+                            $join->on(function ($q) {
+                                $q->whereColumn('io.order_code', 'orders.order_code2')
+                                    ->orWhereColumn('io.order_code', 'orders.order_code1');
+                            })
+                                ->whereColumn('io.product', 'order_products.product_name')
+                                ->where('io.status_install', '>=', 1);
                         })
-                        ->whereColumn('io.product', 'order_products.product_name')
-                        ->where('io.status_install', '>=', 1);
-                    })
-                    ->where('p.view', $view)
-                    ->select(
-                        'order_products.id',
-                        'order_products.order_id',
-                        'order_products.product_name',
-                        'order_products.VAT',
-                        'orders.order_code2',
-                        'orders.zone',
-                        'orders.created_at',
-                        'orders.status_install',
-                        'orders.agency_name',
-                        'orders.agency_phone',
-                        'orders.customer_name',
-                        'orders.customer_phone',
-                    )
-                    ->where('order_products.install', 1)
-                    ->where('orders.order_code2', 'not like', 'KU%')
-                    ->where(function ($sub) {
-                        $sub->whereNull('orders.status_install')
-                            ->orWhere('orders.status_install', 0);
-                    })
-                    ->whereNull('orders.collaborator_id')
-                    ->whereNull('io.id')
-                    ->orderByDesc('orders.created_at');
-            },
-            'dieuphoidonhangle' => function () use ($view) {
-                return OrderProduct::join('products as p', function($join) {
+                        ->where('p.view', $view)
+                        ->select(
+                            'order_products.id',
+                            'order_products.order_id',
+                            'order_products.product_name',
+                            'order_products.VAT',
+                            'orders.order_code2',
+                            'orders.zone',
+                            'orders.created_at',
+                            'orders.status_install',
+                            'orders.agency_name',
+                            'orders.agency_phone',
+                            'orders.customer_name',
+                            'orders.customer_phone',
+                        )
+                        ->where('order_products.install', 1)
+                        ->where('orders.order_code2', 'not like', 'KU%')
+                        ->where(function ($sub) {
+                            $sub->whereNull('orders.status_install')
+                                ->orWhere('orders.status_install', 0);
+                        })
+                        ->whereNull('orders.collaborator_id')
+                        ->whereNull('io.id')
+                        ->orderByDesc('orders.created_at');
+                },
+                'dieuphoidonhangle' => function () use ($view) {
+                    return OrderProduct::join('products as p', function ($join) {
                         $join->on('order_products.product_name', '=', 'p.product_name');
                     })
-                    ->join('orders', 'order_products.order_id', '=', 'orders.id')
-                    ->leftJoin('installation_orders as io', function($join) {
-                        $join->on(function($q) {
-                            $q->whereColumn('io.order_code', 'orders.order_code2')
-                              ->orWhereColumn('io.order_code', 'orders.order_code1');
+                        ->join('orders', 'order_products.order_id', '=', 'orders.id')
+                        ->leftJoin('installation_orders as io', function ($join) {
+                            $join->on(function ($q) {
+                                $q->whereColumn('io.order_code', 'orders.order_code2')
+                                    ->orWhereColumn('io.order_code', 'orders.order_code1');
+                            })
+                                ->whereColumn('io.product', 'order_products.product_name')
+                                ->where('io.status_install', '>=', 1);
                         })
-                        ->whereColumn('io.product', 'order_products.product_name')
-                        ->where('io.status_install', '>=', 1);
-                    })
-                    ->where('p.view', $view)
-                    ->select(
-                        'order_products.id',
-                        'order_products.order_id',
-                        'order_products.product_name',
-                        'order_products.VAT',
-                        'orders.order_code2',
-                        'orders.zone',
-                        'orders.created_at',
-                        'orders.status_install',
-                        'orders.agency_name',
-                        'orders.agency_phone',
-                        'orders.customer_name',
-                        'orders.customer_phone',
-                    )
-                    ->where('order_products.install', 1)
-                    ->where(function ($sub) {
-                        $sub->whereNull('orders.status_install')
-                            ->orWhere('orders.status_install', 0);
-                    })
-                    ->whereNull('orders.collaborator_id')
-                    ->whereIn('orders.type', [
-                        'warehouse_branch',
-                        'warehouse_ghtk',
-                        'warehouse_viettel'
-                    ])
-                    ->whereNull('io.id')
-                    ->orderByDesc('orders.created_at');
-            },
-            'dieuphoibaohanh' => function () use ($view) {
-                return WarrantyRequest::where('type', 'agent_component')
-                    ->where('view', $view);
-            },
-            'dadieuphoi' => function () use ($view) {
-                return InstallationOrder::leftJoin('products as p', function($join){
+                        ->where('p.view', $view)
+                        ->select(
+                            'order_products.id',
+                            'order_products.order_id',
+                            'order_products.product_name',
+                            'order_products.VAT',
+                            'orders.order_code2',
+                            'orders.zone',
+                            'orders.created_at',
+                            'orders.status_install',
+                            'orders.agency_name',
+                            'orders.agency_phone',
+                            'orders.customer_name',
+                            'orders.customer_phone',
+                        )
+                        ->where('order_products.install', 1)
+                        ->where(function ($sub) {
+                            $sub->whereNull('orders.status_install')
+                                ->orWhere('orders.status_install', 0);
+                        })
+                        ->whereNull('orders.collaborator_id')
+                        ->whereIn('orders.type', [
+                            'warehouse_branch',
+                            'warehouse_ghtk',
+                            'warehouse_viettel'
+                        ])
+                        ->whereNull('io.id')
+                        ->orderByDesc('orders.created_at');
+                },
+                'dieuphoibaohanh' => function () use ($view, $dispatchedSerials) {
+                    return WarrantyRequest::where('type', 'agent_component')
+                        ->where('view', $view)
+                        ->when(!empty($dispatchedSerials), function ($q) use ($dispatchedSerials) {
+                            $q->whereNotIn('serial_number', $dispatchedSerials);
+                        });
+                },
+
+                'dadieuphoi' => function () use ($view) {
+                    return InstallationOrder::leftJoin('products as p', function ($join) {
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where(function($q) use ($view) {
-                        $q->where('p.view', $view)->orWhereNull('p.view');
-                    })
-                    ->select('installation_orders.*')
-                    ->where('installation_orders.status_install', 1)
-                    ->whereNotNull('installation_orders.collaborator_id');
-            },
-            'dailylapdat' => function () use ($view) {
-                return InstallationOrder::leftJoin('products as p', function($join){
+                        ->where(function ($q) use ($view) {
+                            $q->where('p.view', $view)->orWhereNull('p.view');
+                        })
+                        ->select('installation_orders.*')
+                        ->where('installation_orders.status_install', 1)
+                        ->whereNotNull('installation_orders.collaborator_id');
+                },
+                'dailylapdat' => function () use ($view) {
+                    return InstallationOrder::leftJoin('products as p', function ($join) {
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where(function($q) use ($view) {
-                        $q->where('p.view', $view)->orWhereNull('p.view');
-                    })
-                    ->select('installation_orders.*')
-                    ->where('installation_orders.status_install', 1)
-                    ->where(function ($q) {
-                        $q->whereNotNull('installation_orders.agency_name')
-                          ->where('installation_orders.agency_name', '!=', '');
-                    })
-                    ->whereNull('installation_orders.collaborator_id');
-            },
-            'dahoanthanh' => function () use ($view) {
-                return InstallationOrder::leftJoin('products as p', function($join){
+                        ->where(function ($q) use ($view) {
+                            $q->where('p.view', $view)->orWhereNull('p.view');
+                        })
+                        ->select('installation_orders.*')
+                        ->where('installation_orders.status_install', 1)
+                        ->where(function ($q) {
+                            $q->whereNotNull('installation_orders.agency_name')
+                                ->where('installation_orders.agency_name', '!=', '');
+                        })
+                        ->whereNull('installation_orders.collaborator_id');
+                },
+                'dahoanthanh' => function () use ($view) {
+                    return InstallationOrder::leftJoin('products as p', function ($join) {
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where(function($q) use ($view) {
-                        $q->where('p.view', $view)->orWhereNull('p.view');
-                    })
-                    ->select('installation_orders.*')
-                    ->where('installation_orders.status_install', 2);
-            },
-            'dathanhtoan' => function () use ($view) {
-                return InstallationOrder::leftJoin('products as p', function($join){
+                        ->where(function ($q) use ($view) {
+                            $q->where('p.view', $view)->orWhereNull('p.view');
+                        })
+                        ->select('installation_orders.*')
+                        ->where('installation_orders.status_install', 2);
+                },
+                'dathanhtoan' => function () use ($view) {
+                    return InstallationOrder::leftJoin('products as p', function ($join) {
                         $join->on('installation_orders.product', '=', 'p.product_name');
                     })
-                    ->where(function($q) use ($view) {
-                        $q->where('p.view', $view)->orWhereNull('p.view');
-                    })
-                    ->select('installation_orders.*')
-                    ->where('installation_orders.status_install', 3);
-            },
-        ];
-        
-        $query = ($queryBuilders[$tab] ?? $queryBuilders['donhang'])();
-        return $query;
+                        ->where(function ($q) use ($view) {
+                            $q->where('p.view', $view)->orWhereNull('p.view');
+                        })
+                        ->select('installation_orders.*')
+                        ->where('installation_orders.status_install', 3);
+                },
+            ];
+
+            $query = ($queryBuilders[$tab] ?? $queryBuilders['donhang'])();
+            return $query;
         } catch (\Exception $e) {
             throw $e;
         }
@@ -263,143 +280,141 @@ class CollaboratorInstallController extends Controller
             $agency_phone = $request->filled('agency_phone') ? (trim($request->input('agency_phone')) ?: null) : null;
             $agency_name = $request->filled('agency_name') ? (trim($request->input('agency_name')) ?: null) : null;
 
-        if (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
-            $query->when(!empty($madon), function ($q) use ($madon) {
-                $q->where('orders.order_code2', 'like', "%$madon%");
-            })
-            ->when(!empty($sanpham), function ($q) use ($sanpham) {
-                $q->where('order_products.product_name', 'like', "%$sanpham%");
-            })
-            ->when(!empty($tungay), function ($q) use ($tungay) {
-                $q->whereDate('orders.created_at', '>=', $tungay);
-            })
-            ->when(!empty($denngay), function ($q) use ($denngay) {
-                $q->whereDate('orders.created_at', '<=', $denngay);
-            })
-            ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
-                if ($trangthai === '0') {
-                    $q->where(function ($sub) {
-                        $sub->whereNull('orders.status_install')->orWhere('orders.status_install', 0);
+            if (in_array($tab, ['donhang', 'dieuphoidonhangle'])) {
+                $query->when(!empty($madon), function ($q) use ($madon) {
+                    $q->where('orders.order_code2', 'like', "%$madon%");
+                })
+                    ->when(!empty($sanpham), function ($q) use ($sanpham) {
+                        $q->where('order_products.product_name', 'like', "%$sanpham%");
+                    })
+                    ->when(!empty($tungay), function ($q) use ($tungay) {
+                        $q->whereDate('orders.created_at', '>=', $tungay);
+                    })
+                    ->when(!empty($denngay), function ($q) use ($denngay) {
+                        $q->whereDate('orders.created_at', '<=', $denngay);
+                    })
+                    ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
+                        if ($trangthai === '0') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('orders.status_install')->orWhere('orders.status_install', 0);
+                            });
+                        } elseif ($trangthai === '1') {
+                            $q->where('orders.status_install', 1);
+                        } elseif ($trangthai === '2') {
+                            $q->where('orders.status_install', 2);
+                        } elseif ($trangthai === '3') {
+                            $q->where('orders.status_install', 3);
+                        }
+                    })
+                    ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
+                        if ($phanloai === 'collaborator') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('orders.agency_name')
+                                    ->orWhere('orders.agency_name', '');
+                            });
+                        } elseif ($phanloai === 'agency') {
+                            $q->whereNotNull('orders.agency_name')
+                                ->where('orders.agency_name', '!=', '');
+                        }
+                    })
+                    ->when(!empty($customer_name), function ($q) use ($customer_name) {
+                        $q->where('orders.customer_name', 'like', "%$customer_name%");
+                    })
+                    ->when(!empty($customer_phone), function ($q) use ($customer_phone) {
+                        $q->where('orders.customer_phone', 'like', "%$customer_phone%");
+                    })
+                    ->when(!empty($agency_phone), function ($q) use ($agency_phone) {
+                        $q->where('orders.agency_phone', 'like', "%$agency_phone%");
+                    })
+                    ->when(!empty($agency_name), function ($q) use ($agency_name) {
+                        $q->where('orders.agency_name', 'like', "%$agency_name%");
                     });
-                } elseif ($trangthai === '1') {
-                    $q->where('orders.status_install', 1);
-                } elseif ($trangthai === '2') {
-                    $q->where('orders.status_install', 2);
-                } elseif ($trangthai === '3') {
-                    $q->where('orders.status_install', 3);
+            } elseif ($tab === 'dieuphoibaohanh') {
+                $query->when(!empty($madon), fn($q) => $q->where('serial_number', 'like', "%$madon%"))
+                    ->when(!empty($sanpham), fn($q) => $q->where('product', 'like', "%$sanpham%"))
+                    ->when(!empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
+                    ->when(!empty($denngay), function ($q) use ($denngay) {
+                        $q->whereDate('received_date', '<=', $denngay);
+                    })
+                    ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
+                        if ($trangthai === '0') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('status_install')
+                                    ->orWhere('status_install', 0);
+                            });
+                        } elseif ($trangthai === '1') {
+                            $q->where('status_install', 1);
+                        } elseif ($trangthai === '2') {
+                            $q->where('status_install', 2);
+                        } elseif ($trangthai === '3') {
+                            $q->where('status_install', 3);
+                        }
+                    })
+                    ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
+                        if ($phanloai === 'collaborator') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('agency_name')
+                                    ->orWhere('agency_name', '');
+                            });
+                        } elseif ($phanloai === 'agency') {
+                            $q->whereNotNull('agency_name')
+                                ->where('agency_name', '!=', '');
+                        }
+                    })
+                    ->when(!empty($customer_name), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
+                    ->when(!empty($customer_phone), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
+                    ->when(!empty($agency_name), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
+                    ->when(!empty($agency_phone), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
+            } else {
+                $dateField = 'installation_orders.created_at';
+                if ($tab === 'dadieuphoi') {
+                    $dateField = 'installation_orders.dispatched_at';
+                } elseif ($tab === 'dailylapdat') {
+                    $dateField = 'installation_orders.agency_at';
+                } elseif ($tab === 'dahoanthanh') {
+                    $dateField = 'installation_orders.successed_at';
+                } elseif ($tab === 'dathanhtoan') {
+                    $dateField = 'installation_orders.paid_at';
                 }
-            })
-            ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
-                if ($phanloai === 'collaborator') {
-                    $q->where(function ($sub) {
-                        $sub->whereNull('orders.agency_name')
-                            ->orWhere('orders.agency_name', '');
-                    });
-                } elseif ($phanloai === 'agency') {
-                    $q->whereNotNull('orders.agency_name')
-                      ->where('orders.agency_name', '!=', '');
-                }
-            })
-            ->when(!empty($customer_name), function ($q) use ($customer_name) {
-                $q->where('orders.customer_name', 'like', "%$customer_name%");
-            })
-            ->when(!empty($customer_phone), function ($q) use ($customer_phone) {
-                $q->where('orders.customer_phone', 'like', "%$customer_phone%");
-            })
-            ->when(!empty($agency_phone), function ($q) use ($agency_phone) {
-                $q->where('orders.agency_phone', 'like', "%$agency_phone%");
-            })
-            ->when(!empty($agency_name), function ($q) use ($agency_name) {
-                $q->where('orders.agency_name', 'like', "%$agency_name%");
-            });
-        }
-        elseif ($tab === 'dieuphoibaohanh') {
-            $query->when(!empty($madon), fn($q) => $q->where('serial_number', 'like', "%$madon%"))
-                ->when(!empty($sanpham), fn($q) => $q->where('product', 'like', "%$sanpham%"))
-                ->when(!empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
-                ->when(!empty($denngay), function($q) use ($denngay) {
-                    $q->whereDate('received_date', '<=', $denngay);
-                })
-                ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
-                    if ($trangthai === '0') {
-                        $q->where(function ($sub) {
-                            $sub->whereNull('status_install')
-                                ->orWhere('status_install', 0);
-                        });
-                    } elseif ($trangthai === '1') {
-                        $q->where('status_install', 1);
-                    } elseif ($trangthai === '2') {
-                        $q->where('status_install', 2);
-                    } elseif ($trangthai === '3') {
-                        $q->where('status_install', 3);
-                    }
-                })
-                ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
-                    if ($phanloai === 'collaborator') {
-                        $q->where(function ($sub) {
-                            $sub->whereNull('agency_name')
-                                ->orWhere('agency_name', '');
-                        });
-                    } elseif ($phanloai === 'agency') {
-                        $q->whereNotNull('agency_name')
-                          ->where('agency_name', '!=', '');
-                    }
-                })
-                ->when(!empty($customer_name), fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
-                ->when(!empty($customer_phone), fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
-                ->when(!empty($agency_name), fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
-                ->when(!empty($agency_phone), fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
-        }
-        else {
-            $dateField = 'installation_orders.created_at';
-            if ($tab === 'dadieuphoi') {
-                $dateField = 'installation_orders.dispatched_at';
-            } elseif ($tab === 'dailylapdat') {
-                $dateField = 'installation_orders.agency_at';
-            } elseif ($tab === 'dahoanthanh') {
-                $dateField = 'installation_orders.successed_at';
-            } elseif ($tab === 'dathanhtoan') {
-                $dateField = 'installation_orders.paid_at';
+
+                $query->when(!empty($madon), fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
+                    ->when(!empty($sanpham), fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
+                    ->when(!empty($tungay), function ($q) use ($dateField, $tungay) {
+                        $q->whereDate($dateField, '>=', $tungay);
+                    })
+                    ->when(!empty($denngay), function ($q) use ($dateField, $denngay) {
+                        $q->whereDate($dateField, '<=', $denngay);
+                    })
+                    ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
+                        if ($trangthai === '0') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('installation_orders.status_install')
+                                    ->orWhere('installation_orders.status_install', 0);
+                            });
+                        } elseif ($trangthai === '1') {
+                            $q->where('installation_orders.status_install', 1);
+                        } elseif ($trangthai === '2') {
+                            $q->where('installation_orders.status_install', 2);
+                        } elseif ($trangthai === '3') {
+                            $q->where('installation_orders.status_install', 3);
+                        }
+                    })
+                    ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
+                        if ($phanloai === 'collaborator') {
+                            $q->where(function ($sub) {
+                                $sub->whereNull('installation_orders.agency_name')
+                                    ->orWhere('installation_orders.agency_name', '');
+                            });
+                        } elseif ($phanloai === 'agency') {
+                            $q->whereNotNull('installation_orders.agency_name')
+                                ->where('installation_orders.agency_name', '!=', '');
+                        }
+                    })
+                    ->when(!empty($customer_name), fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
+                    ->when(!empty($customer_phone), fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
+                    ->when(!empty($agency_name), fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
+                    ->when(!empty($agency_phone), fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
             }
-            
-            $query->when(!empty($madon), fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
-                ->when(!empty($sanpham), fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
-                ->when(!empty($tungay), function($q) use ($dateField, $tungay) {
-                    $q->whereDate($dateField, '>=', $tungay);
-                })
-                ->when(!empty($denngay), function($q) use ($dateField, $denngay) {
-                    $q->whereDate($dateField, '<=', $denngay);
-                })
-                ->when(!is_null($trangthai) && $trangthai !== '', function ($q) use ($trangthai) {
-                    if ($trangthai === '0') {
-                        $q->where(function ($sub) {
-                            $sub->whereNull('installation_orders.status_install')
-                                ->orWhere('installation_orders.status_install', 0);
-                        });
-                    } elseif ($trangthai === '1') {
-                        $q->where('installation_orders.status_install', 1);
-                    } elseif ($trangthai === '2') {
-                        $q->where('installation_orders.status_install', 2);
-                    } elseif ($trangthai === '3') {
-                        $q->where('installation_orders.status_install', 3);
-                    }
-                })
-                ->when(!is_null($phanloai) && $phanloai !== '', function ($q) use ($phanloai) {
-                    if ($phanloai === 'collaborator') {
-                        $q->where(function ($sub) {
-                            $sub->whereNull('installation_orders.agency_name')
-                                ->orWhere('installation_orders.agency_name', '');
-                        });
-                    } elseif ($phanloai === 'agency') {
-                        $q->whereNotNull('installation_orders.agency_name')
-                          ->where('installation_orders.agency_name', '!=', '');
-                    }
-                })
-                ->when(!empty($customer_name), fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
-                ->when(!empty($customer_phone), fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
-                ->when(!empty($agency_name), fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
-                ->when(!empty($agency_phone), fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
-        }
             return $query;
         } catch (\Exception $e) {
             throw $e;
@@ -414,230 +429,234 @@ class CollaboratorInstallController extends Controller
             $orderCode = null;
             $statusInstall = null;
             $productName = null;
-            
+
             if ($request->type == 'donhang') {
                 $data = OrderProduct::with('order')->findOrFail($request->id);
                 $order = $data->order;
                 $productName = $data->product_name ?? null;
                 $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
                 $installationOrder = null;
-            
-            if ($orderCode) {
-                $installationOrder = InstallationOrder::where('order_code', $orderCode)
-                    ->when($productName, fn($q) => $q->where('product', $productName))
-                    ->first();
-                if ($installationOrder) {
-                    $data = $installationOrder;
-                    $statusInstall = $installationOrder->status_install ?? null;
-                    $productName = $installationOrder->product ?? $productName;
+
+                if ($orderCode) {
+                    $installationOrder = InstallationOrder::where('order_code', $orderCode)
+                        ->when($productName, fn($q) => $q->where('product', $productName))
+                        ->first();
+                    if ($installationOrder) {
+                        $data = $installationOrder;
+                        $statusInstall = $installationOrder->status_install ?? null;
+                        $productName = $installationOrder->product ?? $productName;
+                    } else {
+                        $statusInstall = $order->status_install ?? null;
+                    }
                 } else {
                     $statusInstall = $order->status_install ?? null;
                 }
-            } else {
-                $statusInstall = $order->status_install ?? null;
-            }
-            
-            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $order->province ?? null) : ($order->province ?? null);
-            $districtId = $installationOrder ? ($installationOrder->district_id ?? $order->district ?? null) : ($order->district ?? null);
-            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $order->wards ?? null) : ($order->wards ?? null);
-            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $order->agency_phone) : $order->agency_phone;
-            
-        } else if ($request->type == 'baohanh') {
-            $data = WarrantyRequest::findOrFail($request->id);
-            $orderCode = $data->serial_number ?? null;
-            $installationOrder = null;
-            
-            if ($orderCode) {
-                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
-                if ($installationOrder) {
-                    $data = $installationOrder;
-                    $statusInstall = $installationOrder->status_install ?? null;
+
+                $provinceId = $installationOrder ? ($installationOrder->province_id ?? $order->province ?? null) : ($order->province ?? null);
+                $districtId = $installationOrder ? ($installationOrder->district_id ?? $order->district ?? null) : ($order->district ?? null);
+                $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $order->wards ?? null) : ($order->wards ?? null);
+                $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $order->agency_phone) : $order->agency_phone;
+            } else if ($request->type == 'baohanh') {
+                $data = WarrantyRequest::findOrFail($request->id);
+                $orderCode = $data->serial_number ?? null;
+                $installationOrder = null;
+
+                if ($orderCode) {
+                    $installationOrder = InstallationOrder::where([
+                        'full_name'    => $data->full_name,
+                        'phone_number' => $data->phone_number,
+                        'product'      => $data->product,
+                        'type'         => 'baohanh',
+                    ])->orderByDesc('created_at')->first();
+
+                    if ($installationOrder) {
+                        $data = $installationOrder;
+                        $statusInstall = $installationOrder->status_install ?? null;
+                    } else {
+                        $statusInstall = $data->status_install ?? null;
+                    }
                 } else {
                     $statusInstall = $data->status_install ?? null;
                 }
+
+                $provinceId = $installationOrder ? ($installationOrder->province_id ?? $data->province_id ?? null) : ($data->province_id ?? null);
+                $districtId = $installationOrder ? ($installationOrder->district_id ?? $data->district_id ?? null) : ($data->district_id ?? null);
+                $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $data->ward_id ?? null) : ($data->ward_id ?? null);
+                $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $data->agency_phone) : $data->agency_phone;
             } else {
-                $statusInstall = $data->status_install ?? null;
-            }
-            
-            $provinceId = $installationOrder ? ($installationOrder->province_id ?? $data->province_id ?? null) : ($data->province_id ?? null);
-            $districtId = $installationOrder ? ($installationOrder->district_id ?? $data->district_id ?? null) : ($data->district_id ?? null);
-            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? $data->ward_id ?? null) : ($data->ward_id ?? null);
-            $agency_phone = $installationOrder ? ($installationOrder->agency_phone ?? $data->agency_phone) : $data->agency_phone;
-            
-        } else {
-            $data = InstallationOrder::find($request->id);
-            
-            if ($data) {
-                $installationOrder = $data;
-                $orderCode = $data->order_code ?? null;
-                $statusInstall = $data->status_install ?? null;
-                $order = null;
-            } else {
-                $orderProduct = OrderProduct::with('order')->find($request->id);
-                if ($orderProduct) {
-                    $data = $orderProduct;
-                    $order = $orderProduct->order;
-                    $productName = $orderProduct->product_name ?? null;
-                    $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
-                    $statusInstall = $order->status_install ?? null;
-                    $installationOrder = null;
-                    
-                    if ($orderCode) {
-                        $installationOrder = InstallationOrder::where('order_code', $orderCode)
-                            ->when($productName, fn($q) => $q->where('product', $productName))
-                            ->first();
-                        if ($installationOrder) {
-                            $data = $installationOrder;
-                            $statusInstall = $installationOrder->status_install ?? null;
-                        }
-                    }
+                $data = InstallationOrder::find($request->id);
+
+                if ($data) {
+                    $installationOrder = $data;
+                    $orderCode = $data->order_code ?? null;
+                    $statusInstall = $data->status_install ?? null;
+                    $order = null;
                 } else {
-                    throw new ModelNotFoundException("No query results for model [App\Models\Kho\InstallationOrder] {$request->id}");
-                }
-            }
-            
-            if ($orderCode && !isset($order)) {
-                $order = Order::where('order_code2', $orderCode)
-                    ->orWhere('order_code1', $orderCode)
-                    ->first();
-            }
-            
-            if (($statusInstall === null || $statusInstall == 0) && isset($order) && $order) {
-                $data = $order;
-                $installationOrder = null;
-            }
-            
-            $provinceId = $installationOrder ? ($installationOrder->province_id ?? null) : ($order->province ?? null);
-            $districtId = $installationOrder ? ($installationOrder->district_id ?? null) : ($order->district ?? null);
-            $wardId     = $installationOrder ? ($installationOrder->ward_id ?? null) : ($order->wards ?? null);
-            $agency_phone = $installationOrder ? $installationOrder->agency_phone : ($order->agency_phone ?? null);
-        }
-        
-        $requestAgency = null;
-        $requestAgencyAgency = null;
-        $allRequestAgencies = collect([]);
-        
-        if ($orderCode) {
-            // Lấy tất cả các requestAgency cùng order_code và product_name
-            $allRequestAgencies = RequestAgency::where('order_code', $orderCode)
-                ->when($productName, function($q) use ($productName) {
-                    $q->where(function($sub) use ($productName) {
-                        $sub->whereNull('product_name')
-                            ->orWhere('product_name', $productName);
-                    });
-                })
-                ->orderBy('created_at', 'asc') // Sắp xếp theo thời gian tạo (sớm nhất trước)
-                ->get();
-            
-            // Logic tự động cập nhật status: Đại lý đầu tiên giữ nguyên, các đại lý sau -> cho_kiem_tra
-            if ($allRequestAgencies->count() > 1) {
-                $firstRequest = $allRequestAgencies->first();
-                $otherRequests = $allRequestAgencies->skip(1);
-                
-                // Cập nhật các đại lý sau thành "Chờ kiểm tra"
-                // Kể cả khi chúng đã có status "Đã xác nhận đại lý" (vì chúng không phải đại lý đầu tiên)
-                foreach ($otherRequests as $otherRequest) {
-                    // Chỉ cập nhật nếu status hiện tại chưa phải là các status đã xử lý hoàn toàn
-                    // (da_dieu_phoi, hoan_thanh, da_thanh_toan) - những status này không nên thay đổi
-                    // Nhưng nếu là "Đã xác nhận đại lý" (da_xac_nhan_daily) thì vẫn cập nhật thành "Chờ kiểm tra"
-                    // vì đây là yêu cầu gửi sau, không phải đại lý đầu tiên
-                    if (!in_array($otherRequest->status, [
-                        RequestAgency::STATUS_DA_DIEU_PHOI,
-                        RequestAgency::STATUS_HOAN_THANH,
-                        RequestAgency::STATUS_DA_THANH_TOAN
-                    ])) {
-                        // Cập nhật thành "Chờ kiểm tra" nếu chưa phải
-                        if ($otherRequest->status !== RequestAgency::STATUS_CHO_KIEM_TRA) {
-                            $otherRequest->status = RequestAgency::STATUS_CHO_KIEM_TRA;
-                            $otherRequest->save();
+                    $orderProduct = OrderProduct::with('order')->find($request->id);
+                    if ($orderProduct) {
+                        $data = $orderProduct;
+                        $order = $orderProduct->order;
+                        $productName = $orderProduct->product_name ?? null;
+                        $orderCode = $order->order_code2 ?? $order->order_code1 ?? null;
+                        $statusInstall = $order->status_install ?? null;
+                        $installationOrder = null;
+
+                        if ($orderCode) {
+                            $installationOrder = InstallationOrder::where('order_code', $orderCode)
+                                ->when($productName, fn($q) => $q->where('product', $productName))
+                                ->first();
+                            if ($installationOrder) {
+                                $data = $installationOrder;
+                                $statusInstall = $installationOrder->status_install ?? null;
+                            }
                         }
+                    } else {
+                        throw new ModelNotFoundException("No query results for model [App\Models\Kho\InstallationOrder] {$request->id}");
                     }
-                }
-            }
-            
-            // Lấy requestAgency đầu tiên (để tương thích với code cũ)
-            $requestAgency = $allRequestAgencies->first();
-            
-            if ($requestAgency) {
-                if (!empty($requestAgency->agency_id)) {
-                    $requestAgencyAgency = Agency::find($requestAgency->agency_id);
                 }
 
-                if (empty($agency_phone) && $requestAgencyAgency?->phone) {
-                    $agency_phone = $requestAgencyAgency->phone;
+                if ($orderCode && !isset($order)) {
+                    $order = Order::where('order_code2', $orderCode)
+                        ->orWhere('order_code1', $orderCode)
+                        ->first();
                 }
-                
-                if ($installationOrder && empty($installationOrder->address)) {
-                    $installationOrder->address = $requestAgency->installation_address;
+
+                if (($statusInstall === null || $statusInstall == 0) && isset($order) && $order) {
+                    $data = $order;
+                    $installationOrder = null;
+                }
+
+                $provinceId = $installationOrder ? ($installationOrder->province_id ?? null) : ($order->province ?? null);
+                $districtId = $installationOrder ? ($installationOrder->district_id ?? null) : ($order->district ?? null);
+                $wardId     = $installationOrder ? ($installationOrder->ward_id ?? null) : ($order->wards ?? null);
+                $agency_phone = $installationOrder ? $installationOrder->agency_phone : ($order->agency_phone ?? null);
+            }
+
+            $requestAgency = null;
+            $requestAgencyAgency = null;
+            $allRequestAgencies = collect([]);
+
+            if ($orderCode) {
+                // Lấy tất cả các requestAgency cùng order_code và product_name
+                $allRequestAgencies = RequestAgency::where('order_code', $orderCode)
+                    ->when($productName, function ($q) use ($productName) {
+                        $q->where(function ($sub) use ($productName) {
+                            $sub->whereNull('product_name')
+                                ->orWhere('product_name', $productName);
+                        });
+                    })
+                    ->orderBy('created_at', 'asc') // Sắp xếp theo thời gian tạo (sớm nhất trước)
+                    ->get();
+
+                // Logic tự động cập nhật status: Đại lý đầu tiên giữ nguyên, các đại lý sau -> cho_kiem_tra
+                if ($allRequestAgencies->count() > 1) {
+                    $firstRequest = $allRequestAgencies->first();
+                    $otherRequests = $allRequestAgencies->skip(1);
+
+                    // Cập nhật các đại lý sau thành "Chờ kiểm tra"
+                    // Kể cả khi chúng đã có status "Đã xác nhận đại lý" (vì chúng không phải đại lý đầu tiên)
+                    foreach ($otherRequests as $otherRequest) {
+                        // Chỉ cập nhật nếu status hiện tại chưa phải là các status đã xử lý hoàn toàn
+                        // (da_dieu_phoi, hoan_thanh, da_thanh_toan) - những status này không nên thay đổi
+                        // Nhưng nếu là "Đã xác nhận đại lý" (da_xac_nhan_daily) thì vẫn cập nhật thành "Chờ kiểm tra"
+                        // vì đây là yêu cầu gửi sau, không phải đại lý đầu tiên
+                        if (!in_array($otherRequest->status, [
+                            RequestAgency::STATUS_DA_DIEU_PHOI,
+                            RequestAgency::STATUS_HOAN_THANH,
+                            RequestAgency::STATUS_DA_THANH_TOAN
+                        ])) {
+                            // Cập nhật thành "Chờ kiểm tra" nếu chưa phải
+                            if ($otherRequest->status !== RequestAgency::STATUS_CHO_KIEM_TRA) {
+                                $otherRequest->status = RequestAgency::STATUS_CHO_KIEM_TRA;
+                                $otherRequest->save();
+                            }
+                        }
+                    }
+                }
+
+                // Lấy requestAgency đầu tiên (để tương thích với code cũ)
+                $requestAgency = $allRequestAgencies->first();
+
+                if ($requestAgency) {
+                    if (!empty($requestAgency->agency_id)) {
+                        $requestAgencyAgency = Agency::find($requestAgency->agency_id);
+                    }
+
+                    if (empty($agency_phone) && $requestAgencyAgency?->phone) {
+                        $agency_phone = $requestAgencyAgency->phone;
+                    }
+
+                    if ($installationOrder && empty($installationOrder->address)) {
+                        $installationOrder->address = $requestAgency->installation_address;
+                    }
                 }
             }
-        }
-        
-        $agency = null;
-        
-        if ($installationOrder && $installationOrder->agency_id) {
-            $agency = Agency::find($installationOrder->agency_id);
-        }
-        
-        if (!$agency && $agency_phone) {
-            $normalizedPhone = preg_replace('/[^0-9]/', '', $agency_phone);
-            
-            $agency = Agency::where('phone', $normalizedPhone)->first();
-            
-            if (!$agency && !empty($normalizedPhone)) {
-                $agency = Agency::where('phone', 'like', '%' . $normalizedPhone . '%')->first();
+
+            $agency = null;
+
+            if ($installationOrder && $installationOrder->agency_id) {
+                $agency = Agency::find($installationOrder->agency_id);
             }
-            
-            if (!$agency) {
-                $agency = Agency::where('phone', $agency_phone)->first();
+
+            if (!$agency && $agency_phone) {
+                $normalizedPhone = preg_replace('/[^0-9]/', '', $agency_phone);
+
+                $agency = Agency::where('phone', $normalizedPhone)->first();
+
+                if (!$agency && !empty($normalizedPhone)) {
+                    $agency = Agency::where('phone', 'like', '%' . $normalizedPhone . '%')->first();
+                }
+
+                if (!$agency) {
+                    $agency = Agency::where('phone', $agency_phone)->first();
+                }
             }
-        }
-        
-        if (!$agency && isset($requestAgencyAgency) && $requestAgencyAgency) {
-            $agency = $requestAgencyAgency;
-        }
-        
-        $provinces = Province::orderBy('name')->get();
-        
-        $provinceName = $provinceId ? Province::find($provinceId)?->name : null;
-        $districtName = $districtId ? District::find($districtId)?->name : null;
-        $wardName     = $wardId ? Wards::find($wardId)?->name : null;
-        $fullAddress = implode(', ', array_filter([$wardName, $districtName, $provinceName]));
-        
-        $lstCollaborator = WarrantyCollaborator::query()
-            ->when($provinceId, function ($q) use ($provinceId) {
-                $q->where('province_id', $provinceId);
-            })
-            ->select('*')
-            ->selectRaw('
+
+            if (!$agency && isset($requestAgencyAgency) && $requestAgencyAgency) {
+                $agency = $requestAgencyAgency;
+            }
+
+            $provinces = Province::orderBy('name')->get();
+
+            $provinceName = $provinceId ? Province::find($provinceId)?->name : null;
+            $districtName = $districtId ? District::find($districtId)?->name : null;
+            $wardName     = $wardId ? Wards::find($wardId)?->name : null;
+            $fullAddress = implode(', ', array_filter([$wardName, $districtName, $provinceName]));
+
+            $lstCollaborator = WarrantyCollaborator::query()
+                ->when($provinceId, function ($q) use ($provinceId) {
+                    $q->where('province_id', $provinceId);
+                })
+                ->select('*')
+                ->selectRaw('
                 (CASE WHEN province_id = ? THEN 1 ELSE 0 END +
                  CASE WHEN district_id = ? THEN 1 ELSE 0 END +
                  CASE WHEN ward_id = ? THEN 1 ELSE 0 END) as match_score
             ', [$provinceId, $districtId, $wardId])
-            ->orderByDesc('match_score')
-            ->limit(10)
-            ->get();
+                ->orderByDesc('match_score')
+                ->limit(10)
+                ->get();
 
-        return view('collaboratorinstall.details', compact(
-            'data',
-            'lstCollaborator',
-            'provinces',
-            'agency',
-            'fullAddress',
-            'provinceName',
-            'districtName',
-            'wardName',
-            'provinceId',
-            'districtId',
-            'wardId',
-            'installationOrder',
-            'order',
-            'orderCode',
-            'statusInstall',
-            'allRequestAgencies',
-            'requestAgency',
-            'requestAgencyAgency'
-        ));
+            return view('collaboratorinstall.details', compact(
+                'data',
+                'lstCollaborator',
+                'provinces',
+                'agency',
+                'fullAddress',
+                'provinceName',
+                'districtName',
+                'wardName',
+                'provinceId',
+                'districtId',
+                'wardId',
+                'installationOrder',
+                'order',
+                'orderCode',
+                'statusInstall',
+                'allRequestAgencies',
+                'requestAgency',
+                'requestAgencyAgency'
+            ));
         } catch (\Exception $e) {
             throw $e;
         }
@@ -675,14 +694,14 @@ class CollaboratorInstallController extends Controller
             $sourceOrderProduct = null;
             $orderCode = null;
             $productName = null;
-            
+
             if (!$installationOrder) {
                 $sourceModel = match ($request->type) {
                     'donhang'  => Order::findOrFail($request->id),
                     'baohanh'  => WarrantyRequest::findOrFail($request->id),
                     default    => InstallationOrder::findOrFail($request->id),
                 };
-                
+
                 if ($sourceModel instanceof Order) {
                     $sourceOrder = $sourceModel;
                     $orderCode = $sourceOrder->order_code2 ?? $sourceOrder->order_code1;
@@ -690,10 +709,10 @@ class CollaboratorInstallController extends Controller
                         $sourceOrderProduct = OrderProduct::find($request->product_id);
                         $productName = $sourceOrderProduct?->product_name;
                     } else {
-                        $productName = $request->product 
+                        $productName = $request->product
                             ?? OrderProduct::where('order_id', $sourceOrder->id)
-                                ->where('install', 1)
-                                ->value('product_name');
+                            ->where('install', 1)
+                            ->value('product_name');
                     }
                 } elseif ($sourceModel instanceof WarrantyRequest) {
                     $sourceWarrantyRequest = $sourceModel;
@@ -708,27 +727,27 @@ class CollaboratorInstallController extends Controller
                 $orderCode = $installationOrder->order_code ?? null;
                 $productName = $installationOrder->product ?? null;
             }
-            
+
             if (!$installationOrder && $orderCode) {
                 $sourceOrder = Order::where('order_code2', $orderCode)
                     ->orWhere('order_code1', $orderCode)
                     ->first();
                 if ($sourceOrder && !$productName) {
-                    $productName = $request->product 
+                    $productName = $request->product
                         ?? OrderProduct::where('order_id', $sourceOrder->id)
-                            ->where('install', 1)
-                            ->value('product_name');
+                        ->where('install', 1)
+                        ->value('product_name');
                 }
             }
 
-            $currentStatusInstall = $installationOrder?->status_install 
-                ?? $sourceOrder?->status_install 
-                ?? $sourceWarrantyRequest?->status_install 
+            $currentStatusInstall = $installationOrder?->status_install
+                ?? $sourceOrder?->status_install
+                ?? $sourceWarrantyRequest?->status_install
                 ?? null;
-            
+
             $isPaidOrder = ($currentStatusInstall === 3);
             $action = $request->input('action');
-            
+
             if ($isPaidOrder && in_array($action, ['complete', 'payment'])) {
                 return response()->json([
                     'success' => false,
@@ -743,10 +762,10 @@ class CollaboratorInstallController extends Controller
                     'message' => 'Yêu cầu nhập ngày hoàn thành!'
                 ]);
             }
-            
+
             $oldCollaboratorId = $installationOrder?->collaborator_id ?? null;
             $oldStatus = $currentStatusInstall;
-            
+
             $ctvId = $request->ctv_id ?: null;
 
             $agencyName = $request->input('agency_name');
@@ -761,7 +780,7 @@ class CollaboratorInstallController extends Controller
 
             $isCollaboratorInstall = !empty($ctvId);
             $isAgencyInstall = !$isCollaboratorInstall && (!empty($agencyName) || !empty($agencyPhone));
-            
+
             $newStatusInstall = $currentStatusInstall;
             if (!$isPaidOrder) {
                 if ($action) {
@@ -779,8 +798,9 @@ class CollaboratorInstallController extends Controller
                             break;
                     }
                 } else {
-                    if (($isCollaboratorInstall || $isAgencyInstall) && 
-                        ($currentStatusInstall === null || $currentStatusInstall == 0)) {
+                    if (($isCollaboratorInstall || $isAgencyInstall) &&
+                        ($currentStatusInstall === null || $currentStatusInstall == 0)
+                    ) {
                         $newStatusInstall = 1;
                     }
                 }
@@ -823,8 +843,8 @@ class CollaboratorInstallController extends Controller
             }
 
             $requestAgency = RequestAgency::where('order_code', $orderCode)
-                ->when($productName, function($q) use ($productName) {
-                    $q->where(function($sub) use ($productName) {
+                ->when($productName, function ($q) use ($productName) {
+                    $q->where(function ($sub) use ($productName) {
                         $sub->whereNull('product_name')
                             ->orWhere('product_name', $productName);
                     });
@@ -834,36 +854,36 @@ class CollaboratorInstallController extends Controller
             if ($requestAgency && $requestAgency->agency_id) {
                 $requestAgencyAgency = Agency::find($requestAgency->agency_id);
             }
-            
+
             if ($isAgencyInstall) {
-                $resolvedAgencyName = $agencyName 
+                $resolvedAgencyName = $agencyName
                     ?: ($requestAgencyAgency->name ?? null)
                     ?: ($sourceOrder?->agency_name ?? null)
                     ?: '';
-                $resolvedAgencyPhone = $agencyPhone 
+                $resolvedAgencyPhone = $agencyPhone
                     ?: ($requestAgencyAgency->phone ?? null)
                     ?: ($sourceOrder?->agency_phone ?? null)
                     ?: '';
 
                 $resolvedAgencyId = null;
                 $agency = null;
-                
+
                 $normalizedPhone = !empty($resolvedAgencyPhone) ? preg_replace('/[^0-9]/', '', $resolvedAgencyPhone) : '';
-                
+
                 if ($requestAgency && $requestAgency->agency_id) {
                     $agency = Agency::find($requestAgency->agency_id);
                     if ($agency) {
                         $resolvedAgencyId = $agency->id;
                     }
                 }
-                
+
                 if (!$agency && !empty($normalizedPhone)) {
                     $agency = Agency::where('phone', $normalizedPhone)->first();
-                    
+
                     if (!$agency) {
                         $agency = Agency::where('phone', 'like', '%' . $normalizedPhone . '%')->first();
                     }
-                    
+
                     if ($agency) {
                         $resolvedAgencyId = $agency->id;
                         if ($agency->phone !== $normalizedPhone) {
@@ -872,18 +892,18 @@ class CollaboratorInstallController extends Controller
                         }
                     }
                 }
-                
+
                 if (!$agency && !empty($agencyCccd)) {
                     $agency = Agency::where('cccd', $agencyCccd)->first();
                     if ($agency) {
                         $resolvedAgencyId = $agency->id;
                     }
                 }
-                
+
                 if (!empty($normalizedPhone)) {
                     try {
                         $resolvedAgencyPhone = $normalizedPhone;
-                        
+
                         $agencyData = [
                             'name' => $resolvedAgencyName ?: ($agency?->name ?? ''),
                             'phone' => $normalizedPhone,
@@ -896,7 +916,7 @@ class CollaboratorInstallController extends Controller
                             'ngaycap' => $agencyReleaseDate ?: ($agency?->ngaycap ?? null),
                             'create_by' => session('user', 'system'),
                         ];
-                        
+
                         if ($agency) {
                             $updateData = [];
                             if (!empty($resolvedAgencyName)) {
@@ -923,31 +943,30 @@ class CollaboratorInstallController extends Controller
                             if (!empty($agencyReleaseDate)) {
                                 $updateData['ngaycap'] = $agencyReleaseDate;
                             }
-                            
+
                             if (!empty($updateData)) {
                                 $agency->update($updateData);
                             }
                         } else {
                             $agencyData['created_ad'] = now();
-                            
+
                             if (empty($agencyData['bank_account'])) {
                                 $agencyData['bank_account'] = '';
                             }
-                            
+
                             foreach ($agencyData as $key => $value) {
                                 if ($value === '' && $key !== 'bank_account') {
                                     $agencyData[$key] = null;
                                 }
                             }
-                            
+
                             $agency = Agency::updateOrCreate(
                                 ['phone' => $normalizedPhone],
                                 $agencyData
                             );
                         }
-                        
+
                         $resolvedAgencyId = $agency->id;
-                        
                     } catch (\Exception $e) {
                         Log::error('Lỗi khi tạo/cập nhật agency: ' . $e->getMessage(), [
                             'phone' => $normalizedPhone ?? $resolvedAgencyPhone,
@@ -957,11 +976,11 @@ class CollaboratorInstallController extends Controller
                             'file' => $e->getFile(),
                             'line' => $e->getLine()
                         ]);
-                        
+
                         if (!$resolvedAgencyId && $agency) {
                             $resolvedAgencyId = $agency->id;
                         }
-                        
+
                         if (!$resolvedAgencyId && !empty($normalizedPhone)) {
                             $existingAgency = Agency::where('phone', $normalizedPhone)->first();
                             if ($existingAgency) {
@@ -986,26 +1005,26 @@ class CollaboratorInstallController extends Controller
             $successedAt = $installationOrder?->successed_at;
             $paidAt = $installationOrder?->paid_at;
             $agencyAt = $installationOrder?->agency_at;
-            
+
             $wasAgencyInstall = !empty($installationOrder?->agency_name) && empty($installationOrder?->collaborator_id);
             $isNowAgencyInstall = $isAgencyInstall && !empty($resolvedAgencyName);
-            
+
             if ($newStatusInstall == 1 && $oldStatus != 1) {
                 $dispatchedAt = $now;
             } elseif ($newStatusInstall == 1 && $oldStatus == 1 && !$dispatchedAt) {
                 $dispatchedAt = $now;
             }
-            
+
             if ($newStatusInstall == 2 && $oldStatus != 2) {
                 $successedAt = $request->successed_at ?? $now;
             } elseif ($newStatusInstall == 2 && $oldStatus == 2 && $request->filled('successed_at')) {
                 $successedAt = $request->successed_at;
             }
-            
+
             if ($newStatusInstall == 3 && $oldStatus != 3) {
                 $paidAt = $now;
             }
-            
+
             if ($isNowAgencyInstall && !$wasAgencyInstall) {
                 $agencyAt = $now;
             } elseif ($isNowAgencyInstall && $wasAgencyInstall && !$agencyAt) {
@@ -1013,39 +1032,39 @@ class CollaboratorInstallController extends Controller
             }
 
             $installationOrderData = [
-                'full_name'        => $requestAgency?->customer_name 
-                    ?? $sourceOrder?->customer_name 
-                    ?? $sourceWarrantyRequest?->full_name 
-                    ?? $installationOrder?->full_name 
+                'full_name'        => $requestAgency?->customer_name
+                    ?? $sourceOrder?->customer_name
+                    ?? $sourceWarrantyRequest?->full_name
+                    ?? $installationOrder?->full_name
                     ?? '',
-                'phone_number'     => $requestAgency?->customer_phone 
-                    ?? $sourceOrder?->customer_phone 
-                    ?? $sourceWarrantyRequest?->phone_number 
-                    ?? $installationOrder?->phone_number 
+                'phone_number'     => $requestAgency?->customer_phone
+                    ?? $sourceOrder?->customer_phone
+                    ?? $sourceWarrantyRequest?->phone_number
+                    ?? $installationOrder?->phone_number
                     ?? '',
-                'address'          => $requestAgency?->installation_address 
-                    ?? $sourceOrder?->customer_address 
-                    ?? $sourceWarrantyRequest?->address 
-                    ?? $installationOrder?->address 
+                'address'          => $requestAgency?->installation_address
+                    ?? $sourceOrder?->customer_address
+                    ?? $sourceWarrantyRequest?->address
+                    ?? $installationOrder?->address
                     ?? '',
-                'product'          => $productName 
-                    ?? $request->product 
-                    ?? $requestAgency?->product_name 
-                    ?? $sourceOrder?->product_name 
-                    ?? $sourceWarrantyRequest?->product 
-                    ?? $installationOrder?->product 
+                'product'          => $productName
+                    ?? $request->product
+                    ?? $requestAgency?->product_name
+                    ?? $sourceOrder?->product_name
+                    ?? $sourceWarrantyRequest?->product
+                    ?? $installationOrder?->product
                     ?? '',
-                'province_id'      => $sourceOrder?->province 
-                    ?? $sourceWarrantyRequest?->province_id 
-                    ?? $installationOrder?->province_id 
+                'province_id'      => $sourceOrder?->province
+                    ?? $sourceWarrantyRequest?->province_id
+                    ?? $installationOrder?->province_id
                     ?? null,
-                'district_id'      => $sourceOrder?->district 
-                    ?? $sourceWarrantyRequest?->district_id 
-                    ?? $installationOrder?->district_id 
+                'district_id'      => $sourceOrder?->district
+                    ?? $sourceWarrantyRequest?->district_id
+                    ?? $installationOrder?->district_id
                     ?? null,
-                'ward_id'          => $sourceOrder?->wards 
-                    ?? $sourceWarrantyRequest?->ward_id 
-                    ?? $installationOrder?->ward_id 
+                'ward_id'          => $sourceOrder?->wards
+                    ?? $sourceWarrantyRequest?->ward_id
+                    ?? $installationOrder?->ward_id
                     ?? null,
                 'collaborator_id'  => $isCollaboratorInstall ? $ctvId : null,
                 'install_cost'     => $request->installcost ?? $installationOrder?->install_cost ?? null,
@@ -1056,16 +1075,16 @@ class CollaboratorInstallController extends Controller
                 'agency_id'        => $resolvedAgencyId,
                 'type'             => $request->type ?? $sourceOrder?->type ?? 'donhang',
                 'zone'             => $sourceOrder?->zone ?? $installationOrder?->zone ?? '',
-                'created_at'       => $sourceOrder?->created_at 
-                    ?? $sourceWarrantyRequest?->Ngaytao 
-                    ?? $installationOrder?->created_at 
+                'created_at'       => $sourceOrder?->created_at
+                    ?? $sourceWarrantyRequest?->Ngaytao
+                    ?? $installationOrder?->created_at
                     ?? now(),
                 'successed_at'     => $successedAt,
                 'dispatched_at'    => $dispatchedAt,
                 'paid_at'          => $paidAt,
                 'agency_at'        => $agencyAt
             ];
-            
+
             try {
                 $before = $installationOrder ? $installationOrder->fresh()->toArray() : [];
 
@@ -1080,11 +1099,27 @@ class CollaboratorInstallController extends Controller
                 try {
                     $after = $installationOrder->fresh()->toArray();
                     $keys = [
-                        'full_name', 'phone_number', 'address', 'province_id', 'district_id', 'ward_id',
-                        'order_code', 'product', 'status_install', 'install_cost', 'collaborator_id',
-                        'agency_name', 'agency_phone', 'agency_id',
-                        'successed_at', 'dispatched_at', 'paid_at', 'agency_at',
-                        'type', 'zone', 'reviews_install',
+                        'full_name',
+                        'phone_number',
+                        'address',
+                        'province_id',
+                        'district_id',
+                        'ward_id',
+                        'order_code',
+                        'product',
+                        'status_install',
+                        'install_cost',
+                        'collaborator_id',
+                        'agency_name',
+                        'agency_phone',
+                        'agency_id',
+                        'successed_at',
+                        'dispatched_at',
+                        'paid_at',
+                        'agency_at',
+                        'type',
+                        'zone',
+                        'reviews_install',
                     ];
 
                     $old = [];
@@ -1134,18 +1169,18 @@ class CollaboratorInstallController extends Controller
 
                 if ($requestAgency && $newStatusInstall >= 1) {
                     $oldRequestAgencyStatus = $requestAgency->status;
-                    $newRequestAgencyStatus = match($newStatusInstall) {
+                    $newRequestAgencyStatus = match ($newStatusInstall) {
                         1 => RequestAgency::STATUS_DA_DIEU_PHOI,
                         2 => RequestAgency::STATUS_HOAN_THANH,
                         3 => RequestAgency::STATUS_DA_THANH_TOAN,
                         default => $requestAgency->status
                     };
-                    
+
                     if ($newRequestAgencyStatus != $oldRequestAgencyStatus) {
                         $requestAgency->status = $newRequestAgencyStatus;
                         $requestAgency->assigned_to = session('user', 'system');
                         $requestAgency->save();
-                        
+
                         // Gửi thông báo cho đại lý khi trạng thái thay đổi
                         NotificationService::sendStatusChangeNotification(
                             $requestAgency,
@@ -1154,7 +1189,6 @@ class CollaboratorInstallController extends Controller
                         );
                     }
                 }
-                
             } catch (\Exception $e) {
                 throw $e;
             }
@@ -1170,7 +1204,7 @@ class CollaboratorInstallController extends Controller
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Có lỗi xảy ra khi cập nhật: ' . $e->getMessage()
@@ -1181,8 +1215,8 @@ class CollaboratorInstallController extends Controller
     public function Filter(Request $request)
     {
         $lstCollaborator = WarrantyCollaborator::when($request->province, function ($q) use ($request) {
-                $q->where('province_id', $request->province);
-            })
+            $q->where('province_id', $request->province);
+        })
             ->when($request->district, function ($q) use ($request) {
                 $q->where('district_id', $request->district);
             })
@@ -1258,7 +1292,7 @@ class CollaboratorInstallController extends Controller
                     ->orWhere('order_code1', $orderCode)
                     ->first();
                 $warrantyRequest = null;
-                
+
                 if (!$order) {
                     $warrantyRequest = WarrantyRequest::where('serial_number', $orderCode)->first();
                 }
