@@ -20,6 +20,8 @@ use App\Http\Controllers\SaveLogController;
 use App\Models\KyThuat\EditCtvHistory;
 use App\Models\KyThuat\RequestAgency;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\DB;
+
 class CollaboratorInstallController extends Controller
 {
     static $pageSize = 50;
@@ -53,8 +55,19 @@ class CollaboratorInstallController extends Controller
         try {
             $tab = $request->get('tab', 'donhang');
             $view = session('brand') === 'hurom' ? 3 : 1;
+             // ✅ CHỈ LẤY KHI LÀ TAB BẢO HÀNH
+        $dispatchedSerials = [];
 
-            $mainQuery = $this->buildTabQuery($tab, $view);
+        if ($tab === 'dieuphoibaohanh') {
+            $dispatchedSerials = DB::connection('mysql3')
+                ->table('installation_orders')
+                ->where('type', 'baohanh')
+                ->whereNotNull('order_code')
+                ->pluck('order_code')
+                ->filter()
+                ->toArray();
+        }
+            $mainQuery = $this->buildTabQuery($tab, $view, $dispatchedSerials);
             $mainQuery = $this->applyTabFilters($mainQuery, $tab, $request);
             if ($tab === 'dieuphoibaohanh') {
                 $data = $mainQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(50)->withQueryString();
@@ -103,7 +116,7 @@ class CollaboratorInstallController extends Controller
     /**
      * Build query cho từng tab
      */
-    private function buildTabQuery($tab, $view)
+    private function buildTabQuery($tab, $view, array $dispatchedSerials = [])
     {
         try {
             $queryBuilders = [
@@ -187,10 +200,14 @@ class CollaboratorInstallController extends Controller
                     ->whereNull('io.id')
                     ->orderByDesc('orders.created_at');
             },
-            'dieuphoibaohanh' => function () use ($view) {
-                return WarrantyRequest::where('type', 'agent_component')
-                    ->where('view', $view);
-            },
+            'dieuphoibaohanh' => function () use ($view, $dispatchedSerials) {
+    return WarrantyRequest::where('type', 'agent_component')
+        ->where('view', $view)
+        ->when(!empty($dispatchedSerials), function ($q) use ($dispatchedSerials) {
+            $q->whereNotIn('serial_number', $dispatchedSerials);
+        });
+},
+
             'dadieuphoi' => function () use ($view) {
                 return InstallationOrder::leftJoin('products as p', function($join){
                         $join->on('installation_orders.product', '=', 'p.product_name');
@@ -448,7 +465,13 @@ class CollaboratorInstallController extends Controller
             $installationOrder = null;
             
             if ($orderCode) {
-                $installationOrder = InstallationOrder::where('order_code', $orderCode)->first();
+                $installationOrder = InstallationOrder::where([
+    'full_name'    => $data->full_name,
+    'phone_number' => $data->phone_number,
+    'product'      => $data->product,
+    'type'         => 'baohanh',
+])->orderByDesc('created_at')->first();
+
                 if ($installationOrder) {
                     $data = $installationOrder;
                     $statusInstall = $installationOrder->status_install ?? null;

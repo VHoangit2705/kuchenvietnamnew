@@ -79,21 +79,16 @@
     }
 
     function validateAddress() {
-        const $input = $('#address');
-        const address = ($input.val() || '').trim();
-        const addressRegex =
-            /^[a-zA-Z0-9àáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\\s\\.,\\/-]*$/;
+    const i = $('#address'),
+          v = i.val().trim(),
+          r = /^[a-zA-Z0-9À-ỹ\s,]+$/;
 
-        if (address.length === 0) {
-            showFormError($input, 'Trường này là bắt buộc.');
-        } else if (address.length > 80) {
-            showFormError($input, 'Địa chỉ không được vượt quá 80 ký tự.');
-        } else if (!addressRegex.test(address)) {
-            showFormError($input, 'Địa chỉ chỉ chứa chữ, số và các ký tự .,-/');
-        } else {
-            hideFormError($input);
-        }
-    }
+    if (!v)            return showFormError(i, 'Trường này là bắt buộc.');
+    if (v.length > 80) return showFormError(i, 'Địa chỉ không được vượt quá 80 ký tự.');
+    if (!r.test(v))    return showFormError(i, 'Chỉ cho phép chữ, số, khoảng trắng và dấu phẩy (,).');
+
+    hideFormError(i);
+}
 
     function validateSelectFields() {
         $('#formCreateCollaborator select[required]').each(function () {

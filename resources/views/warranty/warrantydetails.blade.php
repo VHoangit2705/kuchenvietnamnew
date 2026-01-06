@@ -776,7 +776,8 @@
                                 <option value="Thay thế linh kiện/hardware">Thay thế linh kiện/hardware</option>
                                 <option value="Đổi mới sản phẩm">Đổi mới sản phẩm</option>
                                 <option value="Gửi về trung tâm bảo hành NSX">Gửi về trung tâm bảo hành NSX</option>
-                                <option value="KH không muốn bảo hành">KH không muốn bảo hành</option>
+                                <option value="Từ chối bảo hành">Kỹ Thuật viên từ chối bảo hành</option>
+                                <option value="KH không muốn bảo hành">Khách hàng không muốn bảo hành</option>
                             </select>
                             <div class="error error_sl text-danger small mt-1"></div>
                         </div>
@@ -1575,9 +1576,16 @@
                     });
 
                     // 3. Thêm các mảng vào dataToSend
-                    // Nếu là "Sửa chữa tại chỗ (lỗi nhẹ)", không gửi replacement array
-                    if (dataToSend['solution'] === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
-                        // Không gửi replacement, quantity, unit_price cho trường hợp này
+                    // Xử lý các trường hợp đặc biệt không cần linh kiện
+                    const specialCases = [
+                        'Sửa chữa tại chỗ (lỗi nhẹ)',
+                        'Từ chối bảo hành',
+                        'KH không muốn bảo hành',
+                        'Gửi về trung tâm bảo hành NSX'
+                    ];
+                    
+                    if (specialCases.includes(dataToSend['solution'])) {
+                        // Không gửi replacement, quantity, unit_price cho các trường hợp đặc biệt
                         dataToSend['replacement'] = null;
                         dataToSend['quantity'] = null;
                         dataToSend['unit_price'] = null;
