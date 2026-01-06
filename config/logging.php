@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -123,6 +124,18 @@ return [
             'driver' => 'errorlog',
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+        ],
+
+        'email_report' => [
+            'driver' => 'single',
+            'path' => base_path('email_report.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+            'formatter' => LineFormatter::class,
+            'formatter_with' => [
+                'format' => "[%datetime%] %level_name%: %message% %context%\n",
+                'dateFormat' => 'd/m/Y H:i:s',
+            ],
         ],
 
         'null' => [
