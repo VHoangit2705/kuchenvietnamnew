@@ -919,11 +919,12 @@ class ReportController extends BaseController
         
         // Nhóm theo danh mục với thứ tự ưu tiên
         $categoryOrder = [
-            'Máy lọc không khí' => 1,
-            'Máy hút hút mùi' => 2,
-            'Máy rửa chén' => 3,
-            'Máy giặt, sấy' => 4,
-            'Thiết bị gia dụng' => 5,
+            'Bếp điện từ' => 1,
+            'Máy lọc không khí' => 2,
+            'Máy hút hút mùi' => 3,
+            'Máy rửa chén' => 4,
+            'Máy giặt, sấy' => 5,
+            'Thiết bị gia dụng' => 6,
         ];
         
         $groupedByCategory = collect($productStats)->groupBy('category_name')->map(function ($items, $categoryName) {
@@ -1163,6 +1164,74 @@ class ReportController extends BaseController
             'fromDateFormatted',
             'toDateFormatted'
         ));
+    }
+
+    /**
+     * Phân loại sản phẩm theo trường name trong bảng products
+     * @param string $productName Trường name từ bảng products
+     * @return string Tên danh mục
+     */
+    private function getCategoryFromProductName($productName)
+    {
+        if (empty($productName)) {
+            return 'Thiết bị gia dụng';
+        }
+        
+        $name = strtolower(trim($productName));
+        
+        // Bếp điện từ
+        if (strpos($name, 'bếp điện từ') !== false || 
+            strpos($name, 'bep dien tu') !== false ||
+            strpos($name, 'bếp từ') !== false ||
+            strpos($name, 'bep tu') !== false) {
+            return 'Bếp điện từ';
+        }
+        
+        // Máy lọc không khí
+        if (strpos($name, 'máy lọc không khí') !== false || 
+            strpos($name, 'may loc khong khi') !== false ||
+            strpos($name, 'máy lọc khí') !== false ||
+            strpos($name, 'may loc khi') !== false ||
+            strpos($name, 'air purifier') !== false ||
+            strpos($name, 'airpurifier') !== false) {
+            return 'Máy lọc không khí';
+        }
+        
+        // Máy hút hút mùi
+        if (strpos($name, 'máy hút hút mùi') !== false || 
+            strpos($name, 'may hut hut mui') !== false ||
+            strpos($name, 'máy hút mùi') !== false ||
+            strpos($name, 'may hut mui') !== false ||
+            strpos($name, 'hood') !== false ||
+            strpos($name, 'hút mùi') !== false ||
+            strpos($name, 'hut mui') !== false) {
+            return 'Máy hút hút mùi';
+        }
+        
+        // Máy rửa chén
+        if (strpos($name, 'máy rửa chén') !== false || 
+            strpos($name, 'may rua chen') !== false ||
+            strpos($name, 'máy rửa bát') !== false ||
+            strpos($name, 'may rua bat') !== false ||
+            strpos($name, 'dishwasher') !== false ||
+            strpos($name, 'dish washer') !== false) {
+            return 'Máy rửa chén';
+        }
+        
+        // Máy giặt, sấy
+        if (strpos($name, 'máy giặt') !== false || 
+            strpos($name, 'may giat') !== false ||
+            strpos($name, 'máy sấy') !== false ||
+            strpos($name, 'may say') !== false ||
+            strpos($name, 'washer') !== false ||
+            strpos($name, 'dryer') !== false ||
+            strpos($name, 'washing machine') !== false ||
+            strpos($name, 'drying machine') !== false) {
+            return 'Máy giặt, sấy';
+        }
+        
+        // Mặc định: Thiết bị gia dụng
+        return 'Thiết bị gia dụng';
     }
 
 }
