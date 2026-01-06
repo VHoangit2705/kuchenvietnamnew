@@ -115,6 +115,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/linhkien', [ReportController::class, 'RecommentProductPart'])->name('baocao.linhkien');
     Route::get('/nhanvien', [ReportController::class, 'RecommentStaff'])->name('baocao.nhanvien');
     Route::get('/xuatbaocao', [ReportController::class, 'GetExportExcel'])->name('xuatbaocao');
+    Route::get('/baohanh/baocao/preview-product-warranty', [ReportController::class, 'previewProductWarrantyReport'])->name('baocao.preview.product.warranty');
+    Route::get('/baohanh/baocao/preview-excel', [ReportController::class, 'previewReportExcel'])->name('baocao.preview.excel');
 });
 
 // Public route to view report PDF (for email links)
