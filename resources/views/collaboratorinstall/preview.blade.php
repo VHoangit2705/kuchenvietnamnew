@@ -96,6 +96,7 @@
                 <button class="btn btn-sm" onclick="showSheet(2)">CTV TỔNG HỢP</button>
                 <button class="btn btn-sm" onclick="showSheet(3)">ĐẠI LÝ CHI TIẾT</button>
                 <button class="btn btn-sm" onclick="showSheet(4)">ĐẠI LÝ TỔNG HỢP</button>
+                <button class="btn btn-sm" onclick="showSheet(5)">DANH SÁCH ĐẠI LÝ</button>
             </div>
 
             <!-- Sheet 1: CTV CHI TIẾT -->
@@ -145,12 +146,12 @@
                                 <td colspan="4"></td>
                             </tr>
                             <tr>
-                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                <td colspan="10" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet1AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="7"></td>
+                                <td colspan="8"></td>
                                 <td colspan="2" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
@@ -178,7 +179,8 @@
                                 <th>HỌ VÀ TÊN</th>
                                 <th>SỐ ĐIỆN THOẠI</th>
                                 <th>ĐỊA CHỈ</th>
-                                <th>SỐ TÀI KHOẢN CTV</th>
+                                <th>CHỦ TÀI KHOẢN</th>
+                                <th>STK CTV</th>
                                 <th>NGÂN HÀNG - CHI NHÁNH</th>
                                 <th>SỐ CA</th>
                                 <th class="text-right">SỐ TIỀN</th>
@@ -191,6 +193,7 @@
                                 <td>{{ $row['name'] }}</td>
                                 <td class="account-number">{{ $row['phone'] }}</td>
                                 <td>{{ $row['address'] }}</td>
+                                <td class="account-number">{{ $row['bank_account'] ?? 'n/a' }}</td>
                                 <td class="account-number">{{ $row['account'] }}</td>
                                 <td>{{ $row['bank'] }}</td>
                                 <td>{{ $row['count'] }}</td>
@@ -203,17 +206,17 @@
                             @endforelse
                             @if(count($sheet2Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="7" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="8" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet2Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td colspan="8" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet2AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="6"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>
@@ -267,18 +270,18 @@
                             @endforelse
                             @if(count($sheet3Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="5" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="6" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet3Total ?? 0, 0, ',', '.') }}</td>
                                 <td colspan="3"></td>
                             </tr>
                             <tr>
-                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                <td colspan="10" style="font-style: italic; font-weight: bold; padding: 10px;">
                                     Bằng chữ: {{ $sheet3AmountInWords ?? 'không đồng' }}
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="7"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>
@@ -304,6 +307,7 @@
                                 <th>STT</th>
                                 <th>HỌ VÀ TÊN</th>
                                 <th>SĐT</th>
+                                <th>CHỦ TÀI KHOẢN</th>
                                 <th>SỐ TK CÁ NHÂN</th>
                                 <th>NGÂN HÀNG - CHI NHÁNH</th>
                                 <th>SỐ CA</th>
@@ -316,6 +320,7 @@
                                 <td>{{ $row['stt'] }}</td>
                                 <td>{{ $row['name'] }}</td>
                                 <td class="account-number">{{ $row['phone'] }}</td>
+                                <td class="account-number">{{ $row['account_holder'] ?? $row['account'] ?? '' }}</td>
                                 <td class="account-number">{{ $row['account'] }}</td>
                                 <td>{{ $row['bank'] }}</td>
                                 <td>{{ $row['count'] }}</td>
@@ -328,7 +333,7 @@
                             @endforelse
                             @if(count($sheet4Data) > 0)
                             <tr style="font-weight: bold; background-color: #e9ecef;">
-                                <td colspan="6" style="text-align: right;">TỔNG CỘNG</td>
+                                <td colspan="8" style="text-align: right;">TỔNG CỘNG</td>
                                 <td class="text-right">{{ number_format($sheet4Total ?? 0, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
@@ -338,7 +343,7 @@
                             </tr>
                             <tr>
                                 <td colspan="5"></td>
-                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                <td colspan="3" style="text-align: right; padding: 10px;">
                                     Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
                                 </td>
                             </tr>
@@ -349,6 +354,70 @@
                 
                 @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet4Data) > 0])
             </div>
+
+            <!-- Sheet 5: ĐẠI LÝ TỔNG HỢP -->
+            <div id="sheet5" class="sheet-content">
+                @include('collaboratorinstall.partials.report_header', [
+                    'title' => 'BẢNG TỔNG HỢP DANH SÁCH ĐẠI LÝ',
+                    'fromDate' => $fromDateFormatted,
+                    'toDate' => $toDateFormatted,
+                ])
+                <div class="preview-container">
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>HỌ VÀ TÊN</th>
+                                <th>SỐ ĐIỆN THOẠI</th>
+                                <th>CCCD</th>
+                                <th>NGÀY CẤP</th>
+                                <th>SỐ TK CÁ NHÂN</th>
+                                <th>NGÂN HÀNG - CHI NHÁNH</th>
+                                <th class="text-right">SỐ TIỀN</th>
+                                <th>ĐỊA CHỈ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($sheet5Data as $row)
+                            <tr>
+                                <td>{{ $row['stt'] }}</td>
+                                <td>{{ $row['name'] }}</td>
+                                <td class="account-number">{{ $row['phone'] }}</td>
+                                <td class="account-number">{{ $row['cccd'] }}</td>
+                                <td>{{ $row['cccd_date'] }}</td>
+                                <td class="account-number">{{ $row['account'] }}</td>
+                                <td>{{ $row['bank'] }}</td>
+                                <td class="text-right">{{ number_format($row['total'], 0, ',', '.') }}</td>
+                                <td>{{ $row['address'] }}</td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="9" class="text-center">Không có dữ liệu</td>
+                            </tr>
+                            @endforelse
+                            @if(count($sheet5Data) > 0)
+                            <tr style="font-weight: bold; background-color: #e9ecef;">
+                                <td colspan="8" style="text-align: right;">TỔNG CỘNG</td>
+                                <td class="text-right">{{ number_format($sheet5Total ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="9" style="font-style: italic; font-weight: bold; padding: 10px;">
+                                    Bằng chữ: {{ $sheet5AmountInWords ?? 'không đồng' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7"></td>
+                                <td colspan="2" style="text-align: right; padding: 10px;">
+                                    Nghệ An, Ngày {{ date('d') }} tháng {{ date('m') }} năm {{ date('Y') }}
+                                </td>
+                            </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+                
+                @include('collaboratorinstall.partials.report_footer', ['hasData' => count($sheet5Data) > 0])
+            </div>
         </div>
     </div>
 </div>
@@ -356,14 +425,26 @@
 <script>
 function showSheet(sheetNumber) {
     // Hide all sheets
-    for (let i = 1; i <= 4; i++) {
-        document.getElementById('sheet' + i).classList.remove('active');
-        document.querySelectorAll('.sheet-tab button')[i - 1].classList.remove('active');
+    for (let i = 1; i <= 5; i++) {
+        const sheet = document.getElementById('sheet' + i);
+        if (sheet) {
+            sheet.classList.remove('active');
+        }
+        const button = document.querySelectorAll('.sheet-tab button')[i - 1];
+        if (button) {
+            button.classList.remove('active');
+        }
     }
     
     // Show selected sheet
-    document.getElementById('sheet' + sheetNumber).classList.add('active');
-    document.querySelectorAll('.sheet-tab button')[sheetNumber - 1].classList.add('active');
+    const selectedSheet = document.getElementById('sheet' + sheetNumber);
+    if (selectedSheet) {
+        selectedSheet.classList.add('active');
+    }
+    const selectedButton = document.querySelectorAll('.sheet-tab button')[sheetNumber - 1];
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
 }
 
 // Download with cooldown inside preview (works when embedded or standalone)

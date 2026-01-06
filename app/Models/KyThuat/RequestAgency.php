@@ -4,6 +4,7 @@ namespace App\Models\KyThuat;
 
 use App\Models\Kho\Agency;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\KyThuat\WarrantyCollaborator;
 
 class RequestAgency extends Model
 {
@@ -23,6 +24,7 @@ class RequestAgency extends Model
         'received_at',
         'received_by',
         'assigned_to',
+        'collaborator_id',
     ];
 
     protected $casts = [
@@ -37,6 +39,7 @@ class RequestAgency extends Model
     const STATUS_DA_DIEU_PHOI = 'da_dieu_phoi';
     const STATUS_HOAN_THANH = 'hoan_thanh';
     const STATUS_DA_THANH_TOAN = 'da_thanh_toan';
+    const STATUS_CHO_KIEM_TRA = 'cho_kiem_tra';
 
     /**
      * Quan hệ: RequestAgency belongsTo Agency
@@ -48,16 +51,25 @@ class RequestAgency extends Model
     }
 
     /**
+     * Quan hệ: RequestAgency belongsTo WarrantyCollaborator
+     */
+    public function collaborator()
+    {
+        return $this->belongsTo(WarrantyCollaborator::class, 'collaborator_id', 'id');
+    }
+
+    /**
      * Lấy danh sách trạng thái
      */
     public static function getStatuses(): array
     {
         return [
             self::STATUS_CHUA_XAC_NHAN_AGENCY => 'Chưa xác nhận đại lý',
-            self::STATUS_DA_XAC_NHAN_AGENCY => 'Đã xác nhận đại lý',
+            self::STATUS_DA_XAC_NHAN_AGENCY => 'Đang xử lý',
             self::STATUS_DA_DIEU_PHOI => 'Đã điều phối',
             self::STATUS_HOAN_THANH => 'Hoàn thành',
             self::STATUS_DA_THANH_TOAN => 'Đã thanh toán',
+            self::STATUS_CHO_KIEM_TRA => 'Chờ kiểm tra',
         ];
     }
 

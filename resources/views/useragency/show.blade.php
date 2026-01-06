@@ -130,7 +130,10 @@
 
             <!-- Thông tin đại lý -->
             @if($user->agency)
-            <div class="card mb-4">
+            <div class="row mb-4">
+                <!-- Thông tin đại lý (bên trái) -->
+                <div class="col-md-6">
+                    <div class="card h-100">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">Thông tin đại lý</h5>
                 </div>
@@ -152,7 +155,7 @@
 
                     @if($user->agency->cccd)
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                                <div class="col-md-12">
                             <label class="form-label text-muted">CCCD đại lý</label>
                             <div class="form-control-plaintext">
                                 {{ $user->agency->cccd }}
@@ -162,7 +165,7 @@
                     @endif
 
                     @if($user->agency->address)
-                    <div class="row mb-3">
+                            <div class="row mb-0">
                         <div class="col-md-12">
                             <label class="form-label text-muted">Địa chỉ đại lý</label>
                             <div class="form-control-plaintext">
@@ -171,6 +174,62 @@
                         </div>
                     </div>
                     @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thông tin thanh toán (bên phải) -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Thông tin thanh toán</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Chủ tài khoản:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        <strong>{{ $user->agency->bank_account ?? '-' }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Số tài khoản:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->sotaikhoan ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Ngân hàng:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->bank_name_agency ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-0">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <span class="text-muted">Chi nhánh:</span>
+                                    </div>
+                                    <div class="col-7">
+                                        {{ $user->agency->chinhanh ?? '-' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             @else

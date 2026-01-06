@@ -91,8 +91,21 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getBaoHanhCount($view, $request)
     {
-        $query = WarrantyRequest::where('type', 'agent_component')
+        $dispatchedWarrantyIds = DB::connection('mysql3')
+            ->table('installation_orders')
+            ->whereNotNull('warranty_requests_id')
+            ->pluck('warranty_requests_id')
+            ->filter()
+            ->unique()
+            ->toArray();
+        
+        $query = WarrantyRequest::whereIn('type', ['agent_component', 'agent_home'])
             ->where('view', $view);
+        
+        // Loại trừ các WarrantyRequest đã có InstallationOrder với warranty_requests_id
+        if (!empty($dispatchedWarrantyIds)) {
+            $query->whereNotIn('id', $dispatchedWarrantyIds);
+        }
 
         return $this->applyCommonFiltersToWarranty($query, $request)
             ->count();

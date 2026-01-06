@@ -335,7 +335,7 @@ class WarrantyController extends Controller
         ]);
 
         $quatrinh = WarrantyRequestDetail::getDetailsByRequestId($request->id);
-        if ($quatrinh->isEmpty() && $request->status == 'Đã hoàn tất') {
+        if ($quatrinh->isEmpty() && in_array($request->status, ['Đã hoàn tất', 'Chờ KH phản hồi'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa cập nhật quá trình bảo hành.'
@@ -499,20 +499,35 @@ class WarrantyController extends Controller
     // cập nhật quá trình sửa chữa
     public function UpdateDetail(Request $request)
     {
-        // Kiểm tra nếu replacement là mảng (nhiều linh kiện)
+        // Xác định loại giải pháp để xử lý validation phù hợp
+        $solution = $request->solution;
+        $isSpecialCase = in_array($solution, [
+            'Sửa chữa tại chỗ (lỗi nhẹ)',
+            'Từ chối bảo hành',
+            'KH không muốn bảo hành',
+            'Gửi về trung tâm bảo hành NSX'
+        ]);
+
+        // Kiểm tra nếu replacement là mảng (nhiều linh kiện) - chỉ khi không phải trường hợp đặc biệt
         $isMultipleComponents = false;
-        if (is_array($request->replacement) && count($request->replacement) > 0) {
+        if (!$isSpecialCase && is_array($request->replacement) && count($request->replacement) > 0) {
             $isMultipleComponents = true;
         }
         
-        // Validation rules
+        // Validation rules cơ bản
         $rules = [
             'error_type' => 'required|string|max:255',
             'solution' => 'required|string|max:255',
-            'des_error_type' => 'nullable',
         ];
 
-        if ($isMultipleComponents) {
+        // Validation rules theo từng loại giải pháp
+        if ($solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
+            $rules['des_error_type'] = 'nullable|string|max:500';
+        } elseif ($solution === 'Từ chối bảo hành') {
+            $rules['rejection_reason'] = 'required|string|max:100';
+        } elseif ($solution === 'KH không muốn bảo hành') {
+            $rules['customer_refusal_reason'] = 'required|string|max:100';
+        } elseif ($isMultipleComponents) {
             // Validation cho nhiều linh kiện
             $rules['replacement'] = 'required|array';
             $rules['replacement.*'] = 'nullable|string|max:255';
@@ -530,7 +545,7 @@ class WarrantyController extends Controller
         $validator = Validator::make($request->all(), $rules);
 
         // Kiểm tra bắt buộc linh kiện cho một số giải pháp
-        if (($request->solution === 'Thay thế linh kiện/hardware' || $request->solution === 'Đổi mới sản phẩm')) {
+        if (!$isSpecialCase && ($solution === 'Thay thế linh kiện/hardware' || $solution === 'Đổi mới sản phẩm')) {
             if ($isMultipleComponents) {
                 $hasValidComponent = false;
                 foreach ($request->replacement as $index => $replacement) {
@@ -558,8 +573,19 @@ class WarrantyController extends Controller
         }
 
         if ($validator->fails()) {
+            Log::info('Warranty UpdateDetail Validation Failed', [
+                'solution' => $request->solution,
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->except(['_token'])
+            ]);
+            
             return response()->json([
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
+                'debug' => [
+                    'solution' => $request->solution,
+                    'is_special_case' => $isSpecialCase,
+                    'is_multiple_components' => $isMultipleComponents
+                ]
             ], 422);
         }
 
@@ -584,9 +610,45 @@ class WarrantyController extends Controller
             'edit_by' => session('user'),
         ];
 
-        // Xử lý cho trường hợp "Sửa chữa tại chỗ (lỗi nhẹ)"
+        // Xử lý cho các trường hợp đặc biệt
         if ($request->solution === 'Sửa chữa tại chỗ (lỗi nhẹ)') {
             $commonData['replacement'] = $request->des_error_type;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý cho trường hợp "Từ chối bảo hành"
+        if ($request->solution === 'Từ chối bảo hành') {
+            $commonData['replacement'] = $request->rejection_reason;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý cho trường hợp "KH không muốn bảo hành"
+        if ($request->solution === 'KH không muốn bảo hành') {
+            $commonData['replacement'] = $request->customer_refusal_reason;
+            $commonData['quantity'] = 0;
+            $commonData['unit_price'] = 0;
+            $commonData['total'] = 0;
+            $commonData['replacement_price'] = 0;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý cho trường hợp "Gửi về trung tâm bảo hành NSX"
+        if ($request->solution === 'Gửi về trung tâm bảo hành NSX') {
+            $commonData['replacement'] = 'Gửi về trung tâm bảo hành NSX';
             $commonData['quantity'] = 0;
             $commonData['unit_price'] = 0;
             $commonData['total'] = 0;
@@ -821,6 +883,58 @@ class WarrantyController extends Controller
                             'success' => false,
                             'message' => "Chỉ cho phép chữ, số và các ký tự '().,-'",
                             'old_value' => $detail->address,
+                        ]);
+                    }
+                }
+                // Validate full name
+                if($type == 'full_name'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng không được để trống.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    if(strlen($value) > 100){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng tối đa 100 ký tự.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                    // Allow letters (unicode), spaces, dot, comma, hyphen, apostrophe
+                    if(!preg_match('/^[\p{L}\s\.,\'\-]+$/u', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tên khách hàng chứa ký tự không hợp lệ.",
+                            'old_value' => $detail->full_name,
+                        ]);
+                    }
+                }
+                // Validate phone number
+                if($type == 'phone_number'){
+                    if($value == null || trim($value) === ''){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không được để trống.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // allow digits, spaces, +, -
+                    if(!preg_match('/^[0-9\s\+\-]+$/', $value)){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại chỉ được gồm chữ số, khoảng trắng, '+' và '-'.",
+                            'old_value' => $detail->phone_number,
+                        ]);
+                    }
+                    // count digits only
+                    $digits = preg_replace('/\D+/', '', $value);
+                    if(strlen($digits) < 7 || strlen($digits) > 15){
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Số điện thoại không hợp lệ.",
+                            'old_value' => $detail->phone_number,
                         ]);
                     }
                 }
