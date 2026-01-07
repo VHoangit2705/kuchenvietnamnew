@@ -127,6 +127,7 @@ class ReportController extends BaseController
                 $firstRecord = WarrantyOverdueRateHistory::where('report_type', $reportType)
                     ->whereNotNull('staff_received')
                     ->where('staff_received', '!=', '')
+                    ->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system'])
                     ->where(function($q) use ($fromDateCarbon, $toDateCarbon) {
                         $q->where('from_date', '<=', $toDateCarbon->toDateString())
                           ->where('to_date', '>=', $fromDateCarbon->toDateString());
@@ -247,6 +248,9 @@ class ReportController extends BaseController
             $query->where('branch', 'LIKE', '%' . $request->branch . '%');
         }
         
+        // Bỏ tên kỹ thuật viên có tên "system"
+        $query->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system']);
+        
         // Filter theo kỹ thuật viên nếu có
         if ($request->staff_received) {
             $query->where('staff_received', 'LIKE', '%' . $request->staff_received . '%');
@@ -282,6 +286,7 @@ class ReportController extends BaseController
         $overdueRates = WarrantyOverdueRateHistory::query()
             ->whereNotNull('staff_received')
             ->where('staff_received', '!=', '')
+            ->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system'])
             ->where('report_type', $reportType)
             ->where(function($q) use ($filterFromDate, $filterToDate) {
                 $q->where('from_date', '<=', $filterToDate->toDateString())
@@ -853,11 +858,21 @@ class ReportController extends BaseController
             ->whereIn(DB::raw('LOWER(TRIM(products.product_name))'), $productNames)
             ->get();
         
-        // Lấy danh sách các category_id hợp lệ từ database
-        $validCategoryIds = [29, 32, 33, 35, 36, 38, 39];
-        $categories = Category::whereIn('id', $validCategoryIds)
-            ->pluck('name_vi', 'id')
-            ->toArray();
+        // Lấy tất cả các categories có website_id = 2 từ database (không hardcode ID)
+        $categoriesData = Category::where('website_id', 2)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        
+        $categories = $categoriesData->pluck('name_vi', 'id')->toArray();
+        $validCategoryIds = $categoriesData->pluck('id')->toArray();
+        
+        // Tạo categoryOrder động từ sort_order trong database
+        $categoryOrder = [];
+        $orderIndex = 1;
+        foreach ($categoriesData as $category) {
+            $categoryOrder[$category->id] = $orderIndex++;
+        }
         
         // Tạo map product_name -> product info
         $productMap = [];
@@ -935,18 +950,10 @@ class ReportController extends BaseController
             ];
         }
         
-        // Nhóm theo danh mục với thứ tự ưu tiên theo category_id
-        // Thứ tự: 29 (Bếp điện từ), 32 (Máy hút mùi), 33 (Máy lọc không khí), 35 (Máy rửa chén), 36 (Máy giặt, sấy), 38 (Nồi chiên không dầu), còn lại (Thiết bị gia dụng)
-        $categoryOrder = [
-            29 => 1,  // Bếp điện từ
-            32 => 2,  // Máy hút mùi
-            33 => 3,  // Máy lọc không khí
-            35 => 4,  // Máy rửa chén
-            36 => 5,  // Máy giặt, sấy
-            38 => 6,  // Nồi chiên không dầu
-            39 => 7,  // Robot hút bụi lau nhà
-            null => 8, // Thiết bị gia dụng
-        ];
+        // Nhóm theo danh mục với thứ tự ưu tiên theo sort_order từ database
+        // Thiết bị gia dụng (null) sẽ được đặt cuối cùng
+        $maxOrder = count($categoryOrder) > 0 ? max($categoryOrder) : 0;
+        $categoryOrder[null] = $maxOrder + 1; // Thiết bị gia dụng
         
         $groupedByCategory = collect($productStats)->groupBy('category_name')->map(function ($items, $categoryName) {
             // Lấy category_id từ item đầu tiên trong nhóm
