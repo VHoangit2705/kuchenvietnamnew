@@ -29,18 +29,18 @@ class Kernel extends ConsoleKernel
             });
         
         // LỊCH GỬI EMAIL BÁO CÁO TỰ ĐỘNG
-        // Gửi báo cáo theo tuần: 15:00 thứ 7 (Saturday)
+        // Gửi báo cáo tổng hợp: 08:00 thứ 3 hàng tuần (Tuesday)
         $schedule->command('report:send-email weekly')
-            ->weeklyOn(6, '15:00')
+            ->weeklyOn(2, '08:00')
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
-                Log::channel('email_report')->info('[WEEKLY] Bắt đầu chạy command report:send-email weekly');
+                Log::channel('email_report')->info('[WEEKLY_SUMMARY] Bắt đầu chạy command report:send-email weekly (tổng hợp thứ 3)');
             })
             ->onSuccess(function () {
-                Log::channel('email_report')->info('[WEEKLY] Hoàn tất command report:send-email weekly');
+                Log::channel('email_report')->info('[WEEKLY_SUMMARY] Hoàn tất command report:send-email weekly (tổng hợp thứ 3)');
             })
             ->onFailure(function () {
-                Log::channel('email_report')->error('[WEEKLY] Command report:send-email weekly thất bại');
+                Log::channel('email_report')->error('[WEEKLY_SUMMARY] Command report:send-email weekly (tổng hợp thứ 3) thất bại');
             });
         
         // GỬI BÁO CÁO THEO THÁNG

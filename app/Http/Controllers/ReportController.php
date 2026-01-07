@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller as BaseController;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\KyThuat\WarrantyOverdueRateHistory;
 use App\Models\Kho\Product;
+use App\Models\Kho\Category;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -126,6 +127,7 @@ class ReportController extends BaseController
                 $firstRecord = WarrantyOverdueRateHistory::where('report_type', $reportType)
                     ->whereNotNull('staff_received')
                     ->where('staff_received', '!=', '')
+                    ->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system'])
                     ->where(function($q) use ($fromDateCarbon, $toDateCarbon) {
                         $q->where('from_date', '<=', $toDateCarbon->toDateString())
                           ->where('to_date', '>=', $fromDateCarbon->toDateString());
@@ -246,6 +248,9 @@ class ReportController extends BaseController
             $query->where('branch', 'LIKE', '%' . $request->branch . '%');
         }
         
+        // Bỏ tên kỹ thuật viên có tên "system"
+        $query->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system']);
+        
         // Filter theo kỹ thuật viên nếu có
         if ($request->staff_received) {
             $query->where('staff_received', 'LIKE', '%' . $request->staff_received . '%');
@@ -281,6 +286,7 @@ class ReportController extends BaseController
         $overdueRates = WarrantyOverdueRateHistory::query()
             ->whereNotNull('staff_received')
             ->where('staff_received', '!=', '')
+            ->whereRaw('LOWER(TRIM(staff_received)) != ?', ['system'])
             ->where('report_type', $reportType)
             ->where(function($q) use ($filterFromDate, $filterToDate) {
                 $q->where('from_date', '<=', $filterToDate->toDateString())
@@ -378,6 +384,8 @@ class ReportController extends BaseController
             'hrhcm' => 'HUROM HCM',
         ];
         $branch = $branchMap[$request->query("branch", "")] ?? "Tất cả chi nhánh";
+        $fromDateRaw = $request->query('fromDate') ? Carbon::parse($request->query('fromDate'))->toDateString() : Carbon::now()->startOfMonth()->toDateString();
+        $toDateRaw = $request->query('toDate') ? Carbon::parse($request->query('toDate'))->toDateString() : Carbon::today()->toDateString();
         $fromDate = $request->query('fromDate') ? Carbon::parse($request->query('fromDate'))->format('d/m/Y') : "";
         $toDate = $request->query('toDate') ? Carbon::parse($request->query('toDate'))->format('d/m/Y') : "";
         // Tạo file Excel
@@ -653,6 +661,105 @@ class ReportController extends BaseController
             }
         }
         
+        // Tạo sheet mới: Tổng hợp bảo hành
+        $productStats = $this->getProductWarrantyStats($request, $fromDateRaw, $toDateRaw);
+        if ($productStats->isNotEmpty()) {
+            $productSheet = $spreadsheet->createSheet();
+            $productSheet->setTitle('Tổng hợp bảo hành');
+            
+            // Tiêu đề chính
+            $productSheet->mergeCells('A1:F1');
+            $productSheet->setCellValue('A1', 'BÁO CÁO TỔNG HỢP BẢO HÀNH THEO SẢN PHẨM');
+            $productSheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+            $productSheet->getStyle('A1')->getAlignment()->setHorizontal('center')->setVertical('center');
+            $productSheet->getRowDimension(1)->setRowHeight(25);
+            
+            // Thông tin filter
+            $productSheet->mergeCells('A2:F2');
+            $productSheet->setCellValue('A2', 'Chi nhánh: ' . $branch . '     Từ ngày: ' . $fromDate . ' đến ngày: ' . $toDate);
+            $productSheet->getStyle('A2')->getAlignment()->setHorizontal('right');
+            $productSheet->getStyle('A2')->getFont()->setBold(true);
+            $productSheet->getRowDimension(2)->setRowHeight(20);
+            
+            $currentRow = 3;
+            
+            // Duyệt qua từng danh mục
+            foreach ($productStats as $categoryData) {
+                // Header danh mục
+                $productSheet->mergeCells('A' . $currentRow . ':F' . $currentRow);
+                $productSheet->setCellValue('A' . $currentRow, $categoryData['category_name']);
+                $productSheet->getStyle('A' . $currentRow)->getFont()->setBold(true)->setSize(12);
+                $productSheet->getStyle('A' . $currentRow)->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFE0E0E0');
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
+                $productSheet->getRowDimension($currentRow)->setRowHeight(20);
+                $currentRow++;
+                
+                // Header bảng
+                $productSheet->fromArray([
+                    ['TT', 'Tên sản phẩm', 'Tổng số TRƯỜNG HỢP LỖI', 'Bảo hành', 'Hết bảo hành', 'Tổng số tiền thu khách']
+                ], NULL, 'A' . $currentRow);
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getFont()->setBold(true);
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getAlignment()->setVertical('center')->setHorizontal('center');
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFD3D3D3');
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
+                $productSheet->getRowDimension($currentRow)->setRowHeight(25);
+                $currentRow++;
+                
+                // Dữ liệu sản phẩm
+                $stt = 1;
+                foreach ($categoryData['products'] as $product) {
+                    $productSheet->setCellValue('A' . $currentRow, $stt++);
+                    $productSheet->setCellValue('B' . $currentRow, $product['product_name']);
+                    $productSheet->setCellValue('C' . $currentRow, $product['tong_so_loi']);
+                    $productSheet->setCellValue('D' . $currentRow, $product['bao_hanh']);
+                    $productSheet->setCellValue('E' . $currentRow, $product['het_bao_hanh']);
+                    $productSheet->setCellValue('F' . $currentRow, $product['tong_tien']);
+                    
+                    // Format số tiền
+                    $productSheet->getStyle('F' . $currentRow)->getNumberFormat()->setFormatCode('#,##0');
+                    
+                    // Căn giữa các cột số
+                    $productSheet->getStyle('A' . $currentRow)->getAlignment()->setHorizontal('center');
+                    $productSheet->getStyle('C' . $currentRow . ':E' . $currentRow)->getAlignment()->setHorizontal('center');
+                    $productSheet->getStyle('F' . $currentRow)->getAlignment()->setHorizontal('right');
+                    
+                    // Border
+                    $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
+                    
+                    $currentRow++;
+                }
+                
+                // Tổng của danh mục
+                $productSheet->setCellValue('A' . $currentRow, 'Tổng');
+                $productSheet->getStyle('A' . $currentRow)->getFont()->setBold(true);
+                $productSheet->setCellValue('C' . $currentRow, $categoryData['total_loi']);
+                $productSheet->setCellValue('D' . $currentRow, $categoryData['total_bao_hanh']);
+                $productSheet->setCellValue('E' . $currentRow, $categoryData['total_het_bao_hanh']);
+                $productSheet->setCellValue('F' . $currentRow, $categoryData['total_tien']);
+                
+                // Format tổng
+                $productSheet->getStyle('F' . $currentRow)->getNumberFormat()->setFormatCode('#,##0');
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getFont()->setBold(true);
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFFFE0');
+                $productSheet->getStyle('A' . $currentRow . ':F' . $currentRow)->getBorders()->getAllBorders()->setBorderStyle('thin');
+                $productSheet->getStyle('C' . $currentRow . ':E' . $currentRow)->getAlignment()->setHorizontal('center');
+                $productSheet->getStyle('F' . $currentRow)->getAlignment()->setHorizontal('right');
+                
+                $currentRow += 2; // Khoảng cách giữa các danh mục
+            }
+            
+            // Auto column width
+            foreach (range('A', 'F') as $col) {
+                $productSheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            
+            // Wrap text cho cột tên sản phẩm
+            $productSheet->getStyle('B3:B' . ($currentRow - 1))->getAlignment()->setWrapText(true);
+        }
+        
         // Xuất file
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         session(['export_time' => now('Asia/Ho_Chi_Minh')]);
@@ -694,6 +801,470 @@ class ReportController extends BaseController
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
+    }
+
+    /**
+     * Lấy thống kê sản phẩm theo danh mục
+     * - Tổng số TRƯỜNG HỢP LỖI
+     * - Bảo hành (còn hạn)
+     * - Hết bảo hành
+     * - Tổng số tiền thu khách
+     */
+    private function getProductWarrantyStats(Request $request, $fromDate, $toDate)
+    {
+        $filterFromDate = Carbon::parse($fromDate)->startOfDay();
+        $filterToDate = Carbon::parse($toDate)->endOfDay();
+        
+        // Xác định view: 1 = kuchen, 3 = hurom
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        // Filter theo branch nếu có
+        $branchFilter = null;
+        if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
+            $branchFilter = $request->branch;
+        }
+        
+        // Lấy dữ liệu warranty requests với details
+        $warrantyQuery = WarrantyRequest::query()
+            ->whereBetween('received_date', [$filterFromDate, $filterToDate])
+            ->where('status', 'Đã hoàn tất')
+            ->where('view', $view);
+        
+        if ($branchFilter) {
+            $warrantyQuery->where('branch', 'LIKE', '%' . $branchFilter . '%');
+        }
+        
+        $warrantyRequests = $warrantyQuery->get();
+        
+        // Lấy danh sách sản phẩm có trong warranty requests và có category
+        $productNames = $warrantyRequests->pluck('product')->filter()->unique()->map(function ($name) {
+            return strtolower(trim($name));
+        })->toArray();
+        
+        if (empty($productNames)) {
+            return collect([]);
+        }
+        
+        // Lấy thông tin sản phẩm từ bảng products với category_id
+        $products = Product::query()
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->select(
+                'products.id',
+                'products.product_name',
+                'products.category_id',
+                'categories.name_vi as category_name'
+            )
+            ->where('products.view', $view)
+            ->whereIn(DB::raw('LOWER(TRIM(products.product_name))'), $productNames)
+            ->get();
+        
+        // Lấy tất cả các categories có website_id = 2 từ database (không hardcode ID)
+        $categoriesData = Category::where('website_id', 2)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        
+        $categories = $categoriesData->pluck('name_vi', 'id')->toArray();
+        $validCategoryIds = $categoriesData->pluck('id')->toArray();
+        
+        // Tạo categoryOrder động từ sort_order trong database
+        $categoryOrder = [];
+        $orderIndex = 1;
+        foreach ($categoriesData as $category) {
+            $categoryOrder[$category->id] = $orderIndex++;
+        }
+        
+        // Tạo map product_name -> product info
+        $productMap = [];
+        foreach ($products as $product) {
+            $key = strtolower(trim($product->product_name));
+            $productMap[$key] = $product;
+        }
+        
+        // Thêm các sản phẩm không có trong bảng products nhưng có trong warranty
+        foreach ($productNames as $productName) {
+            if (!isset($productMap[$productName])) {
+                $productMap[$productName] = (object)[
+                    'id' => null,
+                    'product_name' => ucfirst($productName),
+                    'category_id' => null,
+                    'category_name' => null
+                ];
+            }
+        }
+        
+        // Tính toán thống kê cho từng sản phẩm
+        $productStats = [];
+        foreach ($productMap as $key => $product) {
+            $productWarranties = $warrantyRequests->filter(function ($wr) use ($key) {
+                return strtolower(trim($wr->product)) === $key;
+            });
+            
+            if ($productWarranties->isEmpty()) {
+                continue;
+            }
+            
+            $tongSoLoi = $productWarranties->count();
+            $baoHanh = 0;
+            $hetBaoHanh = 0;
+            $tongTien = 0;
+            
+            foreach ($productWarranties as $warranty) {
+                $receivedDate = Carbon::parse($warranty->received_date);
+                $warrantyEnd = $warranty->warranty_end ? Carbon::parse($warranty->warranty_end) : null;
+                
+                if ($warrantyEnd && $warrantyEnd >= $receivedDate) {
+                    $baoHanh++;
+                } else {
+                    $hetBaoHanh++;
+                }
+                
+                // Lấy tổng tiền từ warranty_request_details
+                $details = DB::table('warranty_request_details')
+                    ->where('warranty_request_id', $warranty->id)
+                    ->sum('total');
+                
+                $tongTien += $details ?? 0;
+            }
+            
+            // Phân loại sản phẩm dựa trên category_id
+            $categoryId = $product->category_id ?? null;
+            
+            // Xác định category_name dựa trên category_id
+            if ($categoryId && in_array($categoryId, $validCategoryIds) && isset($categories[$categoryId])) {
+                $categoryName = $categories[$categoryId];
+            } else {
+                // Sản phẩm không có category_id hoặc không thuộc các category hợp lệ -> "Thiết bị gia dụng"
+                $categoryName = 'Thiết bị gia dụng';
+            }
+            
+            $productStats[] = [
+                'category_id' => $categoryId,
+                'category_name' => $categoryName,
+                'product_id' => $product->id,
+                'product_name' => $product->product_name,
+                'tong_so_loi' => $tongSoLoi,
+                'bao_hanh' => $baoHanh,
+                'het_bao_hanh' => $hetBaoHanh,
+                'tong_tien' => $tongTien,
+            ];
+        }
+        
+        // Nhóm theo danh mục với thứ tự ưu tiên theo sort_order từ database
+        // Thiết bị gia dụng (null) sẽ được đặt cuối cùng
+        $maxOrder = count($categoryOrder) > 0 ? max($categoryOrder) : 0;
+        $categoryOrder[null] = $maxOrder + 1; // Thiết bị gia dụng
+        
+        $groupedByCategory = collect($productStats)->groupBy('category_name')->map(function ($items, $categoryName) {
+            // Lấy category_id từ item đầu tiên trong nhóm
+            $categoryId = $items->first()['category_id'] ?? null;
+            
+            return [
+                'category_id' => $categoryId,
+                'category_name' => $categoryName,
+                'products' => $items->sortBy('product_name')->values()->all(),
+                'total_loi' => $items->sum('tong_so_loi'),
+                'total_bao_hanh' => $items->sum('bao_hanh'),
+                'total_het_bao_hanh' => $items->sum('het_bao_hanh'),
+                'total_tien' => $items->sum('tong_tien'),
+            ];
+        })->sortBy(function ($item) use ($categoryOrder) {
+            $categoryId = $item['category_id'] ?? null;
+            return $categoryOrder[$categoryId] ?? 999;
+        })->values();
+        
+        return $groupedByCategory;
+    }
+
+    /**
+     * Preview báo cáo thống kê sản phẩm
+     */
+    public function previewProductWarrantyReport(Request $request)
+    {
+        $fromDate = $request->fromDate ?? Carbon::now()->startOfMonth()->toDateString();
+        $toDate = $request->toDate ?? Carbon::today()->toDateString();
+        
+        $productStats = $this->getProductWarrantyStats($request, $fromDate, $toDate);
+        
+        $branchMap = [
+            'kchanoi' => 'KUCHEN HÀ NỘI',
+            'kcvinh' => 'KUCHEN VINH',
+            'kchcm' => 'KUCHEN HCM',
+            'hrhanoi' => 'HUROM HÀ NỘI',
+            'hrvinh' => 'HUROM VINH',
+            'hrhcm' => 'HUROM HCM',
+        ];
+        $branch = $branchMap[$request->query("branch", "")] ?? "Tất cả chi nhánh";
+        $fromDateFormatted = Carbon::parse($fromDate)->format('d/m/Y');
+        $toDateFormatted = Carbon::parse($toDate)->format('d/m/Y');
+        
+        return view('report.preview_product_warranty', [
+            'productStats' => $productStats,
+            'branch' => $branch,
+            'fromDate' => $fromDateFormatted,
+            'toDate' => $toDateFormatted,
+        ]);
+    }
+
+    /**
+     * Preview báo cáo Excel với 3 sheet
+     */
+    public function previewReportExcel(Request $request)
+    {
+        $fromDate = $request->fromDate ?? Carbon::now()->startOfMonth()->toDateString();
+        $toDate = $request->toDate ?? Carbon::today()->toDateString();
+        
+        // Lấy dữ liệu từ session hoặc tính lại
+        $data = session('dataExport');
+        $workProcessData = session('workProcessDataExport');
+        
+        // Nếu không có trong session, tính lại
+        if (!$data || $data->isEmpty()) {
+            $parts = explode(' ', session('zone'));
+            $zoneWithoutFirst = implode(' ', array_slice($parts, 1));
+            $brand = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
+            if(session('position') == 'admin' || session('position') == 'quản trị viên'){
+                $brand = '';
+            }
+            
+            $view = session('brand') === 'hurom' ? 3 : 1;
+            
+            $conditions = [
+                'warranty_requests.status' => 'Đã hoàn tất',
+                ['warranty_requests.received_date', '>=', $fromDate],
+                ['warranty_requests.received_date', '<=', $toDate],
+                ['warranty_requests.view', '=', $view],
+            ];
+            
+            $productInput = $request->product;
+            
+            if ($request->replacement) {
+                $conditions[] = ['warranty_request_details.replacement', 'LIKE', '%' . $request->replacement . '%'];
+            }
+            
+            if ($request->warrantySelect && $request->warrantySelect !== 'tatca') {
+                if ($request->warrantySelect === 'conbaohanh') {
+                    $conditions[] = ['warranty_requests.warranty_end', '>=', DB::raw('warranty_requests.received_date')];
+                } else {
+                    $conditions[] = ['warranty_requests.warranty_end', '<', DB::raw('warranty_requests.received_date')];
+                }
+            }
+            
+            if ($request->branch && $request->branch !== 'all' && $request->branch !== '') {
+                $conditions[] = ['warranty_requests.branch', 'LIKE', '%' . $request->branch . '%'];
+            }
+            
+            if ($request->staff_received) {
+                $conditions[] = ['warranty_requests.staff_received', 'LIKE', '%' . $request->staff_received . '%'];
+            }
+            
+            if ($request->solution && $request->solution !== 'tatca') {
+                $conditions[] = ['warranty_request_details.solution', 'LIKE', '%' . $request->solution . '%'];
+            }
+            
+            $data = WarrantyRequest::getListWarranty($conditions, $productInput);
+            $workProcessData = $this->getWorkProcessStats($request, $brand, $fromDate, $toDate);
+        }
+        
+        // Chuẩn bị dữ liệu cho Sheet 1: Báo cáo thống kê trường hợp bảo hành
+        $sheet1Data = [];
+        $stt = 1;
+        $countBH = 0;
+        $countLKBH = $priceLKBH = $PhiBH = 0;
+        $countLKKBH = $priceLKKBH = $PhiHBH = 0;
+        
+        foreach ($data as $item) {
+            $BH = 'Hết hạn BH';
+            if($item->warranty_end >= $item->received_date){
+                $BH = 'Còn hạn BH';
+                $countBH++;
+                if($item->replacement){
+                    $countLKBH++;
+                    $priceLKBH += $item->replacement_price * $item->quantity;
+                    $PhiBH += $item->total;
+                }
+            } else {
+                if($item->replacement){
+                    $countLKKBH++;
+                    $priceLKKBH += $item->replacement_price * $item->quantity;
+                    $PhiHBH += $item->total;
+                }
+            }
+            
+            $sheet1Data[] = [
+                'stt' => $stt++,
+                'serial_number' => $item->serial_number,
+                'serial_thanmay' => $item->serial_thanmay,
+                'product' => $item->product,
+                'branch' => $item->branch,
+                'full_name' => $item->full_name,
+                'phone_number' => $item->phone_number,
+                'staff_received' => $item->staff_received,
+                'received_date' => Carbon::parse($item->received_date)->format('d/m/Y'),
+                'initial_fault_condition' => $item->initial_fault_condition,
+                'shipment_date' => Carbon::parse($item->shipment_date)->format('d/m/Y'),
+                'BH' => $BH,
+                'replacement' => $item->replacement,
+                'replacement_price' => $item->replacement_price,
+                'quantity' => $item->quantity,
+                'total_price' => $item->quantity * $item->replacement_price,
+                'total' => $item->total
+            ];
+        }
+        
+        $sheet1Summary = [
+            'con_bao_hanh' => ['label' => 'Còn bảo hành', 'count' => $countBH, 'linh_kien' => $countLKBH, 'chi_phi_linh_kien' => $priceLKBH, 'chi_phi_bao_hanh' => $PhiBH],
+            'het_bao_hanh' => ['label' => 'Hết bảo hành', 'count' => $data->count() - $countBH, 'linh_kien' => $countLKKBH, 'chi_phi_linh_kien' => $priceLKKBH, 'chi_phi_bao_hanh' => $PhiHBH],
+            'tong' => ['label' => 'Tổng', 'count' => $data->count(), 'linh_kien' => $countLKBH + $countLKKBH, 'chi_phi_linh_kien' => $priceLKBH + $priceLKKBH, 'chi_phi_bao_hanh' => $PhiBH + $PhiHBH],
+        ];
+        
+        // Chuẩn bị dữ liệu cho Sheet 2: Quá trình làm việc
+        $sheet2Data = [];
+        if ($workProcessData && $workProcessData->isNotEmpty()) {
+            $workBranchTotals = $workProcessData->groupBy('branch')->map(function ($branchStats) {
+                return $branchStats->sum('tong_tiep_nhan');
+            });
+            
+            $workProcessDataFormatted = $workProcessData->map(function ($item) use ($workBranchTotals) {
+                $tongTiepNhan = $item->tong_tiep_nhan ?? 0;
+                $branchTotal = $workBranchTotals->get($item->branch, 0);
+                
+                $item->phan_tram_chi_nhanh = $branchTotal > 0
+                    ? ($tongTiepNhan / $branchTotal) * 100
+                    : 0;
+                
+                $item->dang_sua_chua_percent = $tongTiepNhan > 0
+                    ? (($item->dang_sua_chua ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+                
+                $item->cho_khach_hang_phan_hoi_percent = $tongTiepNhan > 0
+                    ? (($item->cho_khach_hang_phan_hoi ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+                
+                $item->da_hoan_tat_percent = $tongTiepNhan > 0
+                    ? (($item->da_hoan_tat ?? 0) / $tongTiepNhan) * 100
+                    : 0;
+                
+                return $item;
+            });
+            
+            $stt = 1;
+            foreach ($workProcessDataFormatted as $item) {
+                $sheet2Data[] = [
+                    'stt' => $stt++,
+                    'branch' => $item->branch ?? 'N/A',
+                    'staff_received' => $item->staff_received ?? 'N/A',
+                    'tong_tiep_nhan' => $item->tong_tiep_nhan ?? 0,
+                    'phan_tram_chi_nhanh' => $item->phan_tram_chi_nhanh ?? 0,
+                    'dang_sua_chua' => $item->dang_sua_chua ?? 0,
+                    'dang_sua_chua_percent' => $item->dang_sua_chua_percent ?? 0,
+                    'cho_khach_hang_phan_hoi' => $item->cho_khach_hang_phan_hoi ?? 0,
+                    'cho_khach_hang_phan_hoi_percent' => $item->cho_khach_hang_phan_hoi_percent ?? 0,
+                    'da_hoan_tat' => $item->da_hoan_tat ?? 0,
+                    'da_hoan_tat_percent' => $item->da_hoan_tat_percent ?? 0,
+                    'ti_le_qua_han' => $item->ti_le_qua_han ?? 0,
+                ];
+            }
+            
+            // Tính tổng tiếp nhận theo chi nhánh
+            $sheet2BranchTotals = $workBranchTotals->toArray();
+        } else {
+            $sheet2BranchTotals = [];
+        }
+        
+        // Chuẩn bị dữ liệu cho Sheet 3: Tổng hợp bảo hành
+        $productStats = $this->getProductWarrantyStats($request, $fromDate, $toDate);
+        
+        $branchMap = [
+            'kchanoi' => 'KUCHEN HÀ NỘI',
+            'kcvinh' => 'KUCHEN VINH',
+            'kchcm' => 'KUCHEN HCM',
+            'hrhanoi' => 'HUROM HÀ NỘI',
+            'hrvinh' => 'HUROM VINH',
+            'hrhcm' => 'HUROM HCM',
+        ];
+        $branch = $branchMap[$request->query("branch", "")] ?? "Tất cả chi nhánh";
+        $fromDateFormatted = Carbon::parse($fromDate)->format('d/m/Y');
+        $toDateFormatted = Carbon::parse($toDate)->format('d/m/Y');
+        
+        return view('report.preview_excel', compact(
+            'sheet1Data',
+            'sheet1Summary',
+            'sheet2Data',
+            'sheet2BranchTotals',
+            'productStats',
+            'branch',
+            'fromDateFormatted',
+            'toDateFormatted'
+        ));
+    }
+
+    /**
+     * Phân loại sản phẩm theo trường name trong bảng products
+     * @param string $productName Trường name từ bảng products
+     * @return string Tên danh mục
+     */
+    private function getCategoryFromProductName($productName)
+    {
+        if (empty($productName)) {
+            return 'Thiết bị gia dụng';
+        }
+        
+        $name = strtolower(trim($productName));
+        
+        // Bếp điện từ
+        if (strpos($name, 'bếp điện từ') !== false || 
+            strpos($name, 'bep dien tu') !== false ||
+            strpos($name, 'bếp từ') !== false ||
+            strpos($name, 'bep tu') !== false) {
+            return 'Bếp điện từ';
+        }
+        
+        // Máy lọc không khí
+        if (strpos($name, 'máy lọc không khí') !== false || 
+            strpos($name, 'may loc khong khi') !== false ||
+            strpos($name, 'máy lọc khí') !== false ||
+            strpos($name, 'may loc khi') !== false ||
+            strpos($name, 'air purifier') !== false ||
+            strpos($name, 'airpurifier') !== false) {
+            return 'Máy lọc không khí';
+        }
+        
+        // Máy hút hút mùi
+        if (strpos($name, 'máy hút hút mùi') !== false || 
+            strpos($name, 'may hut hut mui') !== false ||
+            strpos($name, 'máy hút mùi') !== false ||
+            strpos($name, 'may hut mui') !== false ||
+            strpos($name, 'hood') !== false ||
+            strpos($name, 'hút mùi') !== false ||
+            strpos($name, 'hut mui') !== false) {
+            return 'Máy hút hút mùi';
+        }
+        
+        // Máy rửa chén
+        if (strpos($name, 'máy rửa chén') !== false || 
+            strpos($name, 'may rua chen') !== false ||
+            strpos($name, 'máy rửa bát') !== false ||
+            strpos($name, 'may rua bat') !== false ||
+            strpos($name, 'dishwasher') !== false ||
+            strpos($name, 'dish washer') !== false) {
+            return 'Máy rửa chén';
+        }
+        
+        // Máy giặt, sấy
+        if (strpos($name, 'máy giặt') !== false || 
+            strpos($name, 'may giat') !== false ||
+            strpos($name, 'máy sấy') !== false ||
+            strpos($name, 'may say') !== false ||
+            strpos($name, 'washer') !== false ||
+            strpos($name, 'dryer') !== false ||
+            strpos($name, 'washing machine') !== false ||
+            strpos($name, 'drying machine') !== false) {
+            return 'Máy giặt, sấy';
+        }
+        
+        // Mặc định: Thiết bị gia dụng
+        return 'Thiết bị gia dụng';
     }
 
 }

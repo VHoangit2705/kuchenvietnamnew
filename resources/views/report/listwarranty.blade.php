@@ -146,11 +146,34 @@
     </div>
 </div>
 
+<!-- Modal Preview Excel -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen modal-dialog-scrollable" style="max-width: 108vw;">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Xem trước báo cáo Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="preview-loading text-center p-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <iframe src="" style="width: 100%; height: 95vh; border: 0;" class="d-none"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 <link rel="stylesheet" href="{{ asset('css/report_warranty.css') }}">
 
 <script>
     window.replacementList = {!! json_encode($linhkien) !!};
     window.exportReportRoute = '{{ route('xuatbaocao') }}';
+    window.previewReportRoute = '{{ route('baocao.preview.excel') }}';
     window.reportRoute = '{{ route('baocao') }}';
     window.reportParams = @json(request()->all());
 </script>
