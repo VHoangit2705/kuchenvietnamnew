@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller as BaseController;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\KyThuat\WarrantyOverdueRateHistory;
 use App\Models\Kho\Product;
+use App\Models\Kho\Category;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -839,17 +840,24 @@ class ReportController extends BaseController
             return collect([]);
         }
         
-        // Lấy thông tin sản phẩm từ bảng products (mysql3) với trường name
-        $products = DB::connection('mysql3')
-            ->table('products')
+        // Lấy thông tin sản phẩm từ bảng products với category_id
+        $products = Product::query()
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->select(
                 'products.id',
                 'products.product_name',
-                'products.name'
+                'products.category_id',
+                'categories.name_vi as category_name'
             )
             ->where('products.view', $view)
             ->whereIn(DB::raw('LOWER(TRIM(products.product_name))'), $productNames)
             ->get();
+        
+        // Lấy danh sách các category_id hợp lệ từ database
+        $validCategoryIds = [29, 32, 33, 35, 36, 38, 39];
+        $categories = Category::whereIn('id', $validCategoryIds)
+            ->pluck('name_vi', 'id')
+            ->toArray();
         
         // Tạo map product_name -> product info
         $productMap = [];
@@ -864,7 +872,8 @@ class ReportController extends BaseController
                 $productMap[$productName] = (object)[
                     'id' => null,
                     'product_name' => ucfirst($productName),
-                    'name' => null
+                    'category_id' => null,
+                    'category_name' => null
                 ];
             }
         }
@@ -903,10 +912,19 @@ class ReportController extends BaseController
                 $tongTien += $details ?? 0;
             }
             
-            // Phân loại sản phẩm dựa trên trường name
-            $categoryName = $this->getCategoryFromProductName($product->name ?? '');
+            // Phân loại sản phẩm dựa trên category_id
+            $categoryId = $product->category_id ?? null;
+            
+            // Xác định category_name dựa trên category_id
+            if ($categoryId && in_array($categoryId, $validCategoryIds) && isset($categories[$categoryId])) {
+                $categoryName = $categories[$categoryId];
+            } else {
+                // Sản phẩm không có category_id hoặc không thuộc các category hợp lệ -> "Thiết bị gia dụng"
+                $categoryName = 'Thiết bị gia dụng';
+            }
             
             $productStats[] = [
+                'category_id' => $categoryId,
                 'category_name' => $categoryName,
                 'product_id' => $product->id,
                 'product_name' => $product->product_name,
@@ -917,18 +935,25 @@ class ReportController extends BaseController
             ];
         }
         
-        // Nhóm theo danh mục với thứ tự ưu tiên
+        // Nhóm theo danh mục với thứ tự ưu tiên theo category_id
+        // Thứ tự: 29 (Bếp điện từ), 32 (Máy hút mùi), 33 (Máy lọc không khí), 35 (Máy rửa chén), 36 (Máy giặt, sấy), 38 (Nồi chiên không dầu), còn lại (Thiết bị gia dụng)
         $categoryOrder = [
-            'Bếp điện từ' => 1,
-            'Máy lọc không khí' => 2,
-            'Máy hút hút mùi' => 3,
-            'Máy rửa chén' => 4,
-            'Máy giặt, sấy' => 5,
-            'Thiết bị gia dụng' => 6,
+            29 => 1,  // Bếp điện từ
+            32 => 2,  // Máy hút mùi
+            33 => 3,  // Máy lọc không khí
+            35 => 4,  // Máy rửa chén
+            36 => 5,  // Máy giặt, sấy
+            38 => 6,  // Nồi chiên không dầu
+            39 => 7,  // Robot hút bụi lau nhà
+            null => 8, // Thiết bị gia dụng
         ];
         
         $groupedByCategory = collect($productStats)->groupBy('category_name')->map(function ($items, $categoryName) {
+            // Lấy category_id từ item đầu tiên trong nhóm
+            $categoryId = $items->first()['category_id'] ?? null;
+            
             return [
+                'category_id' => $categoryId,
                 'category_name' => $categoryName,
                 'products' => $items->sortBy('product_name')->values()->all(),
                 'total_loi' => $items->sum('tong_so_loi'),
@@ -936,8 +961,9 @@ class ReportController extends BaseController
                 'total_het_bao_hanh' => $items->sum('het_bao_hanh'),
                 'total_tien' => $items->sum('tong_tien'),
             ];
-        })->sortBy(function ($item, $key) use ($categoryOrder) {
-            return $categoryOrder[$key] ?? 999;
+        })->sortBy(function ($item) use ($categoryOrder) {
+            $categoryId = $item['category_id'] ?? null;
+            return $categoryOrder[$categoryId] ?? 999;
         })->values();
         
         return $groupedByCategory;
