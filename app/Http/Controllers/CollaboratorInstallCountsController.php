@@ -123,7 +123,7 @@ class CollaboratorInstallCountsController extends Controller
             // Đã điều phối cho CTV: có collaborator_id (nếu có collaborator_id thì là CTV, không phải đại lý)
             ->whereNotNull('installation_orders.collaborator_id');
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'dispatched_at')
             ->count();
     }
 
@@ -143,7 +143,7 @@ class CollaboratorInstallCountsController extends Controller
             // Loại trừ đơn có CTV (nếu có collaborator_id thì không phải đại lý lắp đặt)
             ->whereNull('installation_orders.collaborator_id');
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'agency_at')
             ->count();
     }
 
@@ -171,7 +171,7 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->where('installation_orders.status_install', 3);
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'paid_at')
             ->count();
     }
 
@@ -278,7 +278,7 @@ class CollaboratorInstallCountsController extends Controller
             ->when($agency_phone, fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
     }
 
-    private function applyCommonFiltersToInstallation($query, $request)
+    private function applyCommonFiltersToInstallation($query, $request, $dateField = 'successed_at')
     {
         $tungay = $request->input('tungay');
         $denngay = $request->input('denngay');
@@ -291,11 +291,18 @@ class CollaboratorInstallCountsController extends Controller
         $agency_phone = $request->input('agency_phone');
         $agency_name = $request->input('agency_name');
 
+        // Đảm bảo dateField có prefix installation_orders nếu chưa có
+        if (!str_starts_with($dateField, 'installation_orders.')) {
+            $dateField = 'installation_orders.' . $dateField;
+        }
+
         return $query->when($madon, fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
             ->when($sanpham, fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('installation_orders.successed_at', '>=', $tungay))
-            ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('installation_orders.successed_at', '<=', $denngay);
+            ->when($tungay && !empty($tungay), function($q) use ($dateField, $tungay) {
+                $q->whereDate($dateField, '>=', $tungay);
+            })
+            ->when($denngay && !empty($denngay), function($q) use ($dateField, $denngay) {
+                $q->whereDate($dateField, '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
