@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Kho\Product;
+use App\Models\Kho\Category;
 use App\Models\KyThuat\WarrantyRequestDetail;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\KyThuat\WarrantyCollaborator;
@@ -481,6 +482,13 @@ class WarrantyController extends Controller
             ->select('product_name', 'view')
             ->get();
         
+        // Lấy danh sách categories (website_id = 2)
+        $categories = Category::where('website_id', 2)
+            ->where('status', 1)
+            ->orderBy('sort_order')
+            ->orderBy('name_vi')
+            ->get(['id', 'name_vi', 'name_en', 'parent_id']);
+        
         $repairJobs = $data->repairJobs->sortBy('created_at')->values();
         $repairJobsTotal = $repairJobs->sum('total_price');
         
@@ -492,6 +500,7 @@ class WarrantyController extends Controller
             'history',
             'linhkien',
             'sanpham',
+            'categories',
             'repairJobs',
             'repairJobsTotal'
         ));
@@ -505,7 +514,8 @@ class WarrantyController extends Controller
             'Sửa chữa tại chỗ (lỗi nhẹ)',
             'Từ chối bảo hành',
             'KH không muốn bảo hành',
-            'Gửi về trung tâm bảo hành NSX'
+            'Gửi về trung tâm bảo hành NSX',
+            'Thu cũ đổi mới'
         ]);
 
         // Kiểm tra nếu replacement là mảng (nhiều linh kiện) - chỉ khi không phải trường hợp đặc biệt
@@ -527,6 +537,10 @@ class WarrantyController extends Controller
             $rules['rejection_reason'] = 'required|string|max:100';
         } elseif ($solution === 'KH không muốn bảo hành') {
             $rules['customer_refusal_reason'] = 'required|string|max:100';
+        } elseif ($solution === 'Thu cũ đổi mới') {
+            $rules['thu_cu_doi_moi_type'] = 'required|string|max:255';
+            $rules['thu_cu_doi_moi_new_type'] = 'required|string|max:255';
+            $rules['thu_cu_doi_moi_extra_fee'] = 'nullable|integer|min:0';
         } elseif ($isMultipleComponents) {
             // Validation cho nhiều linh kiện
             $rules['replacement'] = 'required|array';
@@ -656,6 +670,29 @@ class WarrantyController extends Controller
             
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý cho trường hợp "Thu cũ đổi mới"
+        if ($request->solution === 'Thu cũ đổi mới') {
+            $oldProduct = $request->input('thu_cu_doi_moi_type');
+            $newProduct = $request->input('thu_cu_doi_moi_new_type');
+            $extraFee = (int)($request->input('thu_cu_doi_moi_extra_fee', 0));
+
+            // Tạo replacement text với thông tin sản phẩm cũ, mới và phụ phí
+            $replacementText = "Thu cũ: {$oldProduct} | Đổi mới: {$newProduct}";
+
+            $commonData['replacement'] = $replacementText;
+            $commonData['quantity'] = 1;
+            $commonData['unit_price'] = $extraFee;
+            $commonData['total'] = $extraFee;
+            $commonData['replacement_price'] = $extraFee;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json([
+                'success' => true, 
+                'created' => true,
+                'message' => 'Đã lưu thông tin thu cũ đổi mới thành công.'
+            ]);
         }
 
         // Xử lý nhiều linh kiện
@@ -1904,6 +1941,106 @@ class WarrantyController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Đã xóa cảnh báo thành công.'
+        ]);
+    }
+
+    /**
+     * Lấy danh sách sản phẩm theo category
+     */
+    public function getProductsByCategory(Request $request)
+    {
+        $categoryId = $request->input('category_id');
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        if (!$categoryId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng chọn danh mục'
+            ], 400);
+        }
+
+        $products = collect();
+
+        // Thử lấy từ bảng product_categories qua relationship
+        try {
+            $products = Product::where('view', $view)
+                ->whereHas('categories', function($q) use ($categoryId) {
+                    $q->where('categories.id', $categoryId);
+                })
+                ->select('product_name', 'id', 'price')
+                ->get();
+        } catch (\Exception $e) {
+            // Relationship không hoạt động, thử cách khác
+        }
+
+        // Nếu không tìm thấy, thử lấy từ trường category_id trong bảng products
+        if ($products->isEmpty()) {
+            try {
+                $products = Product::where('view', $view)
+                    ->where('category_id', $categoryId)
+                    ->select('product_name', 'id', 'price')
+                    ->get();
+            } catch (\Exception $e) {
+                // Trường category_id không tồn tại
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
+     * Lấy category của sản phẩm
+     */
+    public function getProductCategory(Request $request)
+    {
+        $productName = $request->input('product_name');
+        
+        if (!$productName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng nhập tên sản phẩm'
+            ], 400);
+        }
+
+        $product = Product::where('product_name', $productName)->first();
+        
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy sản phẩm'
+            ], 404);
+        }
+
+        $categoryId = null;
+
+        // Thử lấy từ relationship categories
+        try {
+            $category = $product->categories()->first();
+            if ($category) {
+                $categoryId = $category->id;
+            }
+        } catch (\Exception $e) {
+            // Relationship không hoạt động, thử cách khác
+        }
+
+        // Nếu không tìm thấy, thử lấy từ trường category_id trong products
+        if (!$categoryId) {
+            try {
+                if (isset($product->category_id)) {
+                    $categoryId = $product->category_id;
+                }
+            } catch (\Exception $e) {
+                // Trường category_id không tồn tại
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'category_id' => $categoryId,
+            'product' => $product
         ]);
     }
 

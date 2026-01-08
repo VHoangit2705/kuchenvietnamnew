@@ -632,11 +632,35 @@
                                 <option value="Giữ lại để kiểm tra chuyên sâu">Giữ lại để kiểm tra chuyên sâu</option>
                                 <option value="Thay thế linh kiện/hardware">Thay thế linh kiện/hardware</option>
                                 <option value="Đổi mới sản phẩm">Đổi mới sản phẩm</option>
+                                <option value="Thu cũ đổi mới">Thu cũ đổi mới</option>
                                 <option value="Gửi về trung tâm bảo hành NSX">Gửi về trung tâm bảo hành NSX</option>
                                 <option value="Từ chối bảo hành">Kỹ Thuật viên từ chối bảo hành</option>
                                 <option value="KH không muốn bảo hành">Khách hàng không muốn bảo hành</option>
                             </select>
                             <div class="error error_sl text-danger small mt-1"></div>
+                        </div>
+                        <div id="thu_cu_doi_moi_container" class="mb-2 d-none">
+                            <label for="thu_cu_doi_moi_type" class="form-label">Sản phẩm cũ</label>
+                            <input type="text" class="form-control" id="thu_cu_doi_moi_type" name="thu_cu_doi_moi_type"
+                                placeholder="Nhập sản phẩm cũ (từ phiếu bảo hành hiện tại: {{ $data->product ?? '' }})" 
+                                value="{{ $data->product ?? '' }}" readonly>
+                            <div class="error error_thu_cu_doi_moi_type text-danger small mt-1"></div>
+                            <input type="hidden" id="thu_cu_doi_moi_category_id" name="thu_cu_doi_moi_category_id" value="">
+                            
+                            <label for="thu_cu_doi_moi_new_type" class="form-label mt-2">Sản phẩm mới (cùng danh mục)</label>
+                            <select class="form-control" id="thu_cu_doi_moi_new_type" name="thu_cu_doi_moi_new_type" disabled>
+                                <option value="">-- Vui lòng chọn sản phẩm cũ trước --</option>
+                            </select>
+                            <div class="error error_thu_cu_doi_moi_new_type text-danger small mt-1"></div>
+                            <small class="form-text text-muted">Chỉ hiển thị sản phẩm cùng danh mục với sản phẩm cũ</small>
+                            
+                            <div id="thu_cu_doi_moi_extra_fee_container" class="mt-2">
+                                <label class="form-label">Phụ phí (VND)</label>
+                                <input type="text" class="form-control" id="thu_cu_doi_moi_extra_fee" name="thu_cu_doi_moi_extra_fee"
+                                    placeholder="Nhập số tiền phụ phí" style="font-weight: bold;">
+                                <small class="form-text text-muted">Số tiền khách hàng cần phụ thêm khi đổi sản phẩm</small>
+                                <input type="hidden" id="thu_cu_doi_moi_extra_fee_value" name="thu_cu_doi_moi_extra_fee_value" value="0">
+                            </div>
                         </div>
                         <div id="des_error_container" class="mb-2 d-none">
                             <label for="des_error_type" class="form-label">Mô tả cách xử lý</label>
@@ -1324,6 +1348,7 @@
             $('#solution').on('change', function() {
                 const selectedValue = $(this).val();
                 const $desError = $('#des_error_container');
+                const $thuCuDoiMoi = $('#thu_cu_doi_moi_container');
                 const $rejectionReason = $('#rejection_reason_container');
                 const $customerRefusal = $('#customer_refusal_reason_container');
                 const $components = $('#components-container');
@@ -1332,6 +1357,7 @@
 
                 // Reset tất cả các trường đặc biệt
                 $desError.addClass('d-none');
+                $thuCuDoiMoi.addClass('d-none');
                 $rejectionReason.addClass('d-none');
                 $customerRefusal.addClass('d-none');
 
@@ -1354,6 +1380,21 @@
                     $components.addClass('d-none');
                     $addComponentBtn.addClass('d-none');
                     $totalPrice.addClass('d-none');
+                } else if (selectedValue === 'Thu cũ đổi mới') {
+                    $thuCuDoiMoi.removeClass('d-none');
+                    $components.addClass('d-none');
+                    $addComponentBtn.addClass('d-none');
+                    $totalPrice.addClass('d-none');
+                    // Reset các trường
+                    $('#thu_cu_doi_moi_extra_fee').val('');
+                    $('#thu_cu_doi_moi_extra_fee_value').val('0');
+                    $('#thu_cu_doi_moi_new_type').val('').prop('disabled', true);
+                    $('#thu_cu_doi_moi_category_id').val('');
+                    // Load sản phẩm theo category nếu đã có sản phẩm cũ
+                    const oldProduct = $('#thu_cu_doi_moi_type').val();
+                    if (oldProduct) {
+                        loadProductCategoryAndProducts(oldProduct);
+                    }
                 } else if (selectedValue === 'KH không muốn bảo hành') {
                     $customerRefusal.removeClass('d-none');
                     $components.addClass('d-none');
@@ -1432,7 +1473,8 @@
                         'Sửa chữa tại chỗ (lỗi nhẹ)',
                         'Từ chối bảo hành',
                         'KH không muốn bảo hành',
-                        'Gửi về trung tâm bảo hành NSX'
+                        'Gửi về trung tâm bảo hành NSX',
+                        'Thu cũ đổi mới'
                     ];
                     
                     if (specialCases.includes(dataToSend['solution'])) {
@@ -1440,6 +1482,13 @@
                         dataToSend['replacement'] = null;
                         dataToSend['quantity'] = null;
                         dataToSend['unit_price'] = null;
+                        
+                        // Với Thu cũ đổi mới, gửi thêm thông tin sản phẩm cũ, mới và phụ phí
+                        if (dataToSend['solution'] === 'Thu cũ đổi mới') {
+                            dataToSend['thu_cu_doi_moi_type'] = $('#thu_cu_doi_moi_type').val();
+                            dataToSend['thu_cu_doi_moi_new_type'] = $('#thu_cu_doi_moi_new_type').val();
+                            dataToSend['thu_cu_doi_moi_extra_fee'] = $('#thu_cu_doi_moi_extra_fee_value').val() || '0';
+                        }
                     } else {
                         dataToSend['replacement'] = replacements;
                         dataToSend['quantity'] = quantities;
@@ -2685,6 +2734,30 @@
                 isValid = false;
             }
 
+            // Validate Thu cũ đổi mới
+            if ($solution.val() === 'Thu cũ đổi mới') {
+                const $oldProduct = $('#thu_cu_doi_moi_type');
+                const $newProduct = $('#thu_cu_doi_moi_new_type');
+                const $extraFee = $('#thu_cu_doi_moi_extra_fee_value');
+                
+                if ($oldProduct.val().trim() === '') {
+                    showRepairFormError($oldProduct, 'Vui lòng nhập sản phẩm cũ');
+                    isValid = false;
+                }
+                
+                if (!$newProduct.val() || $newProduct.val().trim() === '' || $newProduct.prop('disabled')) {
+                    showRepairFormError($newProduct, 'Vui lòng chọn sản phẩm mới');
+                    isValid = false;
+                }
+
+                // Validate phụ phí (phải là số >= 0)
+                const feeValue = parseInt($extraFee.val()) || 0;
+                if (feeValue < 0) {
+                    showRepairFormError($('#thu_cu_doi_moi_extra_fee'), 'Phụ phí phải lớn hơn hoặc bằng 0');
+                    isValid = false;
+                }
+            }
+
             // --- LOGIC VALIDATE NHIỀU DÒNG ---
             // Lặp qua TẤT CẢ các hàng linh kiện
             $('.component-row-wrapper').each(function() {
@@ -2789,6 +2862,94 @@
                 // Khi thay đổi lựa chọn, các trường yêu cầu có thể thay đổi, nên cần validate lại
                 validateRepairForm();
             });
+
+            // Event listener cho sản phẩm mới trong Thu cũ đổi mới
+            $('#thu_cu_doi_moi_new_type').on('change', function() {
+                hideRepairFormError($(this));
+                validateRepairForm();
+            });
+
+            // Format phụ phí khi nhập
+            $('#thu_cu_doi_moi_extra_fee').on('input', function() {
+                let value = $(this).val().replace(/[^0-9]/g, '');
+                if (value) {
+                    const numValue = parseInt(value);
+                    $('#thu_cu_doi_moi_extra_fee_value').val(numValue);
+                    $(this).val(new Intl.NumberFormat('vi-VN').format(numValue) + ' đ');
+                } else {
+                    $('#thu_cu_doi_moi_extra_fee_value').val('0');
+                    $(this).val('');
+                }
+            });
+
+            // Khi modal mở, nếu đã có sản phẩm cũ và đang chọn "Thu cũ đổi mới", tự động load
+            $('#repairModal').on('shown.bs.modal', function() {
+                if ($('#solution').val() === 'Thu cũ đổi mới') {
+                    const oldProduct = $('#thu_cu_doi_moi_type').val();
+                    if (oldProduct) {
+                        loadProductCategoryAndProducts(oldProduct);
+                    }
+                }
+            });
         });
+
+        // Hàm lấy category của sản phẩm cũ và load sản phẩm cùng category
+        function loadProductCategoryAndProducts(productName) {
+            if (!productName) {
+                $('#thu_cu_doi_moi_new_type').html('<option value="">-- Vui lòng chọn sản phẩm cũ trước --</option>').prop('disabled', true);
+                return;
+            }
+
+            $.ajax({
+                url: '{{ route("warranty.getProductCategory") }}',
+                method: 'GET',
+                data: {
+                    product_name: productName,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success && response.category_id) {
+                        $('#thu_cu_doi_moi_category_id').val(response.category_id);
+                        loadProductsByCategory(response.category_id);
+                    } else {
+                        $('#thu_cu_doi_moi_new_type').html('<option value="">-- Không tìm thấy danh mục cho sản phẩm này --</option>').prop('disabled', true);
+                    }
+                },
+                error: function() {
+                    $('#thu_cu_doi_moi_new_type').html('<option value="">-- Lỗi khi tải danh mục --</option>').prop('disabled', true);
+                }
+            });
+        }
+
+        // Hàm load sản phẩm theo category
+        function loadProductsByCategory(categoryId) {
+            if (!categoryId) {
+                $('#thu_cu_doi_moi_new_type').html('<option value="">-- Không có danh mục --</option>').prop('disabled', true);
+                return;
+            }
+
+            $.ajax({
+                url: '{{ route("warranty.getProductsByCategory") }}',
+                method: 'GET',
+                data: {
+                    category_id: categoryId,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success && response.data && response.data.length > 0) {
+                        let options = '<option value="">-- Chọn sản phẩm mới --</option>';
+                        response.data.forEach(function(product) {
+                            options += `<option value="${product.product_name}" data-price="${product.price || 0}">${product.product_name}</option>`;
+                        });
+                        $('#thu_cu_doi_moi_new_type').html(options).prop('disabled', false);
+                    } else {
+                        $('#thu_cu_doi_moi_new_type').html('<option value="">-- Không có sản phẩm nào trong danh mục này --</option>').prop('disabled', true);
+                    }
+                },
+                error: function() {
+                    $('#thu_cu_doi_moi_new_type').html('<option value="">-- Lỗi khi tải sản phẩm --</option>').prop('disabled', true);
+                }
+            });
+        }
     </script>
 @endsection
