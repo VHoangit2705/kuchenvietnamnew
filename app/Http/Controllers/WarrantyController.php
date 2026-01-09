@@ -1657,7 +1657,8 @@ class WarrantyController extends Controller
             $serialNumber,
             $serialThanMay,
             $productName,
-            $customerPhone
+            $customerPhone,
+            $staffName // Truyền tên nhân viên hiện tại
         );
         
         if ($duplicateCheck['exists']) {
@@ -2051,13 +2052,15 @@ class WarrantyController extends Controller
      * @param string|null $serialThanMay
      * @param string $productName
      * @param string $customerPhone
+     * @param string $currentStaffName Tên nhân viên hiện tại đang tạo phiếu
      * @return array ['exists' => bool, 'warranty' => WarrantyRequest|null, 'message' => string]
      */
     private function checkDuplicateWarranty(
         $serialNumber, 
         $serialThanMay, 
         $productName, 
-        $customerPhone
+        $customerPhone,
+        $currentStaffName
     ) {
         $hoursAgo = Carbon::now()->subHours(48);
         
@@ -2075,11 +2078,16 @@ class WarrantyController extends Controller
                 ->first();
                 
             if ($existing) {
-                return [
-                    'exists' => true,
-                    'warranty' => $existing,
-                    'message' => 'Phiếu bảo hành cho Serial Number này đã tồn tại trong 2 ngày gần nhất.'
-                ];
+                // Kiểm tra xem có phải cùng nhân viên tạo không
+                // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
+                if ($existing->staff_received !== $currentStaffName) {
+                    return [
+                        'exists' => true,
+                        'warranty' => $existing,
+                        'message' => 'Phiếu bảo hành cho Serial Number này đã tồn tại trong 2 ngày gần nhất.'
+                    ];
+                }
+                // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
         
@@ -2095,11 +2103,16 @@ class WarrantyController extends Controller
                 ->first();
                 
             if ($existing) {
-                return [
-                    'exists' => true,
-                    'warranty' => $existing,
-                    'message' => 'Phiếu bảo hành cho Serial thân máy này đã tồn tại trong 2 ngày gần nhất.'
-                ];
+                // Kiểm tra xem có phải cùng nhân viên tạo không
+                // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
+                if ($existing->staff_received !== $currentStaffName) {
+                    return [
+                        'exists' => true,
+                        'warranty' => $existing,
+                        'message' => 'Phiếu bảo hành cho Serial thân máy này đã tồn tại trong 2 ngày gần nhất.'
+                    ];
+                }
+                // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
         
@@ -2113,9 +2126,13 @@ class WarrantyController extends Controller
                 ->get();
             
             // So sánh phone đã được normalize (chỉ số)
-            $existing = $candidates->first(function ($item) use ($customerPhone) {
+            $existing = $candidates->first(function ($item) use ($customerPhone, $currentStaffName) {
                 $dbPhone = preg_replace('/[^0-9]/', '', $item->phone_number ?? '');
-                return $dbPhone === $customerPhone;
+                // Chỉ trả về true nếu phone khớp VÀ khác nhân viên (nếu cùng nhân viên thì cho phép tạo lại)
+                if ($dbPhone === $customerPhone && $item->staff_received !== $currentStaffName) {
+                    return true;
+                }
+                return false;
             });
                 
             if ($existing) {
