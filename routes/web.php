@@ -18,6 +18,7 @@ use App\Http\Controllers\RequestAgencyController;
 use App\Http\Controllers\UserAgencyController;
 use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
+use App\Http\Controllers\CollaboratorInstallBulkController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -102,6 +103,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::get('/dieuphoicongtacvien/counts', [CollaboratorInstallCountsController::class, 'Counts'])->name('dieuphoi.counts');
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
+    Route::post('/dieuphoi/bulk-update', [CollaboratorInstallBulkController::class, 'BulkUpdate'])->name("dieuphoi.bulk.update");
+    Route::post('/dieuphoi/bulk-update-excel', [CollaboratorInstallBulkController::class, 'BulkUpdateByExcel'])->name("dieuphoi.bulk.update.excel");
     Route::post('/dieuphoi/chitiet/update-address', [CollaboratorInstallController::class, 'UpdateDetailCustomerAddress'])->name('dieuphoi.update.address');
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
