@@ -34,6 +34,9 @@
     <table class="table table-bordered table-striped">
         <thead class="table-dark text-center">
             <tr>
+                <th class="text-center" style="width: 40px;">
+                    <input type="checkbox" id="checkAll" class="form-check-input">
+                </th>
                 <th>STT</th>
                 <th style="min-width: 160px;">Mã đơn/Serial</th>
                 <th style="min-width: 100px;">
@@ -134,6 +137,11 @@
             }
             @endphp
             <tr>
+                <td class="text-center">
+                    @if(isset($statusInstall) && $statusInstall == 2)
+                        <input type="checkbox" class="form-check-input check-item" value="{{ $item->id }}">
+                    @endif
+                </td>
                 <td class="text-center">{{ $loop->iteration}}</td>
                 {{-- <td>{{$code}}</td> --}}
                 <td>{{ $code ?: ' N/A ' }}</td>
