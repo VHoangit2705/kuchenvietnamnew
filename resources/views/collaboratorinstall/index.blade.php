@@ -1290,7 +1290,63 @@
             processData: false,
             contentType: false,
             success: function(response) {
-                if (response.success) {
+                if (response.success && response.confirm_required === true) {
+                    Swal.fire({
+                        title: 'Xem trước',
+                        html: '<pre style="text-align: left; white-space: pre-wrap;">' + (response.message || '') + '</pre>',
+                        icon: 'info',
+                        width: 700,
+                        showCancelButton: true,
+                        confirmButtonText: 'Xác nhận import',
+                        cancelButtonText: 'Hủy'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Thực thi import thật sự với confirm=1
+                            var formDataConfirm = new FormData(form);
+                            formDataConfirm.append('_token', '{{ csrf_token() }}');
+                            formDataConfirm.append('confirm', '1');
+
+                            Swal.fire({
+                                title: 'Đang cập nhật...',
+                                html: 'Vui lòng chờ...',
+                                allowOutsideClick: false,
+                                didOpen: () => { Swal.showLoading(); }
+                            });
+
+                            $.ajax({
+                                url: '{{ route("dieuphoi.bulk.update.excel") }}',
+                                type: 'POST',
+                                data: formDataConfirm,
+                                processData: false,
+                                contentType: false,
+                                success: function(res2) {
+                                    if (res2.success) {
+                                        Swal.fire({
+                                            title: 'Hoàn tất!',
+                                            html: '<pre style="text-align: left; white-space: pre-wrap;">' + (res2.message || '') + '</pre>',
+                                            icon: 'success',
+                                            width: 700
+                                        });
+                                        let tab = localStorage.getItem('activeTab') || 'donhang';
+                                        let formDataSearch = $('#searchForm').serialize();
+                                        loadTabData(tab, formDataSearch, 1);
+                                        loadCounts(formDataSearch);
+                                        $('#paymentUploadForm')[0].reset();
+                                    } else {
+                                        Swal.fire('Lỗi!', res2.message, 'error');
+                                    }
+                                },
+                                error: function(xhr) {
+                                    let msg = 'Có lỗi xảy ra.';
+                                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                                        msg = xhr.responseJSON.message;
+                                    }
+                                    Swal.fire('Lỗi!', msg, 'error');
+                                }
+                            });
+                        }
+                    });
+                } else if (response.success) {
                     Swal.fire({
                         title: 'Hoàn tất!',
                         html: '<pre style="text-align: left; white-space: pre-wrap;">' + (response.message || '') + '</pre>',

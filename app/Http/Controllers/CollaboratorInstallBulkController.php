@@ -139,9 +139,12 @@ class CollaboratorInstallBulkController extends Controller
             ], 400);
         }
 
+        $performUpdate = $request->boolean('confirm', false);
+
         $updatedCount = 0;
         $notFoundCount = 0;
         $invalidStatusCount = 0;
+        $previewUpdatableCount = 0;
         $updatedCodes = [];
         $notFoundCodes = [];
         $invalidStatusCodes = [];
@@ -162,22 +165,81 @@ class CollaboratorInstallBulkController extends Controller
                     $baseCode = $normalizedCode;
                 }
 
-                $orders = InstallationOrder::where('order_code', $baseCode)->get();
+                // Ưu tiên tìm record có status_install = 2 trước (để auto update)
+                // Tìm theo nhiều cách: chính xác, và với pattern có dấu ngoặc trong DB
+                $ordersWithStatus2 = InstallationOrder::where(function($query) use ($baseCode, $originalCode, $normalizedCode) {
+                    $query->where(function($q) use ($baseCode, $originalCode, $normalizedCode) {
+                        // Tìm chính xác với các biến thể
+                        $q->where('order_code', $baseCode)
+                          ->orWhere('order_code', trim($baseCode))
+                          ->orWhere('order_code', $originalCode)
+                          ->orWhere('order_code', trim($originalCode))
+                          ->orWhere('order_code', $normalizedCode)
+                          ->orWhere('order_code', trim($normalizedCode));
+                        
+                        // LUÔN thử tìm với LIKE để tìm cả trường hợp DB có dấu ngoặc
+                        // Trường hợp 1: Input không có ngoặc, DB có ngoặc (ví dụ: input "VNI04003347668", DB "VNI04003347668 (2)")
+                        // Trường hợp 2: Input có ngoặc, DB có ngoặc khác (ví dụ: input "VNI04003347668 (1)", DB "VNI04003347668 (2)")
+                        // Trường hợp 3: Input thiếu số cuối, DB có số cuối + ngoặc (ví dụ: input "VNI0740312628", DB "VNI07403126287 (2)")
+                        $q->orWhere('order_code', 'LIKE', $baseCode . ' (%')  // baseCode + khoảng trắng + (số)
+                          ->orWhere('order_code', 'LIKE', $baseCode . '(%')   // baseCode + (số) không có khoảng trắng
+                          ->orWhere('order_code', 'LIKE', $baseCode . '% (%') // baseCode + số + khoảng trắng + (số) - cho trường hợp thiếu số cuối
+                          ->orWhere('order_code', 'LIKE', $baseCode . '%(%'); // baseCode + số + (số) không có khoảng trắng
+                    });
+                })->where('status_install', 2)->get();
 
-                if ($orders->isEmpty()) {
-                    $notFoundCount++;
-                    $notFoundCodes[] = $originalCode;
+                // Nếu không tìm thấy record có status_install = 2, lấy tất cả để kiểm tra
+                if ($ordersWithStatus2->isEmpty()) {
+                    $allOrders = InstallationOrder::where(function($query) use ($baseCode, $originalCode, $normalizedCode) {
+                        $query->where(function($q) use ($baseCode, $originalCode, $normalizedCode) {
+                            // Tìm chính xác với các biến thể
+                            $q->where('order_code', $baseCode)
+                              ->orWhere('order_code', trim($baseCode))
+                              ->orWhere('order_code', $originalCode)
+                              ->orWhere('order_code', trim($originalCode))
+                              ->orWhere('order_code', $normalizedCode)
+                              ->orWhere('order_code', trim($normalizedCode));
+                            
+                            // LUÔN thử tìm với LIKE để tìm cả trường hợp DB có dấu ngoặc
+                            // Trường hợp 1: Input không có ngoặc, DB có ngoặc
+                            // Trường hợp 2: Input có ngoặc, DB có ngoặc khác
+                            // Trường hợp 3: Input thiếu số cuối, DB có số cuối + ngoặc (ví dụ: input "VNI0740312628", DB "VNI07403126287 (2)")
+                            $q->orWhere('order_code', 'LIKE', $baseCode . ' (%')  // baseCode + khoảng trắng + (số)
+                              ->orWhere('order_code', 'LIKE', $baseCode . '(%')   // baseCode + (số) không có khoảng trắng
+                              ->orWhere('order_code', 'LIKE', $baseCode . '% (%') // baseCode + số + khoảng trắng + (số) - cho trường hợp thiếu số cuối
+                              ->orWhere('order_code', 'LIKE', $baseCode . '%(%'); // baseCode + số + (số) không có khoảng trắng
+                        });
+                    })->get();
+
+                    if ($allOrders->isEmpty()) {
+                        $notFoundCount++;
+                        $notFoundCodes[] = $originalCode;
+                        continue;
+                    }
+
+                    // Xử lý các record không có status_install = 2
+                    foreach ($allOrders as $installationOrder) {
+                        $invalidStatusCount++;
+                        $statusVal = $installationOrder->status_install;
+                        $invalidStatusCodes[] = [
+                            'code' => $originalCode,
+                            'status' => $statusVal,
+                            'status_text' => $statusTextMap[$statusVal] ?? 'Không xác định',
+                        ];
+                    }
                     continue;
                 }
 
-                foreach ($orders as $installationOrder) {
-                    if ($installationOrder->status_install == 2) {
+                // Xử lý các record có status_install = 2 (đã được lọc ở trên)
+                foreach ($ordersWithStatus2 as $installationOrder) {
+                    if ($performUpdate) {
                         $installationOrder->status_install = 3;
                         $installationOrder->paid_at = now();
                         $installationOrder->save();
 
                         $productName = $installationOrder->product;
-                        $requestAgency = RequestAgency::where('order_code', $baseCode)
+                        $actualOrderCode = $installationOrder->order_code;
+                        $requestAgency = RequestAgency::where('order_code', $actualOrderCode)
                             ->when($productName, function ($q) use ($productName) {
                                 $q->where(function ($sub) use ($productName) {
                                     $sub->whereNull('product_name')
@@ -201,13 +263,9 @@ class CollaboratorInstallBulkController extends Controller
                         $updatedCount++;
                         $updatedCodes[] = $originalCode;
                     } else {
-                        $invalidStatusCount++;
-                        $statusVal = $installationOrder->status_install;
-                        $invalidStatusCodes[] = [
-                            'code' => $originalCode,
-                            'status' => $statusVal,
-                            'status_text' => $statusTextMap[$statusVal] ?? 'Không xác định',
-                        ];
+                        // chỉ thống kê số có thể cập nhật
+                        $previewUpdatableCount++;
+                        $updatedCodes[] = $originalCode;
                     }
                 }
             }
@@ -215,7 +273,9 @@ class CollaboratorInstallBulkController extends Controller
             $lines = [];
             $lines[] = "Xử lý hoàn tất.";
             $lines[] = "- Tổng mã: " . count($orderCodes);
-            $lines[] = "- Đã cập nhật: $updatedCount";
+            $lines[] = $performUpdate
+                ? "- Đã cập nhật: $updatedCount"
+                : "- Có thể cập nhật: $previewUpdatableCount";
             $lines[] = "- Sai trạng thái (không phải 'Hoàn thành'): $invalidStatusCount";
             $lines[] = "- Không tìm thấy: $notFoundCount";
 
@@ -237,17 +297,27 @@ class CollaboratorInstallBulkController extends Controller
 
             $message = implode("\n", $lines);
 
-            Log::channel('bulk_update_by_excel')->info('bulk_update_by_excel', [
-                'user' => session('user', 'system'),
-                'total' => count($orderCodes),
-                'updated' => $updatedCodes,
-                'invalid_status' => $invalidStatusCodes,
-                'not_found' => $notFoundCodes,
-                'timestamp' => now()->toDateTimeString(),
-            ]);
+            if ($performUpdate) {
+                Log::channel('bulk_update_by_excel')->info('bulk_update_by_excel', [
+                    'user' => session('user', 'system'),
+                    'total' => count($orderCodes),
+                    'updated' => $updatedCodes,
+                    'invalid_status' => $invalidStatusCodes,
+                    'not_found' => $notFoundCodes,
+                    'timestamp' => now()->toDateTimeString(),
+                ]);
 
+                return response()->json([
+                    'success' => true,
+                    'confirm_required' => false,
+                    'message' => $message
+                ]);
+            }
+
+            // Preview only, yêu cầu xác nhận trước khi import
             return response()->json([
                 'success' => true,
+                'confirm_required' => true,
                 'message' => $message
             ]);
 
