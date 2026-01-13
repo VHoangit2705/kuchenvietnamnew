@@ -128,7 +128,7 @@ return [
 
         'email_report' => [
             'driver' => 'single',
-            'path' => base_path('email_report.log'),
+            'path' => storage_path('logs/email_report.log'),
             'level' => 'info',
             'replace_placeholders' => true,
             'formatter' => LineFormatter::class,

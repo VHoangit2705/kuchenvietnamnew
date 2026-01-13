@@ -44,13 +44,13 @@ class Kernel extends ConsoleKernel
             });
         
         // GỬI BÁO CÁO THEO THÁNG
-        // Gửi báo cáo theo tháng: ngày cuối tháng lúc 23:59
+        // Gửi báo cáo theo tháng: ngày 30 hàng tháng lúc 08:00
         $schedule->command('report:send-email monthly')
-            ->dailyAt('23:59')
+            ->dailyAt('08:00')
             ->when(function () {
-                // Chạy vào ngày cuối tháng
+                // Chạy vào ngày 30 hàng tháng
                 $now = Carbon::now('Asia/Ho_Chi_Minh');
-                return $now->isLastOfMonth();
+                return $now->day === 30;
             })
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
