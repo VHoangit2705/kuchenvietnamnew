@@ -4,6 +4,7 @@ namespace App\Services\SendReport;
 
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\KyThuat\WarrantyOverdueRateHistory;
+use App\Models\KyThuat\WarrantyReportSnapshot;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -14,7 +15,89 @@ use App\Services\SendReport\ReportHtmlTemplate;
 class ReportEmailService
 {
     /**
+     * Generate PDF report file từ snapshot đã lưu (khóa cứng dữ liệu)
+     */
+    public function generateReportPdfFromSnapshot($fromDate, $toDate, $branch = 'all', $reportType = null, WarrantyReportSnapshot $snapshot)
+    {
+        // Lấy dữ liệu từ snapshot
+        $warrantyData = $snapshot->warranty_data_decoded;
+        $workProcessData = $snapshot->work_process_data_decoded;
+
+        // Convert warranty data thành collection để tương thích với template
+        $data = collect($warrantyData)->map(function ($item) {
+            return (object) $item;
+        });
+
+        // Convert work process data thành collection với các thuộc tính object
+        $workProcessStats = collect($workProcessData)->map(function ($item) {
+            return (object) $item;
+        });
+
+        // Format dates for display and filename
+        $fromDateFormatted = Carbon::parse($fromDate)->format('d/m/Y');
+        $toDateFormatted = Carbon::parse($toDate)->format('d/m/Y');
+
+        // Get branch name
+        $branchMap = [
+            'kchanoi' => 'KUCHEN HÀ NỘI',
+            'kcvinh' => 'KUCHEN VINH',
+            'kchcm' => 'KUCHEN HCM',
+            'hrhanoi' => 'HUROM HÀ NỘI',
+            'hrvinh' => 'HUROM VINH',
+            'hrhcm' => 'HUROM HCM',
+            'kuchen vinh' => 'KUCHEN VINH',
+            'kuchen hcm' => 'KUCHEN HCM',
+            'kuchen hà nội' => 'KUCHEN HÀ NỘI',
+            'hurom vinh' => 'HUROM VINH',
+            'hurom hcm' => 'HUROM HCM',
+            'hurom hà nội' => 'HUROM HÀ NỘI',
+        ];
+        $branchName = $branchMap[strtolower($branch)] ?? "Tất cả chi nhánh";
+
+        // Build HTML report using template
+        $template = new ReportHtmlTemplate();
+        $html = $template->buildHtml($data, $workProcessStats, $fromDateFormatted, $toDateFormatted, $branchName);
+
+        // Tạo tên tệp duy nhất (thêm snapshot_id để dễ tracking)
+        $fileName = 'bao_cao_bao_hanh_' . Str::slug($fromDateFormatted . '_' . $toDateFormatted) . '_snapshot_' . $snapshot->id . '_' . time() . '.pdf';
+        $pdfPath = 'reports/' . $fileName;
+        $fullPath = storage_path('app/' . $pdfPath);
+
+        // Đảm bảo thư mục tồn tại
+        $directory = dirname($fullPath);
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        // Tạo PDF từ HTML bằng Dompdf
+        $options = new Options();
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isFontSubsettingEnabled', true);
+        $options->set('defaultMediaType', 'screen');
+        $options->set('defaultPaperSize', 'a4');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('a4', 'landscape');
+        $dompdf->render();
+
+        // Save PDF to file
+        file_put_contents($fullPath, $dompdf->output());
+
+        return [
+            'pdf_path' => $pdfPath,
+            'file_name' => $fileName,
+            'full_path' => $fullPath,
+            'snapshot_id' => $snapshot->id,
+            'snapshot_date' => $snapshot->snapshot_date->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
      * Generate PDF report file (landscape orientation, UTF-8)
+     * Fallback khi không có snapshot - sử dụng dữ liệu real-time
      */
     public function generateReportPdf($fromDate, $toDate, $branch = 'all', $reportType = null)
     {
@@ -47,8 +130,14 @@ class ReportEmailService
             'hrhanoi' => 'HUROM HÀ NỘI',
             'hrvinh' => 'HUROM VINH',
             'hrhcm' => 'HUROM HCM',
+            'kuchen vinh' => 'KUCHEN VINH',
+            'kuchen hcm' => 'KUCHEN HCM',
+            'kuchen hà nội' => 'KUCHEN HÀ NỘI',
+            'hurom vinh' => 'HUROM VINH',
+            'hurom hcm' => 'HUROM HCM',
+            'hurom hà nội' => 'HUROM HÀ NỘI',
         ];
-        $branchName = $branchMap[$branch] ?? "Tất cả chi nhánh";
+        $branchName = $branchMap[strtolower($branch)] ?? "Tất cả chi nhánh";
 
         // Build HTML report using template
         $template = new ReportHtmlTemplate();
