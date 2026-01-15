@@ -1231,14 +1231,17 @@ class WarrantyController extends Controller
 
     public function GetPaymentQr($id)
     {
-        $data = WarrantyRequest::findOrFail($id);
+        $data = WarrantyRequest::with(['details', 'repairJobs'])->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
 
-        $qr = $this->buildPaymentQr($data, $total);
+        $repairJobsTotal = $data->repairJobs->sum('total_price');
+        $grandTotal = $total + $repairJobsTotal;
+
+        $qr = $this->buildPaymentQr($data, $grandTotal);
 
         if (!$qr) {
             return response()->json([
