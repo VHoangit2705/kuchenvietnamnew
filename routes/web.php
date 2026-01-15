@@ -160,6 +160,7 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
     Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
     Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
+    Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
     
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);

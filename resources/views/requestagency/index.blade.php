@@ -234,13 +234,12 @@
                         <tr>
                             <td>{{ $requests->firstItem() + $index }}</td>
                             <td>
-                                <strong class="order-code-link" 
+                                <a href="{{ route('requestagency.installation-order', ['order_code' => $request->order_code, 'product_name' => $request->product_name]) }}"
+                                    class="order-code-link" 
                                     style="{{ isset($hasOtherAgencyFlags[$request->id]) && $hasOtherAgencyFlags[$request->id] ? 'background-color: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px; cursor: pointer;' : 'color: #0d6efd; cursor: pointer; text-decoration: underline;' }}"
-                                    data-order-code="{{ $request->order_code }}"
-                                    data-product-name="{{ $request->product_name }}"
-                                    title="Click để xem chi tiết trong điều phối">
+                                    title="Cập nhật ca sửa chữa">
                                     {{ $request->order_code }}
-                                </strong>
+                                </a>
                             </td>
                             <td>{{ $request->product_name }}</td>
                             <td>{{ $request->customer_name }}</td>
@@ -324,75 +323,19 @@
 </div>
 
 <script>
-    // Xử lý click vào mã đơn hàng để chuyển đến trang chi tiết điều phối
     document.addEventListener('DOMContentLoaded', function() {
-        const orderCodeLinks = document.querySelectorAll('.order-code-link');
-        
-        orderCodeLinks.forEach(function(link) {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const orderCode = this.getAttribute('data-order-code');
-                const productName = this.getAttribute('data-product-name');
-                
-                // Hiển thị loading
-                const originalText = this.textContent;
-                const originalStyle = this.style.cssText;
-                this.textContent = 'Đang tìm...';
-                this.style.pointerEvents = 'none';
-                this.style.opacity = '0.6';
-                
-                // Gọi API để tìm InstallationOrder
-                const url = '{{ route("requestagency.find-installation-order") }}?order_code=' + 
-                           encodeURIComponent(orderCode) + 
-                           (productName ? '&product_name=' + encodeURIComponent(productName) : '');
-                
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success && data.url) {
-                            window.location.href = data.url;
-                        } else {
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'info',
-                                    title: 'Thông báo',
-                                    text: data.message || 'Không tìm thấy đơn hàng trong hệ thống điều phối',
-                                    confirmButtonText: 'Đóng'
-                                }).then(() => {
-                                    this.textContent = originalText;
-                                    this.style.cssText = originalStyle;
-                                    this.style.pointerEvents = 'auto';
-                                });
-                            } else {
-                                alert(data.message || 'Không tìm thấy đơn hàng trong hệ thống điều phối');
-                                this.textContent = originalText;
-                                this.style.cssText = originalStyle;
-                                this.style.pointerEvents = 'auto';
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi',
-                                text: 'Có lỗi xảy ra khi tìm kiếm đơn hàng',
-                                confirmButtonText: 'Đóng'
-                            }).then(() => {
-                                this.textContent = originalText;
-                                this.style.cssText = originalStyle;
-                                this.style.pointerEvents = 'auto';
-                            });
-                        } else {
-                            alert('Có lỗi xảy ra khi tìm kiếm đơn hàng');
-                            this.textContent = originalText;
-                            this.style.cssText = originalStyle;
-                            this.style.pointerEvents = 'auto';
-                        }
-                    });
-            });
-        });
+        @if(session('error'))
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Thông báo',
+                    text: @json(session('error')),
+                    confirmButtonText: 'Đóng'
+                });
+            } else {
+                alert(@json(session('error')));
+            }
+        @endif
     });
 
     function deleteRequest(id) {

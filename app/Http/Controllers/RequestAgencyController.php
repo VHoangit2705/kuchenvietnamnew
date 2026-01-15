@@ -625,6 +625,109 @@ class RequestAgencyController extends Controller
     /**
      * Tìm InstallationOrder từ order_code và product_name để chuyển đến trang chi tiết điều phối
      */
+    private function normalizeProductName(?string $name): ?string
+    {
+        if ($name === null) {
+            return null;
+        }
+
+        $normalized = trim($name);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+        return mb_strtolower($normalized, 'UTF-8');
+    }
+
+    private function resolveInstallationOrderUrl(?string $orderCode, ?string $productName): ?string
+    {
+        if (empty($orderCode)) {
+            return null;
+        }
+
+        $installationOrderQuery = InstallationOrder::where('order_code', $orderCode);
+        $installationOrder = null;
+
+        if ($productName) {
+            $installationOrder = (clone $installationOrderQuery)
+                ->where('product', $productName)
+                ->first();
+
+            if (!$installationOrder) {
+                $normalizedTarget = $this->normalizeProductName($productName);
+                $installationOrder = $installationOrderQuery
+                    ->get()
+                    ->first(function ($item) use ($normalizedTarget) {
+                        $normalizedItem = $this->normalizeProductName($item->product ?? null);
+                        if (!$normalizedItem || !$normalizedTarget) {
+                            return false;
+                        }
+
+                        return str_contains($normalizedItem, $normalizedTarget)
+                            || str_contains($normalizedTarget, $normalizedItem);
+                    });
+            }
+        } else {
+            $installationOrder = $installationOrderQuery->first();
+        }
+
+        if ($installationOrder) {
+            return route('dieuphoi.detail', ['id' => $installationOrder->id, 'type' => '']);
+        }
+
+        $order = Order::where('order_code2', $orderCode)
+            ->orWhere('order_code1', $orderCode)
+            ->first();
+
+        if (!$order) {
+            return null;
+        }
+
+        $orderProducts = OrderProduct::where('order_id', $order->id)
+            ->where('install', 1)
+            ->get();
+
+        if ($orderProducts->isEmpty()) {
+            return null;
+        }
+
+        if ($productName) {
+            $normalizedTarget = $this->normalizeProductName($productName);
+
+            $exactMatch = $orderProducts->first(function ($item) use ($normalizedTarget) {
+                $normalizedItem = $this->normalizeProductName($item->product_name ?? null);
+                return $normalizedItem && $normalizedTarget && $normalizedItem === $normalizedTarget;
+            });
+
+            if ($exactMatch) {
+                return route('dieuphoi.detail', ['id' => $exactMatch->id, 'type' => 'donhang']);
+            }
+
+            $fuzzyMatches = $orderProducts->filter(function ($item) use ($normalizedTarget) {
+                $normalizedItem = $this->normalizeProductName($item->product_name ?? null);
+                if (!$normalizedItem || !$normalizedTarget) {
+                    return false;
+                }
+
+                return str_contains($normalizedItem, $normalizedTarget)
+                    || str_contains($normalizedTarget, $normalizedItem);
+            });
+
+            if ($fuzzyMatches->count() === 1) {
+                $matched = $fuzzyMatches->first();
+                return route('dieuphoi.detail', ['id' => $matched->id, 'type' => 'donhang']);
+            }
+        }
+
+        if ($orderProducts->count() === 1) {
+            $single = $orderProducts->first();
+            return route('dieuphoi.detail', ['id' => $single->id, 'type' => 'donhang']);
+        }
+
+        return null;
+    }
+
     public function findInstallationOrder(Request $request)
     {
         $orderCode = $request->input('order_code');
@@ -637,53 +740,31 @@ class RequestAgencyController extends Controller
             ], 400);
         }
 
-        // Tìm InstallationOrder theo order_code và product_name (nếu có)
-        $installationOrder = InstallationOrder::where('order_code', $orderCode)
-            ->when($productName, function($q) use ($productName) {
-                return $q->where('product', $productName);
-            })
-            ->first();
+        $url = $this->resolveInstallationOrderUrl($orderCode, $productName);
 
-        if ($installationOrder) {
-            // Tìm thấy InstallationOrder, trả về URL chi tiết
+        if ($url) {
             return response()->json([
                 'success' => true,
-                'url' => route('dieuphoi.detail', ['id' => $installationOrder->id, 'type' => ''])
+                'url' => $url
             ]);
         }
 
-        // Không tìm thấy InstallationOrder, thử tìm Order hoặc OrderProduct
-        $order = Order::where('order_code2', $orderCode)
-            ->orWhere('order_code1', $orderCode)
-            ->first();
-
-        if ($order) {
-            // Tìm OrderProduct nếu có product_name
-            if ($productName) {
-                $orderProduct = OrderProduct::where('order_id', $order->id)
-                    ->where('product_name', $productName)
-                    ->where('install', 1)
-                    ->first();
-
-                if ($orderProduct) {
-                    return response()->json([
-                        'success' => true,
-                        'url' => route('dieuphoi.detail', ['id' => $orderProduct->id, 'type' => 'donhang'])
-                    ]);
-                }
-            }
-
-            // Nếu không có product_name hoặc không tìm thấy OrderProduct, trả về với order_id
-            return response()->json([
-                'success' => true,
-                'url' => route('dieuphoi.detail', ['id' => $order->id, 'type' => 'donhang'])
-            ]);
-        }
-
-        // Không tìm thấy gì cả
         return response()->json([
             'success' => false,
             'message' => 'Không tìm thấy đơn hàng trong hệ thống điều phối'
         ], 404);
+    }
+
+    public function redirectInstallationOrder(Request $request)
+    {
+        $orderCode = $request->query('order_code');
+        $productName = $request->query('product_name');
+        $url = $this->resolveInstallationOrderUrl($orderCode, $productName);
+
+        if ($url) {
+            return redirect()->to($url);
+        }
+
+        return redirect()->back()->with('error', 'Không tìm thấy đơn hàng trong hệ thống điều phối');
     }
 }
