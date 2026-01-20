@@ -179,5 +179,7 @@ Route::post('/submiterror1', [TechSupportController::class, 'SubmitError1'])->na
 Route::get('/listproblem', [TechSupportController::class, 'ListProblem'])->name('listproblem');
 Route::get('/detailproblem', [TechSupportController::class, 'DetailProblem'])->name('detailproblem');
 Route::get('/updatestatus', [TechSupportController::class, 'UpdateStatus'])->name('updatestatus');
+// Cronjob routes for report commands (public routes for scheduled tasks)
+Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandController::class, 'runSaveSnapshot']);
 Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
 Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
