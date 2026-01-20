@@ -6,7 +6,11 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
+                <div style="position: relative;">
+                    <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
+                    <div id="product-suggestions" class="list-group position-absolute w-100 d-none"
+                    style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
@@ -176,9 +180,11 @@
     window.previewReportRoute = '{{ route('baocao.preview.excel') }}';
     window.reportRoute = '{{ route('baocao') }}';
     window.reportParams = @json(request()->all());
+    window.productSuggestRoute = '{{ route('baocao.sanpham') }}';
 </script>
 <script src="{{ asset('js/report/validation.js') }}"></script>
 <script src="{{ asset('js/report/ui.js') }}"></script>
+<script src="{{ asset('js/report/product_suggest.js') }}"></script>
 <script src="{{ asset('js/report/replacement_suggest.js') }}"></script>
 <script src="{{ asset('js/report/export.js') }}"></script>
 <script src="{{ asset('js/report/reset.js') }}"></script>

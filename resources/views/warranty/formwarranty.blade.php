@@ -164,22 +164,19 @@
                     </div>
                     <div class="form-group ctv-fields">
                         <input type="number" id="collaborator_id" name="collaborator_id" value="" hidden>
-                        <label for="ctv_phone" class="form-label mt-1">Số điện thoại CTV (<span
-                                style="color: red;">*</span>)</label>
+                        <label for="ctv_phone" class="form-label mt-1">Số điện thoại CTV</label>
                         <input id="ctv_phone" name="ctv_phone" type="text" class="form-control"
                             placeholder="Nhập số điện thoại ctv"  value="">
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group ctv-fields">
-                        <label for="ctv_name" class="form-label mt-1">Họ tên CTV (<span
-                                style="color: red;">*</span>)</label>
+                        <label for="ctv_name" class="form-label mt-1">Họ tên CTV</label>
                         <input id="ctv_name" name="ctv_name" type="text" class="form-control" placeholder="Nhập họ tên ctv"
                              value="">
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group ctv-fields">
-                        <label for="ctv_address" class="form-label mt-1">Địa chỉ CTV (<span
-                                style="color: red;">*</span>)</label>
+                        <label for="ctv_address" class="form-label mt-1">Địa chỉ CTV</label>
                         <input id="ctv_address" name="ctv_address" type="text" class="form-control"
                             placeholder="Nhập địa chỉ ctv" value="">
                         <div class="error text-danger small mt-1 mb-3"></div>
@@ -351,10 +348,7 @@
                     '#phone_number',
                     '#address',
                     '#shipment_date',
-                    '#return_date',
-                    '#ctv_phone',
-                    '#ctv_name',
-                    '#ctv_address'
+                    '#return_date'
                 );
             } else {
                 requiredFields.push(

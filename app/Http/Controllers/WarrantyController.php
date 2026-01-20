@@ -103,7 +103,13 @@ class WarrantyController extends Controller
                 SUM(CASE WHEN status = 'Đang sửa chữa' THEN 1 ELSE 0 END) as dangsua,
                 SUM(CASE WHEN status = 'Chờ KH phản hồi' THEN 1 ELSE 0 END) as chophanhoi,
                 SUM(CASE WHEN status = 'Đã hoàn tất' THEN 1 ELSE 0 END) as hoantat,
-                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan
+                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan,
+                SUM(CASE WHEN type = 'agent_component' 
+                    AND (collaborator_id IS NULL OR collaborator_id = '')
+                    AND (collaborator_name IS NULL OR collaborator_name = '')
+                    AND (collaborator_phone IS NULL OR collaborator_phone = '')
+                    AND (collaborator_address IS NULL OR collaborator_address = '')
+                    THEN 1 ELSE 0 END) as chuadiephoi
             ", [now()])
             ->first()
             ->toArray();
@@ -117,6 +123,23 @@ class WarrantyController extends Controller
             'dangsua' => $tabQuery->where('status', 'Đang sửa chữa'),
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
+            'chuadiephoi' => $tabQuery->where('type', 'agent_component')
+                ->where(function($q) {
+                    $q->whereNull('collaborator_id')
+                      ->orWhere('collaborator_id', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_name')
+                      ->orWhere('collaborator_name', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_phone')
+                      ->orWhere('collaborator_phone', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_address')
+                      ->orWhere('collaborator_address', '');
+                }),
             default => null,
         };
 
@@ -194,7 +217,13 @@ class WarrantyController extends Controller
                 SUM(CASE WHEN status = 'Đang sửa chữa' THEN 1 ELSE 0 END) as dangsua,
                 SUM(CASE WHEN status = 'Chờ KH phản hồi' THEN 1 ELSE 0 END) as chophanhoi,
                 SUM(CASE WHEN status = 'Đã hoàn tất' THEN 1 ELSE 0 END) as hoantat,
-                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan
+                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan,
+                SUM(CASE WHEN type = 'agent_component' 
+                    AND (collaborator_id IS NULL OR collaborator_id = '')
+                    AND (collaborator_name IS NULL OR collaborator_name = '')
+                    AND (collaborator_phone IS NULL OR collaborator_phone = '')
+                    AND (collaborator_address IS NULL OR collaborator_address = '')
+                    THEN 1 ELSE 0 END) as chuadiephoi
             ", [now()])
             ->first()
             ->toArray();
@@ -208,6 +237,23 @@ class WarrantyController extends Controller
             'dangsua' => $tabQuery->where('status', 'Đang sửa chữa'),
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
+            'chuadiephoi' => $tabQuery->where('type', 'agent_component')
+                ->where(function($q) {
+                    $q->whereNull('collaborator_id')
+                      ->orWhere('collaborator_id', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_name')
+                      ->orWhere('collaborator_name', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_phone')
+                      ->orWhere('collaborator_phone', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_address')
+                      ->orWhere('collaborator_address', '');
+                }),
             default => null,
         };
 

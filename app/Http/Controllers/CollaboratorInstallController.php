@@ -1208,6 +1208,35 @@ class CollaboratorInstallController extends Controller
                         );
                     }
                 }
+
+                // Đồng bộ thông tin CTV vào warranty_requests khi điều phối
+                if ($warrantyRequestsId && $isCollaboratorInstall && $ctvId && $newStatusInstall >= 1) {
+                    try {
+                        $warrantyRequest = WarrantyRequest::find($warrantyRequestsId);
+                        if ($warrantyRequest && $warrantyRequest->type === 'agent_component') {
+                            $collaborator = WarrantyCollaborator::find($ctvId);
+                            if ($collaborator) {
+                                $warrantyRequest->collaborator_id = $ctvId;
+                                $warrantyRequest->collaborator_name = $collaborator->full_name ?? null;
+                                $warrantyRequest->collaborator_phone = $collaborator->phone ?? null;
+                                $warrantyRequest->collaborator_address = $collaborator->address ?? null;
+                                $warrantyRequest->save();
+                                
+                                Log::info('Đã đồng bộ thông tin CTV vào warranty_requests', [
+                                    'warranty_request_id' => $warrantyRequestsId,
+                                    'collaborator_id' => $ctvId,
+                                    'collaborator_name' => $collaborator->full_name,
+                                ]);
+                            }
+                        }
+                    } catch (\Exception $syncException) {
+                        Log::warning('Lỗi khi đồng bộ thông tin CTV vào warranty_requests', [
+                            'warranty_requests_id' => $warrantyRequestsId,
+                            'collaborator_id' => $ctvId,
+                            'error' => $syncException->getMessage(),
+                        ]);
+                    }
+                }
                 
             } catch (\Exception $e) {
                 throw $e;

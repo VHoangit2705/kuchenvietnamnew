@@ -24,4 +24,9 @@
             Đã hoàn tất <span class="text-danger">({{ $counts['hoantat'] ?? 0 }})</span>
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {{ $activeTab == 'chuadiephoi' ? 'active' : '' }}" data-tab="chuadiephoi" href="#">
+            Chưa điều phối CTV <span class="text-danger">({{ $counts['chuadiephoi'] ?? 0 }})</span>
+        </a>
+    </li>
 </ul>
