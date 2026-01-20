@@ -396,6 +396,30 @@ class WarrantyController extends Controller
                 'message' => 'Bạn phải thêm ảnh hoặc video sản phẩm lỗi.'
             ]);
         }
+
+        if ($wr->type === 'agent_component' && $request->status === 'Đã hoàn tất') {
+            $missingFields = [];
+            if(empty($wr->collaborator_id)){
+                $missingFields[] = 'ID CTV';
+            }
+            if (empty($wr->collaborator_name)) {
+                $missingFields[] = 'Họ tên CTV';
+            }
+            if (empty($wr->collaborator_phone)) {
+                $missingFields[] = 'Số điện thoại CTV';
+            }
+            if (empty($wr->collaborator_address)) {
+                $missingFields[] = 'Địa chỉ CTV';
+            }
+            
+            if (!empty($missingFields)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chưa điều phối CTV. Vui lòng liên hệ bộ phận điều phối để gán CTV trước khi hoàn tất.'
+                ]);
+            }
+        }
+
         WarrantyRequest::find($request->id)->update(['status' => $request->status]);
 
         $lstComponent = $request->components;
