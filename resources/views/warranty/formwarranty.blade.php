@@ -351,10 +351,7 @@
                     '#phone_number',
                     '#address',
                     '#shipment_date',
-                    '#return_date',
-                    '#ctv_phone',
-                    '#ctv_name',
-                    '#ctv_address'
+                    '#return_date'
                 );
             } else {
                 requiredFields.push(
