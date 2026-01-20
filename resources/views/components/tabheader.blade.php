@@ -26,7 +26,7 @@
     </li>
     <li class="nav-item">
         <a class="nav-link {{ $activeTab == 'chuadiephoi' ? 'active' : '' }}" data-tab="chuadiephoi" href="#">
-            Phiếu chưa điều phối <span class="text-danger">({{ $counts['chuadiephoi'] ?? 0 }})</span>
+            Chưa điều phối CTV <span class="text-danger">({{ $counts['chuadiephoi'] ?? 0 }})</span>
         </a>
     </li>
 </ul>
