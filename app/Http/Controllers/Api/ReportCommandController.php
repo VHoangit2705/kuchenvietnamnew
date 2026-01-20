@@ -45,6 +45,41 @@ class ReportCommandController extends Controller
     }
 
     /**
+     * Trigger the report:save-snapshot command via HTTP.
+     */
+    public function runSaveSnapshot(Request $request, ?string $type = null)
+    {
+        $type = $this->normalizeType($type ?? $request->input('type', 'weekly'));
+
+        $user = $request->get('user');
+
+        try {
+            Log::channel('email_report')->info('[API] Trigger report:save-snapshot', [
+                'type' => $type,
+                'requested_by' => $user->id ?? null,
+            ]);
+
+            Artisan::call('report:save-snapshot', ['type' => $type]);
+
+            return response()->json([
+                'message' => 'Command report:save-snapshot executed successfully.',
+                'type' => $type,
+                'output' => trim(Artisan::output()),
+            ]);
+        } catch (\Throwable $e) {
+            Log::channel('email_report')->error('[API] report:save-snapshot failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to execute report:save-snapshot.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Trigger the report:save-overdue-history command via HTTP.
      */
     public function runSaveOverdueHistory(Request $request, ?string $type = null)

@@ -28,73 +28,111 @@ class Kernel extends ConsoleKernel
                 Log::error('[CLEANUP] Lỗi khi xóa file báo cáo cũ');
             });
         
-        // LỊCH GỬI EMAIL BÁO CÁO TỰ ĐỘNG
-        // Gửi báo cáo tổng hợp: 08:00 thứ 3 hàng tuần (Tuesday)
-        $schedule->command('report:send-email weekly')
-            ->weeklyOn(2, '08:00')
+        // ============================================================
+        // LUỒNG BÁO CÁO TUẦN - KHÓA CỨNG DỮ LIỆU
+        // ============================================================
+        // Bước 1: Lưu snapshot dữ liệu vào 23:59 thứ 2 (Monday)
+        // Khoảng thời gian: 00:00 thứ 2 tuần trước → 23:59 thứ 2 tuần này
+        $schedule->command('report:save-snapshot weekly')
+            ->weeklyOn(1, '23:59') // Monday 23:59
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
-                Log::channel('email_report')->info('[WEEKLY_SUMMARY] Bắt đầu chạy command report:send-email weekly (tổng hợp thứ 3)');
+                Log::channel('email_report')->info('[SNAPSHOT] Bắt đầu lưu snapshot dữ liệu báo cáo tuần');
             })
             ->onSuccess(function () {
-                Log::channel('email_report')->info('[WEEKLY_SUMMARY] Hoàn tất command report:send-email weekly (tổng hợp thứ 3)');
+                Log::channel('email_report')->info('[SNAPSHOT] Hoàn tất lưu snapshot dữ liệu báo cáo tuần');
             })
             ->onFailure(function () {
-                Log::channel('email_report')->error('[WEEKLY_SUMMARY] Command report:send-email weekly (tổng hợp thứ 3) thất bại');
+                Log::channel('email_report')->error('[SNAPSHOT] Lỗi khi lưu snapshot dữ liệu báo cáo tuần');
+            });
+
+        // Bước 2: Gửi email báo cáo tuần vào 08:00 thứ 3 (Tuesday)
+        // Sử dụng snapshot đã lưu từ thứ 2
+        $schedule->command('report:send-email weekly')
+            ->weeklyOn(2, '08:00') // Tuesday 08:00
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->before(function () {
+                Log::channel('email_report')->info('[WEEKLY] Bắt đầu gửi email báo cáo tuần (sử dụng snapshot)');
+            })
+            ->onSuccess(function () {
+                Log::channel('email_report')->info('[WEEKLY] Hoàn tất gửi email báo cáo tuần');
+            })
+            ->onFailure(function () {
+                Log::channel('email_report')->error('[WEEKLY] Lỗi khi gửi email báo cáo tuần');
             });
         
-        // GỬI BÁO CÁO THEO THÁNG
-        // Gửi báo cáo theo tháng: ngày 30 hàng tháng lúc 08:00
+        // ============================================================
+        // LUỒNG BÁO CÁO THÁNG - KHÓA CỨNG DỮ LIỆU
+        // ============================================================
+        // Bước 1: Lưu snapshot dữ liệu vào 23:59 ngày 29 hàng tháng
+        $schedule->command('report:save-snapshot monthly')
+            ->dailyAt('23:59')
+            ->when(function () {
+                $now = Carbon::now('Asia/Ho_Chi_Minh');
+                return $now->day === 29;
+            })
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->before(function () {
+                Log::channel('email_report')->info('[SNAPSHOT] Bắt đầu lưu snapshot dữ liệu báo cáo tháng');
+            })
+            ->onSuccess(function () {
+                Log::channel('email_report')->info('[SNAPSHOT] Hoàn tất lưu snapshot dữ liệu báo cáo tháng');
+            })
+            ->onFailure(function () {
+                Log::channel('email_report')->error('[SNAPSHOT] Lỗi khi lưu snapshot dữ liệu báo cáo tháng');
+            });
+
+        // Bước 2: Gửi email báo cáo tháng vào 08:00 ngày 30 hàng tháng
         $schedule->command('report:send-email monthly')
             ->dailyAt('08:00')
             ->when(function () {
-                // Chạy vào ngày 30 hàng tháng
                 $now = Carbon::now('Asia/Ho_Chi_Minh');
                 return $now->day === 30;
             })
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
-                Log::channel('email_report')->info('[MONTHLY] Bắt đầu chạy command report:send-email monthly');
+                Log::channel('email_report')->info('[MONTHLY] Bắt đầu gửi email báo cáo tháng (sử dụng snapshot)');
             })
             ->onSuccess(function () {
-                Log::channel('email_report')->info('[MONTHLY] Hoàn tất command report:send-email monthly');
+                Log::channel('email_report')->info('[MONTHLY] Hoàn tất gửi email báo cáo tháng');
             })
             ->onFailure(function () {
-                Log::channel('email_report')->error('[MONTHLY] Command report:send-email monthly thất bại');
+                Log::channel('email_report')->error('[MONTHLY] Lỗi khi gửi email báo cáo tháng');
             });
 
-        // LƯU LỊCH SỬ TỈ LỆ QUÁ HẠN
+        // ============================================================
+        // LƯU LỊCH SỬ TỈ LỆ QUÁ HẠN (GIỮ NGUYÊN)
+        // ============================================================
         // Lưu lịch sử tỉ lệ quá hạn theo tuần: sau khi gửi email báo cáo tuần
         $schedule->command('report:save-overdue-history weekly')
-            ->weeklyOn(6, '15:10') // Chạy sau 5 phút khi gửi email báo cáo tuần (15:00)
+            ->weeklyOn(2, '08:30') // Tuesday 08:30 (sau khi gửi email)
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
-                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu chạy command report:save-overdue-history weekly');
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu lưu lịch sử tỉ lệ quá hạn tuần');
             })
             ->onSuccess(function () {
-                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất command report:save-overdue-history weekly');
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất lưu lịch sử tỉ lệ quá hạn tuần');
             })
             ->onFailure(function () {
-                Log::channel('email_report')->error('[OVERDUE_HISTORY] Command report:save-overdue-history weekly thất bại');
+                Log::channel('email_report')->error('[OVERDUE_HISTORY] Lỗi khi lưu lịch sử tỉ lệ quá hạn tuần');
             });
 
         // Lưu lịch sử tỉ lệ quá hạn theo tháng: sau khi gửi email báo cáo tháng
         $schedule->command('report:save-overdue-history monthly')
-            ->dailyAt('23:59')
+            ->dailyAt('08:30')
             ->when(function () {
-                // Chạy vào ngày cuối tháng, sau khi gửi email báo cáo
                 $now = Carbon::now('Asia/Ho_Chi_Minh');
-                return $now->isLastOfMonth();
+                return $now->day === 30;
             })
             ->timezone('Asia/Ho_Chi_Minh')
             ->before(function () {
-                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu chạy command report:save-overdue-history monthly');
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Bắt đầu lưu lịch sử tỉ lệ quá hạn tháng');
             })
             ->onSuccess(function () {
-                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất command report:save-overdue-history monthly');
+                Log::channel('email_report')->info('[OVERDUE_HISTORY] Hoàn tất lưu lịch sử tỉ lệ quá hạn tháng');
             })
             ->onFailure(function () {
-                Log::channel('email_report')->error('[OVERDUE_HISTORY] Command report:save-overdue-history monthly thất bại');
+                Log::channel('email_report')->error('[OVERDUE_HISTORY] Lỗi khi lưu lịch sử tỉ lệ quá hạn tháng');
             });
     }
 

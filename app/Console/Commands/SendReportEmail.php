@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Mail\ReportEmail;
+use App\Models\KyThuat\WarrantyReportSnapshot;
 use App\Services\SendReport\ReportEmailService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -60,6 +61,19 @@ class SendReportEmail extends Command
     ];
 
     /**
+     * Mapping từ zone key trong user sang branch key trong snapshot
+     */
+    protected $zoneToBranchMap = [
+        'kuchen vinh' => 'kuchen vinh',
+        'kuchen hcm' => 'kuchen hcm',
+        'kuchen hà nội' => 'kuchen hà nội',
+        'hurom vinh' => 'hurom vinh',
+        'hurom hcm' => 'hurom hcm',
+        'hurom hà nội' => 'hurom hà nội',
+        'all' => 'all',
+    ];
+
+    /**
      * Ghi log vào file email_report.log
      */
     protected function logEmailReport(string $level, string $message, array $context = []): void
@@ -84,20 +98,16 @@ class SendReportEmail extends Command
             $this->logEmailReport('info', sprintf('[%s] Khởi động command report:send-email', strtoupper($type)), [
                 'type' => $type,
             ]);
-            // Calculate date range based on type
-            if ($type === 'weekly') {
-                // Weekly report: from last Saturday to this Saturday
-                $toDate = Carbon::now('Asia/Ho_Chi_Minh')->endOfDay();
-                $fromDate = $toDate->copy()->subWeek()->startOfDay();
-                $reportType = 'tuần';
-            } else {
-                // Monthly report: last 30 days
-                $toDate = Carbon::now('Asia/Ho_Chi_Minh')->endOfDay();
-                $fromDate = $toDate->copy()->subDays(30)->startOfDay();
-                $reportType = 'tháng';
-            }
 
-            $this->info("Đang tạo báo cáo từ {$fromDate->format('d/m/Y')} đến {$toDate->format('d/m/Y')}...");
+            // Tính khoảng thời gian báo cáo MỚI:
+            // Weekly: từ 00:00 thứ 2 tuần trước đến 23:59 thứ 2 tuần này
+            // Monthly: từ 00:00 ngày 1 tháng trước đến 23:59 ngày cuối tháng trước
+            $dateRange = $this->calculateDateRange($type);
+            $fromDate = $dateRange['from_date'];
+            $toDate = $dateRange['to_date'];
+            $reportType = $type === 'weekly' ? 'tuần' : 'tháng';
+
+            $this->info("Đang tạo báo cáo từ {$fromDate->format('d/m/Y H:i')} đến {$toDate->format('d/m/Y H:i')}...");
             $this->logEmailReport('info', sprintf('[%s] Khởi tạo báo cáo', strtoupper($type)), [
                 'from_date' => $fromDate->format('Y-m-d H:i:s'),
                 'to_date' => $toDate->format('Y-m-d H:i:s'),
@@ -136,19 +146,52 @@ class SendReportEmail extends Command
                     'zone_label' => $zoneLabel,
                 ]);
 
-                $result = $service->generateReportPdf(
-                    $fromDate->format('Y-m-d'),
-                    $toDate->format('Y-m-d'),
-                    $zoneKey,
-                    $type
-                );
+                // Tìm snapshot đã lưu cho zone này
+                $branchKey = $this->mapZoneToBranch($zoneKey);
+                $snapshot = $this->findSnapshot($type, $fromDate, $toDate, $branchKey);
+
+                if ($snapshot) {
+                    $this->info("  → Sử dụng snapshot đã lưu (ID: {$snapshot->id})");
+                    $this->logEmailReport('info', sprintf('[%s] Sử dụng snapshot', strtoupper($type)), [
+                        'snapshot_id' => $snapshot->id,
+                        'snapshot_date' => $snapshot->snapshot_date->format('Y-m-d H:i:s'),
+                        'branch' => $branchKey,
+                    ]);
+
+                    // Tạo PDF từ snapshot data
+                    $result = $service->generateReportPdfFromSnapshot(
+                        $fromDate->format('Y-m-d'),
+                        $toDate->format('Y-m-d'),
+                        $zoneKey,
+                        $type,
+                        $snapshot
+                    );
+
+                    // Đánh dấu snapshot đã gửi
+                    $snapshot->markAsSent();
+                } else {
+                    // Fallback: tính real-time nếu không có snapshot
+                    $this->warn("  → Không tìm thấy snapshot, sử dụng dữ liệu real-time");
+                    $this->logEmailReport('warning', sprintf('[%s] Không có snapshot, dùng real-time', strtoupper($type)), [
+                        'branch' => $branchKey,
+                    ]);
+
+                    $result = $service->generateReportPdf(
+                        $fromDate->format('Y-m-d'),
+                        $toDate->format('Y-m-d'),
+                        $zoneKey,
+                        $type
+                    );
+                }
 
                 $this->info("Đã tạo PDF: {$result['file_name']} ({$zoneLabel})");
                 $this->logEmailReport('info', sprintf('[%s] Đã tạo PDF', strtoupper($type)), [
                     'zone_key' => $zoneKey,
                     'zone_label' => $zoneLabel,
                     'pdf_file' => $result['file_name'],
+                    'used_snapshot' => $snapshot !== null,
                 ]);
+
                 $this->deliverReportToRecipients(
                     $users,
                     $result,
@@ -181,6 +224,67 @@ class SendReportEmail extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Tính khoảng thời gian báo cáo
+     * Weekly: từ 00:00 thứ 2 tuần trước đến 23:59 thứ 2 tuần này
+     * Monthly: 30 ngày gần nhất
+     */
+    protected function calculateDateRange(string $type): array
+    {
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
+
+        if ($type === 'weekly') {
+            // Khi gửi email vào thứ 3, khoảng thời gian báo cáo là:
+            // Từ 00:00 thứ 2 tuần trước đến 23:59 thứ 2 tuần này
+            
+            // Tìm thứ 2 tuần này (hoặc hôm qua nếu hôm nay là thứ 3)
+            if ($now->dayOfWeek === Carbon::TUESDAY) {
+                // Nếu hôm nay là thứ 3, thì thứ 2 là hôm qua
+                $thisMonday = $now->copy()->subDay()->endOfDay();
+            } else {
+                // Tìm thứ 2 gần nhất (có thể là tuần trước)
+                $thisMonday = $now->copy()->previous(Carbon::MONDAY)->endOfDay();
+            }
+            
+            // Thứ 2 tuần trước (00:00)
+            $lastMonday = $thisMonday->copy()->subWeek()->startOfDay();
+            
+            $fromDate = $lastMonday;
+            $toDate = $thisMonday;
+        } else {
+            // Monthly: 30 ngày gần nhất
+            $toDate = $now->copy()->endOfDay();
+            $fromDate = $toDate->copy()->subDays(30)->startOfDay();
+        }
+
+        return [
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+        ];
+    }
+
+    /**
+     * Tìm snapshot đã lưu cho khoảng thời gian và chi nhánh
+     */
+    protected function findSnapshot(string $type, Carbon $fromDate, Carbon $toDate, string $branch): ?WarrantyReportSnapshot
+    {
+        return WarrantyReportSnapshot::where('report_type', $type)
+            ->where('branch', $branch)
+            ->where('from_date', '>=', $fromDate->copy()->subDay()->format('Y-m-d H:i:s'))
+            ->where('to_date', '<=', $toDate->copy()->addDay()->format('Y-m-d H:i:s'))
+            ->orderBy('snapshot_date', 'desc')
+            ->first();
+    }
+
+    /**
+     * Chuyển đổi zone key sang branch key
+     */
+    protected function mapZoneToBranch(string $zoneKey): string
+    {
+        $zoneKey = strtolower(trim($zoneKey));
+        return $this->zoneToBranchMap[$zoneKey] ?? $zoneKey;
     }
 
     /**
