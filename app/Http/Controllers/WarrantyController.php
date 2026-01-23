@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Kho\Product;
+use App\Models\Kho\Category;
 use App\Models\KyThuat\WarrantyRequestDetail;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\KyThuat\WarrantyCollaborator;
@@ -103,7 +104,13 @@ class WarrantyController extends Controller
                 SUM(CASE WHEN status = 'Đang sửa chữa' THEN 1 ELSE 0 END) as dangsua,
                 SUM(CASE WHEN status = 'Chờ KH phản hồi' THEN 1 ELSE 0 END) as chophanhoi,
                 SUM(CASE WHEN status = 'Đã hoàn tất' THEN 1 ELSE 0 END) as hoantat,
-                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan
+                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan,
+                SUM(CASE WHEN type = 'agent_component' 
+                    AND (collaborator_id IS NULL OR collaborator_id = '')
+                    AND (collaborator_name IS NULL OR collaborator_name = '')
+                    AND (collaborator_phone IS NULL OR collaborator_phone = '')
+                    AND (collaborator_address IS NULL OR collaborator_address = '')
+                    THEN 1 ELSE 0 END) as chuadiephoi
             ", [now()])
             ->first()
             ->toArray();
@@ -117,6 +124,23 @@ class WarrantyController extends Controller
             'dangsua' => $tabQuery->where('status', 'Đang sửa chữa'),
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
+            'chuadiephoi' => $tabQuery->where('type', 'agent_component')
+                ->where(function($q) {
+                    $q->whereNull('collaborator_id')
+                      ->orWhere('collaborator_id', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_name')
+                      ->orWhere('collaborator_name', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_phone')
+                      ->orWhere('collaborator_phone', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_address')
+                      ->orWhere('collaborator_address', '');
+                }),
             default => null,
         };
 
@@ -194,7 +218,13 @@ class WarrantyController extends Controller
                 SUM(CASE WHEN status = 'Đang sửa chữa' THEN 1 ELSE 0 END) as dangsua,
                 SUM(CASE WHEN status = 'Chờ KH phản hồi' THEN 1 ELSE 0 END) as chophanhoi,
                 SUM(CASE WHEN status = 'Đã hoàn tất' THEN 1 ELSE 0 END) as hoantat,
-                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan
+                SUM(CASE WHEN status != 'Đã hoàn tất' AND status != 'Chờ KH phản hồi' AND return_date < ? THEN 1 ELSE 0 END) as quahan,
+                SUM(CASE WHEN type = 'agent_component' 
+                    AND (collaborator_id IS NULL OR collaborator_id = '')
+                    AND (collaborator_name IS NULL OR collaborator_name = '')
+                    AND (collaborator_phone IS NULL OR collaborator_phone = '')
+                    AND (collaborator_address IS NULL OR collaborator_address = '')
+                    THEN 1 ELSE 0 END) as chuadiephoi
             ", [now()])
             ->first()
             ->toArray();
@@ -208,6 +238,23 @@ class WarrantyController extends Controller
             'dangsua' => $tabQuery->where('status', 'Đang sửa chữa'),
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
+            'chuadiephoi' => $tabQuery->where('type', 'agent_component')
+                ->where(function($q) {
+                    $q->whereNull('collaborator_id')
+                      ->orWhere('collaborator_id', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_name')
+                      ->orWhere('collaborator_name', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_phone')
+                      ->orWhere('collaborator_phone', '');
+                })
+                ->where(function($q) {
+                    $q->whereNull('collaborator_address')
+                      ->orWhere('collaborator_address', '');
+                }),
             default => null,
         };
 
@@ -350,6 +397,30 @@ class WarrantyController extends Controller
                 'message' => 'Bạn phải thêm ảnh hoặc video sản phẩm lỗi.'
             ]);
         }
+
+        if ($wr->type === 'agent_component' && $request->status === 'Đã hoàn tất') {
+            $missingFields = [];
+            if(empty($wr->collaborator_id)){
+                $missingFields[] = 'ID CTV';
+            }
+            if (empty($wr->collaborator_name)) {
+                $missingFields[] = 'Họ tên CTV';
+            }
+            if (empty($wr->collaborator_phone)) {
+                $missingFields[] = 'Số điện thoại CTV';
+            }
+            if (empty($wr->collaborator_address)) {
+                $missingFields[] = 'Địa chỉ CTV';
+            }
+            
+            if (!empty($missingFields)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chưa điều phối CTV. Vui lòng liên hệ bộ phận điều phối để gán CTV trước khi hoàn tất.'
+                ]);
+            }
+        }
+
         WarrantyRequest::find($request->id)->update(['status' => $request->status]);
 
         $lstComponent = $request->components;
@@ -549,6 +620,13 @@ class WarrantyController extends Controller
             ->select('product_name', 'view')
             ->get();
         
+        // Lấy danh sách categories (website_id = 2)
+        $categories = Category::where('website_id', 2)
+            ->where('status', 1)
+            ->orderBy('sort_order')
+            ->orderBy('name_vi')
+            ->get(['id', 'name_vi', 'name_en', 'parent_id']);
+        
         $repairJobs = $data->repairJobs->sortBy('created_at')->values();
         $repairJobsTotal = $repairJobs->sum('total_price');
         
@@ -560,6 +638,7 @@ class WarrantyController extends Controller
             'history',
             'linhkien',
             'sanpham',
+            'categories',
             'repairJobs',
             'repairJobsTotal'
         ));
@@ -573,7 +652,8 @@ class WarrantyController extends Controller
             'Sửa chữa tại chỗ (lỗi nhẹ)',
             'Từ chối bảo hành',
             'KH không muốn bảo hành',
-            'Gửi về trung tâm bảo hành NSX'
+            'Gửi về trung tâm bảo hành NSX',
+            'Thu cũ đổi mới'
         ]);
 
         // Kiểm tra nếu replacement là mảng (nhiều linh kiện) - chỉ khi không phải trường hợp đặc biệt
@@ -597,6 +677,10 @@ class WarrantyController extends Controller
             $rules['rejection_reason'] = 'required|string|max:100';
         } elseif ($solution === 'KH không muốn bảo hành') {
             $rules['customer_refusal_reason'] = 'required|string|max:100';
+        } elseif ($solution === 'Thu cũ đổi mới') {
+            $rules['thu_cu_doi_moi_type'] = 'required|string|max:255';
+            $rules['thu_cu_doi_moi_new_type'] = 'required|string|max:255';
+            $rules['thu_cu_doi_moi_extra_fee'] = 'nullable|integer|min:0';
         } elseif ($isMultipleComponents) {
             // Validation cho nhiều linh kiện
             $rules['replacement'] = 'required|array';
@@ -738,6 +822,29 @@ class WarrantyController extends Controller
             
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
+        }
+
+        // Xử lý cho trường hợp "Thu cũ đổi mới"
+        if ($request->solution === 'Thu cũ đổi mới') {
+            $oldProduct = $request->input('thu_cu_doi_moi_type');
+            $newProduct = $request->input('thu_cu_doi_moi_new_type');
+            $extraFee = (int)($request->input('thu_cu_doi_moi_extra_fee', 0));
+
+            // Tạo replacement text với thông tin sản phẩm cũ, mới và phụ phí
+            $replacementText = "Thu cũ: {$oldProduct} | Đổi mới: {$newProduct}";
+
+            $commonData['replacement'] = $replacementText;
+            $commonData['quantity'] = 1;
+            $commonData['unit_price'] = $extraFee;
+            $commonData['total'] = $extraFee;
+            $commonData['replacement_price'] = $extraFee;
+            
+            WarrantyRequestDetail::create($commonData);
+            return response()->json([
+                'success' => true, 
+                'created' => true,
+                'message' => 'Đã lưu thông tin thu cũ đổi mới thành công.'
+            ]);
         }
 
         // Xử lý nhiều linh kiện
@@ -1348,14 +1455,17 @@ class WarrantyController extends Controller
 
     public function GetPaymentQr($id)
     {
-        $data = WarrantyRequest::findOrFail($id);
+        $data = WarrantyRequest::with(['details', 'repairJobs'])->findOrFail($id);
         $items = $data->details;
         $total = 0;
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
 
-        $qr = $this->buildPaymentQr($data, $total);
+        $repairJobsTotal = $data->repairJobs->sum('total_price');
+        $grandTotal = $total + $repairJobsTotal;
+
+        $qr = $this->buildPaymentQr($data, $grandTotal);
 
         if (!$qr) {
             return response()->json([
@@ -1881,7 +1991,8 @@ class WarrantyController extends Controller
             $serialNumber,
             $serialThanMay,
             $productName,
-            $customerPhone
+            $customerPhone,
+            $staffName // Truyền tên nhân viên hiện tại
         );
         
         if ($duplicateCheck['exists']) {
@@ -2178,19 +2289,121 @@ class WarrantyController extends Controller
     }
 
     /**
+     * Lấy danh sách sản phẩm theo category
+     */
+    public function getProductsByCategory(Request $request)
+    {
+        $categoryId = $request->input('category_id');
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        
+        if (!$categoryId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng chọn danh mục'
+            ], 400);
+        }
+
+        $products = collect();
+
+        // Thử lấy từ bảng product_categories qua relationship
+        try {
+            $products = Product::where('view', $view)
+                ->whereHas('categories', function($q) use ($categoryId) {
+                    $q->where('categories.id', $categoryId);
+                })
+                ->select('product_name', 'id', 'price')
+                ->get();
+        } catch (\Exception $e) {
+            // Relationship không hoạt động, thử cách khác
+        }
+
+        // Nếu không tìm thấy, thử lấy từ trường category_id trong bảng products
+        if ($products->isEmpty()) {
+            try {
+                $products = Product::where('view', $view)
+                    ->where('category_id', $categoryId)
+                    ->select('product_name', 'id', 'price')
+                    ->get();
+            } catch (\Exception $e) {
+                // Trường category_id không tồn tại
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
+     * Lấy category của sản phẩm
+     */
+    public function getProductCategory(Request $request)
+    {
+        $productName = $request->input('product_name');
+        
+        if (!$productName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng nhập tên sản phẩm'
+            ], 400);
+        }
+
+        $product = Product::where('product_name', $productName)->first();
+        
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy sản phẩm'
+            ], 404);
+        }
+
+        $categoryId = null;
+
+        // Thử lấy từ relationship categories
+        try {
+            $category = $product->categories()->first();
+            if ($category) {
+                $categoryId = $category->id;
+            }
+        } catch (\Exception $e) {
+            // Relationship không hoạt động, thử cách khác
+        }
+
+        // Nếu không tìm thấy, thử lấy từ trường category_id trong products
+        if (!$categoryId) {
+            try {
+                if (isset($product->category_id)) {
+                    $categoryId = $product->category_id;
+                }
+            } catch (\Exception $e) {
+                // Trường category_id không tồn tại
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'category_id' => $categoryId,
+            'product' => $product
+        ]);
+    }
+
+    /**
      * Kiểm tra phiếu bảo hành trùng trong 48 giờ (toàn hệ thống)
      * 
      * @param string|null $serialNumber
      * @param string|null $serialThanMay
      * @param string $productName
      * @param string $customerPhone
+     * @param string $currentStaffName Tên nhân viên hiện tại đang tạo phiếu
      * @return array ['exists' => bool, 'warranty' => WarrantyRequest|null, 'message' => string]
      */
     private function checkDuplicateWarranty(
         $serialNumber, 
         $serialThanMay, 
         $productName, 
-        $customerPhone
+        $customerPhone,
+        $currentStaffName
     ) {
         $hoursAgo = Carbon::now()->subHours(48);
         
@@ -2208,11 +2421,16 @@ class WarrantyController extends Controller
                 ->first();
                 
             if ($existing) {
-                return [
-                    'exists' => true,
-                    'warranty' => $existing,
-                    'message' => 'Phiếu bảo hành cho Serial Number này đã tồn tại trong 2 ngày gần nhất.'
-                ];
+                // Kiểm tra xem có phải cùng nhân viên tạo không
+                // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
+                if ($existing->staff_received !== $currentStaffName) {
+                    return [
+                        'exists' => true,
+                        'warranty' => $existing,
+                        'message' => 'Phiếu bảo hành cho Serial Number này đã tồn tại trong 2 ngày gần nhất.'
+                    ];
+                }
+                // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
         
@@ -2228,11 +2446,16 @@ class WarrantyController extends Controller
                 ->first();
                 
             if ($existing) {
-                return [
-                    'exists' => true,
-                    'warranty' => $existing,
-                    'message' => 'Phiếu bảo hành cho Serial thân máy này đã tồn tại trong 2 ngày gần nhất.'
-                ];
+                // Kiểm tra xem có phải cùng nhân viên tạo không
+                // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
+                if ($existing->staff_received !== $currentStaffName) {
+                    return [
+                        'exists' => true,
+                        'warranty' => $existing,
+                        'message' => 'Phiếu bảo hành cho Serial thân máy này đã tồn tại trong 2 ngày gần nhất.'
+                    ];
+                }
+                // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
         
@@ -2246,9 +2469,13 @@ class WarrantyController extends Controller
                 ->get();
             
             // So sánh phone đã được normalize (chỉ số)
-            $existing = $candidates->first(function ($item) use ($customerPhone) {
+            $existing = $candidates->first(function ($item) use ($customerPhone, $currentStaffName) {
                 $dbPhone = preg_replace('/[^0-9]/', '', $item->phone_number ?? '');
-                return $dbPhone === $customerPhone;
+                // Chỉ trả về true nếu phone khớp VÀ khác nhân viên (nếu cùng nhân viên thì cho phép tạo lại)
+                if ($dbPhone === $customerPhone && $item->staff_received !== $currentStaffName) {
+                    return true;
+                }
+                return false;
             });
                 
             if ($existing) {

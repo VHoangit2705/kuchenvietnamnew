@@ -34,6 +34,9 @@
     <table class="table table-bordered table-striped">
         <thead class="table-dark text-center">
             <tr>
+                <th class="text-center" style="width: 40px;">
+                    <input type="checkbox" id="checkAll" class="form-check-input">
+                </th>
                 <th>STT</th>
                 <th style="min-width: 160px;">Mã đơn/Serial</th>
                 <th style="min-width: 100px;">
@@ -67,10 +70,44 @@
         <tbody>
             @forelse ($data as $item)
             @php
-            $code = $item->order->order_code2 ?? $item->serial_number ?? $item->order_code;
+            // Xác định type trước
+            $type = $item->VAT ? 'donhang' : ($item->warranty_end ? 'baohanh' : 'danhsach');
+            
+            $isInstallationOrderBaohanh = (isset($item->type) && $item->type === 'baohanh') || 
+                                          (isset($item->warranty_requests_id) && $item->warranty_requests_id);
+            
+            if ($isInstallationOrderBaohanh && isset($item->warranty_requests_id) && $item->warranty_requests_id) {
+                $orderCode = $item->order_code ?? '';
+                $orderCodeTrimmed = strtoupper(trim($orderCode));
+                
+                $isNoSerialOrderCode = empty($orderCode) || 
+                                      $orderCodeTrimmed === 'HÀNG KHÔNG CÓ MÃ SERI' ||
+                                      $orderCodeTrimmed === 'HANG KHONG CO MA SERI' ||
+                                      $orderCodeTrimmed === 'BH-' . $item->warranty_requests_id ||
+                                      preg_match('/^BH-\d+$/', $orderCodeTrimmed);
+                
+                if ($isNoSerialOrderCode) {
+                    $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $item->warranty_requests_id;
+                } else {
+                    $code = $orderCode;
+                }
+            } elseif ($type === 'baohanh') {
+                $serialNumber = $item->serial_number ?? '';
+                $isNoSerial = empty($serialNumber) || 
+                              strtoupper(trim($serialNumber)) === 'HÀNG KHÔNG CÓ MÃ SERI' ||
+                              strtoupper(trim($serialNumber)) === 'HANG KHONG CO MA SERI';
+                
+                if ($isNoSerial) {
+                    $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $item->id;
+                } else {
+                    $code = $serialNumber;
+                }
+            } else {
+                $code = $item->order->order_code2 ?? $item->order_code ?? 'N/A';
+            }
+            
             $zone = $item->order->zone ?? $item->zone ?? '';
             $statusInstall = $item->order->status_install ?? $item->status_install;
-            $type = $item->VAT ? 'donhang' : ($item->warranty_end ? 'baohanh' : 'danhsach');
             $rawInstallCost = $item->order->install_cost ?? $item->install_cost ?? 0;
             // Chỉ xem là đã có đơn lắp đặt (Đại lý/CTV) khi đã điều phối và có chi phí > 0
             $hasInstaller = !is_null($statusInstall) && $statusInstall != 0 && $rawInstallCost > 0;
@@ -100,6 +137,11 @@
             }
             @endphp
             <tr>
+                <td class="text-center">
+                    @if(isset($statusInstall) && $statusInstall == 2)
+                        <input type="checkbox" class="form-check-input check-item" value="{{ $item->id }}">
+                    @endif
+                </td>
                 <td class="text-center">{{ $loop->iteration}}</td>
                 {{-- <td>{{$code}}</td> --}}
                 <td>{{ $code ?: ' N/A ' }}</td>

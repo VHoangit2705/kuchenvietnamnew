@@ -70,7 +70,7 @@
                 <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
                 @endif
                 @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê ca bảo hành</a>
+                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
@@ -128,7 +128,7 @@
                 <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
                 @endif
                 @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê ca bảo hành</a>
+                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
                 @endif
                 @if (Auth::user()->hasPermission('Quản lý CTV'))
                 <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>

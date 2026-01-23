@@ -139,6 +139,12 @@
                                 <button type"submit" id="btnSearch" class="btn btn-primary">
                                     <i class="fas fa-search me-1"></i>Tìm kiếm
                                 </button>
+                                <button type="button" id="btnBulkUpdate" class="btn btn-warning text-white" style="display:none;">
+                                    <i class="fas fa-money-bill-wave me-1"></i>Thanh toán hàng loạt
+                                </button>
+                                <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                                    <i class="fas fa-file-import me-1"></i>Thanh toán bằng Excel/List
+                                </button>
                                 <a href="#" id="reportCollaboratorInstall" class="btn btn-success">
                                     <i class="fas fa-chart-bar me-1"></i>Thống kê
                                 </a>
@@ -241,6 +247,44 @@
         </div>
     </div>
 </div>
+<!-- Modal Thanh toán bằng Excel/List -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>Thanh toán theo danh sách
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentUploadForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cách 1: Nhập danh sách mã đơn hàng</label>
+                        <textarea class="form-control" name="list_codes" rows="4" placeholder="Nhập mã đơn hàng, mỗi mã 1 dòng"></textarea>
+                    </div>
+                    
+                    <div class="text-center my-2 text-muted">- HOẶC -</div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cách 2: Upload file Excel</label>
+                        <input class="form-control" type="file" name="excelFile" accept=".xlsx,.xls,.csv">
+                        <div class="form-text text-danger">
+                            <i class="fas fa-exclamation-circle"></i> File Excel cần có mã đơn hàng ở <strong>Cột B</strong>, dữ liệu bắt đầu từ <strong>dòng 3</strong>.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" id="btnProcessPayment" class="btn btn-primary">
+                    <i class="fas fa-check me-1"></i>Xử lý thanh toán
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid mt-3">
     <div class="d-flex" style="overflow-x: auto; white-space: nowrap;" id="tabHeaderContainer">
         @include('collaboratorinstall.tableheader', ['counts' => $counts, 'activeTab' => $tab ?? 'donhang'])
@@ -1119,6 +1163,217 @@
         $('#previewModal iframe').attr('src', '');
         $('#previewModal .preview-loading').removeClass('d-none');
         $('#previewModal iframe').addClass('d-none');
+    });
+
+    // --- BULK UPDATE LOGIC ---
+    // Handle Check All
+    $(document).on('change', '#checkAll', function() {
+        $('.check-item').prop('checked', $(this).prop('checked'));
+        toggleBulkButton();
+    });
+
+    // Handle individual check
+    $(document).on('change', '.check-item', function() {
+        toggleBulkButton();
+        // Update Check All state
+        var allChecked = $('.check-item:not(:checked)').length === 0;
+        $('#checkAll').prop('checked', allChecked && $('.check-item').length > 0);
+    });
+
+    function toggleBulkButton() {
+        if ($('.check-item:checked').length > 0) {
+            $('#btnBulkUpdate').fadeIn();
+        } else {
+            $('#btnBulkUpdate').fadeOut();
+        }
+    }
+
+    // Handle Bulk Update Click
+    $('#btnBulkUpdate').click(function() {
+        var selectedIds = [];
+        $('.check-item:checked').each(function() {
+            selectedIds.push($(this).val());
+        });
+        
+        if (selectedIds.length === 0) {
+            Swal.fire('Thông báo', 'Vui lòng chọn ít nhất một đơn hàng', 'warning');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Xác nhận thanh toán?',
+            text: "Bạn có chắc chắn muốn chuyển " + selectedIds.length + " đơn hàng sang trạng thái 'Đã thanh toán'?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Đồng ý',
+            cancelButtonText: 'Hủy'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: '{{ route("dieuphoi.bulk.update") }}',
+                    type: 'POST',
+                    data: {
+                        ids: selectedIds,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    beforeSend: function() {
+                        Swal.fire({
+                            title: 'Đang xử lý...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire('Thành công!', response.message, 'success');
+                            // Reload table
+                            let tab = localStorage.getItem('activeTab') || 'donhang';
+                            let formData = $('#searchForm').serialize();
+                            loadTabData(tab, formData, 1);
+                            loadCounts(formData);
+                            // Hide button
+                            $('#btnBulkUpdate').hide();
+                        } else {
+                            Swal.fire('Lỗi!', response.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        let msg = 'Có lỗi xảy ra khi cập nhật.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            msg = xhr.responseJSON.message;
+                        }
+                        Swal.fire('Lỗi!', msg, 'error');
+                    }
+                });
+            }
+        });
+    });
+
+    // Handle Payment by Excel/List
+    $('#btnProcessPayment').click(function() {
+        var form = $('#paymentUploadForm')[0];
+        var formData = new FormData(form);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        // Check empty - Fix selector specificity
+        var listCodes = $('#paymentUploadForm textarea[name="list_codes"]').val();
+        var fileInput = $('#paymentUploadForm input[name="excelFile"]')[0].files[0];
+        
+        // Check if listCodes is just whitespace or empty AND no file is selected
+        var isListEmpty = !listCodes || listCodes.trim() === '';
+        
+        if (isListEmpty && !fileInput) {
+            Swal.fire('Thông báo', 'Vui lòng nhập danh sách mã hoặc chọn file Excel', 'warning');
+            return;
+        }
+
+        // Close modal first
+        $('#paymentModal').modal('hide');
+
+        Swal.fire({
+            title: 'Đang xử lý...',
+            html: 'Đang đọc dữ liệu và cập nhật trạng thái.<br>Vui lòng chờ...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: '{{ route("dieuphoi.bulk.update.excel") }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success && response.confirm_required === true) {
+                    Swal.fire({
+                        title: 'Xem trước',
+                        html: '<pre style="text-align: left; white-space: pre-wrap;">' + (response.message || '') + '</pre>',
+                        icon: 'info',
+                        width: 700,
+                        showCancelButton: true,
+                        confirmButtonText: 'Xác nhận import',
+                        cancelButtonText: 'Hủy'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Thực thi import thật sự với confirm=1
+                            var formDataConfirm = new FormData(form);
+                            formDataConfirm.append('_token', '{{ csrf_token() }}');
+                            formDataConfirm.append('confirm', '1');
+
+                            Swal.fire({
+                                title: 'Đang cập nhật...',
+                                html: 'Vui lòng chờ...',
+                                allowOutsideClick: false,
+                                didOpen: () => { Swal.showLoading(); }
+                            });
+
+                            $.ajax({
+                                url: '{{ route("dieuphoi.bulk.update.excel") }}',
+                                type: 'POST',
+                                data: formDataConfirm,
+                                processData: false,
+                                contentType: false,
+                                success: function(res2) {
+                                    if (res2.success) {
+                                        Swal.fire({
+                                            title: 'Hoàn tất!',
+                                            html: '<pre style="text-align: left; white-space: pre-wrap;">' + (res2.message || '') + '</pre>',
+                                            icon: 'success',
+                                            width: 700
+                                        });
+                                        let tab = localStorage.getItem('activeTab') || 'donhang';
+                                        let formDataSearch = $('#searchForm').serialize();
+                                        loadTabData(tab, formDataSearch, 1);
+                                        loadCounts(formDataSearch);
+                                        $('#paymentUploadForm')[0].reset();
+                                    } else {
+                                        Swal.fire('Lỗi!', res2.message, 'error');
+                                    }
+                                },
+                                error: function(xhr) {
+                                    let msg = 'Có lỗi xảy ra.';
+                                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                                        msg = xhr.responseJSON.message;
+                                    }
+                                    Swal.fire('Lỗi!', msg, 'error');
+                                }
+                            });
+                        }
+                    });
+                } else if (response.success) {
+                    Swal.fire({
+                        title: 'Hoàn tất!',
+                        html: '<pre style="text-align: left; white-space: pre-wrap;">' + (response.message || '') + '</pre>',
+                        icon: 'success',
+                        width: 700
+                    });
+                    
+                    // Reload table if needed
+                    let tab = localStorage.getItem('activeTab') || 'donhang';
+                    let formData = $('#searchForm').serialize();
+                    loadTabData(tab, formData, 1);
+                    loadCounts(formData);
+                    
+                    // Reset form
+                    $('#paymentUploadForm')[0].reset();
+                } else {
+                    Swal.fire('Lỗi!', response.message, 'error');
+                }
+            },
+            error: function(xhr) {
+                let msg = 'Có lỗi xảy ra.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    msg = xhr.responseJSON.message;
+                }
+                Swal.fire('Lỗi!', msg, 'error');
+            }
+        });
     });
 </script>
 @endsection

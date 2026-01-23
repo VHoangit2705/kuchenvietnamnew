@@ -75,6 +75,7 @@ class InstallationOrder extends Model
 		'created_at',
 		'successed_at',
 		'dispatched_at',
+		'warranty_requests_id',
 		'paid_at',
 		'agency_at',
         'agency_id',

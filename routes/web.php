@@ -13,10 +13,12 @@ use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\Api\ReportCommandController;
 use App\Http\Controllers\RequestAgencyController;
 use App\Http\Controllers\UserAgencyController;
 use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
+use App\Http\Controllers\CollaboratorInstallBulkController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -71,6 +73,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/themanhsanpham', [WarrantyController::class, 'TakePhotoWarranty'])->name("warranty.takephoto");
     Route::post('/baohanh/savemedia', [WarrantyController::class, 'StoreMedia'])->name('warranty.storemedia');
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
+    Route::get('/baohanh/getproductcategory', [WarrantyController::class, 'getProductCategory'])->name('warranty.getProductCategory');
+    Route::get('/baohanh/getproductsbycategory', [WarrantyController::class, 'getProductsByCategory'])->name('warranty.getProductsByCategory');
     //Cảnh báo khóa nhập hộ ca bảo hành
     Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
     Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');
@@ -100,6 +104,8 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::get('/dieuphoicongtacvien/counts', [CollaboratorInstallCountsController::class, 'Counts'])->name('dieuphoi.counts');
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
+    Route::post('/dieuphoi/bulk-update', [CollaboratorInstallBulkController::class, 'BulkUpdate'])->name("dieuphoi.bulk.update");
+    Route::post('/dieuphoi/bulk-update-excel', [CollaboratorInstallBulkController::class, 'BulkUpdateByExcel'])->name("dieuphoi.bulk.update.excel");
     Route::post('/dieuphoi/chitiet/update-address', [CollaboratorInstallController::class, 'UpdateDetailCustomerAddress'])->name('dieuphoi.update.address');
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
@@ -115,7 +121,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/linhkien', [ReportController::class, 'RecommentProductPart'])->name('baocao.linhkien');
     Route::get('/nhanvien', [ReportController::class, 'RecommentStaff'])->name('baocao.nhanvien');
     Route::get('/xuatbaocao', [ReportController::class, 'GetExportExcel'])->name('xuatbaocao');
+    Route::get('/baohanh/baocao/preview-product-warranty', [ReportController::class, 'previewProductWarrantyReport'])->name('baocao.preview.product.warranty');
+    Route::get('/baohanh/baocao/preview-excel', [ReportController::class, 'previewReportExcel'])->name('baocao.preview.excel');
 });
+
+// Public route to view report PDF (for email links)
+Route::get('/reports/view/{filename}', [ReportController::class, 'viewReportPdf']);
 
 //Code Warranty
 Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
@@ -150,6 +161,7 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
     Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
     Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
+    Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
     
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
@@ -169,3 +181,7 @@ Route::post('/submiterror1', [TechSupportController::class, 'SubmitError1'])->na
 Route::get('/listproblem', [TechSupportController::class, 'ListProblem'])->name('listproblem');
 Route::get('/detailproblem', [TechSupportController::class, 'DetailProblem'])->name('detailproblem');
 Route::get('/updatestatus', [TechSupportController::class, 'UpdateStatus'])->name('updatestatus');
+// Cronjob routes for report commands (public routes for scheduled tasks)
+Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandController::class, 'runSaveSnapshot']);
+Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
+Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);

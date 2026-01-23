@@ -28,14 +28,26 @@
                                         // Xác định type trước
                                         $type = isset($data->VAT) ? 'donhang' : (isset($data->warranty_end) ? 'baohanh' : 'danhsach');
                                         
-                                        // Logic hiển thị mã đơn hàng:
-                                        // 1. Ưu tiên installation_order->order_code (nếu có)
-                                        // 2. Với type baohanh: 
-                                        //    - Nếu không có InstallationOrder và serial_number không phải "HÀNG KHÔNG CÓ MÃ SERI" -> dùng serial_number
-                                        //    - Nếu serial_number là "HÀNG KHÔNG CÓ MÃ SERI" hoặc rỗng -> dùng ID (HÀNG KHÔNG CÓ MÃ SERI - {id})
-                                        // 3. Với type khác: Ưu tiên order_code từ order
+                                        $isInstallationOrderBaohanh = $installationOrder && isset($installationOrder->type) && $installationOrder->type === 'baohanh';
                                         
-                                        if ($installationOrder && $installationOrder->order_code) {
+                                        if ($isInstallationOrderBaohanh && isset($installationOrder->warranty_requests_id) && $installationOrder->warranty_requests_id) {
+                                            $displayWarrantyId = $warrantyRequestId ?? $installationOrder->warranty_requests_id;
+                                            
+                                            $orderCodeValue = $installationOrder->order_code ?? '';
+                                            $orderCodeTrimmed = strtoupper(trim($orderCodeValue));
+                                            
+                                            $isNoSerialOrderCode = empty($orderCodeValue) || 
+                                                                    $orderCodeTrimmed === 'HÀNG KHÔNG CÓ MÃ SERI' ||
+                                                                    $orderCodeTrimmed === 'HANG KHONG CO MA SERI' ||
+                                                                    $orderCodeTrimmed === 'BH-' . $displayWarrantyId ||
+                                                                    preg_match('/^BH-\d+$/', $orderCodeTrimmed);
+                                            
+                                            if ($isNoSerialOrderCode) {
+                                                $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $displayWarrantyId;
+                                            } else {
+                                                $code = $orderCodeValue;
+                                            }
+                                        } elseif ($installationOrder && $installationOrder->order_code) {
                                             $code = $installationOrder->order_code;
                                         } elseif ($orderCode) {
                                             $code = $orderCode;
@@ -48,28 +60,15 @@
                                                           strtoupper(trim($serialNumber)) === 'HÀNG KHÔNG CÓ MÃ SERI' ||
                                                           strtoupper(trim($serialNumber)) === 'HANG KHONG CO MA SERI';
                                             
-                                            // Đảm bảo lấy ID từ WarrantyRequest, không phải từ InstallationOrder
-                                            $displayId = $warrantyRequestId ?? null;
-                                            
-                                            // Nếu không có warrantyRequestId (trường hợp hiếm), thử lấy từ $data
-                                            // Nhưng chỉ khi $data là WarrantyRequest (không phải InstallationOrder)
-                                            if (empty($displayId) && !$installationOrder && isset($data->id)) {
-                                                $displayId = $data->id;
-                                            }
+                                            $displayId = $warrantyRequestId ?? ($data->id ?? null);
                                             
                                             if ($isNoSerial && !empty($displayId)) {
-                                                // Nếu serial_number là "HÀNG KHÔNG CÓ MÃ SERI", dùng ID của WarrantyRequest để đảm bảo duy nhất
-                                                // Format: "HÀNG KHÔNG CÓ MÃ SERI - {id}" 
                                                 $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $displayId;
                                             } elseif (!empty($serialNumber) && !$isNoSerial) {
-                                                // Nếu có serial_number hợp lệ (không phải "HÀNG KHÔNG CÓ MÃ SERI"), dùng serial_number
                                                 $code = $serialNumber;
                                             } elseif (!empty($displayId)) {
-                                                // Fallback: Nếu serial_number rỗng nhưng có warrantyRequestId
                                                 $code = 'HÀNG KHÔNG CÓ MÃ SERI - ' . $displayId;
                                             } else {
-                                                // Cuối cùng: Fallback (trường hợp này hiếm khi xảy ra)
-                                                // Nếu vẫn không có ID, hiển thị thông báo
                                                 $code = 'BH-N/A';
                                             }
                                         } else {
