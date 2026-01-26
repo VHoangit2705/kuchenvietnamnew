@@ -18,15 +18,9 @@ return new class extends Migration
             $table->text('image_upload_error')->nullable();
             $table->text('note_error')->nullable();
             $table->timestamps();
-            
-            $table->foreign('warranty_request_id')
-                  ->references('id')
-                  ->on('warranty_requests')
-                  ->onDelete('cascade');
-            
-            // Cho phép nhiều bản ghi cho cùng một warranty_request_id
-            // và thêm index thường để tối ưu truy vấn.
-            $table->index('warranty_request_id', 'warranty_upload_error_request_id_index');
+
+            $table->index('warranty_request_id');
+            // FK bỏ tạm do errno 150 (warranty_requests.id có thể khác kiểu). Thêm sau khi kiểm tra: SHOW CREATE TABLE warranty_requests;
         });
     }
 
