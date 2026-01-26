@@ -11,15 +11,21 @@
                     <h5 class="mb-0 ms-5">Kiểm tra thông tin bảo hành</h5>
                 </div>
                 <div class="card-body">
-                    <label for="search_code" class="form-label">Nhập mã tem bảo hành hoặc mã đơn hàng (<span style="color: red;">*</span>)</label>
-                    <input id="search_code" name="search_code" type="text" class="form-control mb-3" placeholder="Nhập mã tem bảo hành / mã đơn hàng">
-                    <div id="error-message-search" class="text-danger mb-3" style="display: none;"></div>
+                    <div class="col-12">
+                        <label for="search_code" class="form-label">Nhập mã tem bảo hành hoặc mã đơn hàng (<span style="color: red;">*</span>)</label>
+                        <input id="search_code" name="search_code" type="text" class="form-control mb-2" placeholder="Nhập mã tem bảo hành / mã đơn hàng">
+                        <div id="error-message-search" class="text-danger mb-2" style="display: none;"></div>
+                        {{-- tra cứu theo số điện thoại khách hàng --}}
+                        <label for="search_phone" class="form-label">Tra cứu theo số điện thoại khách hàng</label>
+                        <input id="search_phone" name="search_phone" type="text" class="form-control mb-2" placeholder="Nhập số điện thoại (ví dụ: 0987 123 456)">
+                        <div id="error-message-phone" class="text-danger mb-2" style="display: none;"></div>
+                    </div>
                     <p>- Hệ thống sẽ ưu tiên kiểm tra theo mã bảo hành. Nếu không tìm thấy, hệ thống sẽ tự động tra cứu theo mã đơn hàng (order_code1 / order_code2).</p>
                     <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút dưới.</p>
                     <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
 
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-primary" id="btn-check">Tra cứu</button>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary px-4" id="btn-check">Tra cứu</button>
                         <button onclick="window.location.href='{{ route('warranty.formcard') }} '" class="btn btn-warning text-dark">&#43; Tạo phiếu bảo hành</button>
                         <button class="btn btn-success" id="btn_check_qick">Quét mã QR</button>
                     </div>
@@ -107,13 +113,51 @@
         $('#btn-check').prop('disabled', hasErrors);
     }
 
+    function showPhoneError(message) {
+        $('#error-message-phone').text(message).show();
+    }
+
+    function hidePhoneError() {
+        $('#error-message-phone').text('').hide();
+    }
+
+    function validatePhoneSearch(showMessage = true) {
+        const $input = $('#search_phone');
+        const digitsOnly = $input.val().replace(/\D/g, '');
+
+        if (!digitsOnly) {
+            if (showMessage) {
+                showPhoneError("Vui lòng nhập số điện thoại cần tra cứu.");
+            } else {
+                hidePhoneError();
+            }
+            return false;
+        }
+
+        if (digitsOnly.length < 8 || digitsOnly.length > 12) {
+            if (showMessage) {
+                showPhoneError("Số điện thoại phải từ 8 - 12 chữ số.");
+            } else {
+                hidePhoneError();
+            }
+            return false;
+        }
+
+        hidePhoneError();
+        return true;
+    }
+
     // Hàm validation cho mã seri
-    function validateSearchCode() {
+    function validateSearchCode(requireValue = true) {
         const $input = $('#search_code');
         const value = $input.val().trim();
 
         if (!value) {
-            showError($input, "Vui lòng nhập mã cần tra cứu.");
+            if (requireValue) {
+                showError($input, "Vui lòng nhập mã cần tra cứu.");
+            } else {
+                hideError($input);
+            }
             return false;
         }
         if (!/^[a-zA-Z0-9-]+$/.test(value)) {
@@ -131,16 +175,39 @@
 
     $(document).ready(function() {
         // Gắn sự kiện validation khi người dùng nhập
-        $('#search_code').on('input', validateSearchCode);
+        $('#search_code').on('input', function() {
+            validateSearchCode(false);
+        });
+        $('#search_phone').on('input', function() {
+            validatePhoneSearch(false);
+        });
 
         // Xử lý sự kiện click nút "Tra cứu"
         $('#btn-check').click(function(e) {
             e.preventDefault();
-            
-            if (validateSearchCode()) {
-                const value = $('#search_code').val().trim();
-                performWarrantySearch(value);
+
+            const codeValue = $('#search_code').val().trim();
+            const phoneValue = $('#search_phone').val().trim();
+
+            if (codeValue) {
+                if (validateSearchCode(true)) {
+                    performWarrantySearch(codeValue);
+                }
+                return;
             }
+
+            if (phoneValue) {
+                if (validatePhoneSearch()) {
+                    searchWarrantyByPhone(phoneValue);
+                }
+                return;
+            }
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Vui lòng nhập mã tem/đơn hàng hoặc số điện thoại để tra cứu',
+                timer: 2500,
+            });
         });
     });
 
@@ -179,6 +246,29 @@
                 Swal.fire({
                     icon: 'error',
                     title: "Lỗi Server khi tra cứu mã bảo hành",
+                    timer: 2000,
+                });
+            }
+        });
+    }
+
+    function searchWarrantyByPhone(value) {
+        OpenWaitBox();
+        $.ajax({
+            url: '{{ route("warranty.findbyphone") }}',
+            method: 'POST',
+            data: {
+                phone_number: value,
+                _token: '{{ csrf_token() }}'
+            },
+            success: function(response) {
+                handleSearchSuccess(response);
+            },
+            error: function() {
+                CloseWaitBox();
+                Swal.fire({
+                    icon: 'error',
+                    title: "Lỗi Server khi tra cứu SĐT khách hàng",
                     timer: 2000,
                 });
             }

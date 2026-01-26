@@ -136,6 +136,31 @@
     .component-item-row:last-child {
         border-bottom: none;
     }
+
+    /* Responsive cho bảng Ghi chú hình ảnh lỗi */
+    @media (max-width: 575.98px) {
+        .error-note-table thead {
+            display: none;
+        }
+
+        .error-note-table tr {
+            display: block;
+            margin-bottom: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .error-note-table td {
+            display: block;
+            width: 100%;
+            padding: 0.35rem 0.6rem;
+        }
+
+        .error-note-time {
+            white-space: normal !important;
+        }
+    }
 </style>
 
 @section('content')
@@ -313,6 +338,13 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tabUploadImageErrorTab" data-bs-toggle="tab"
+                        data-bs-target="#tabUploadImageError" type="button" role="tab"
+                        aria-controls="tabUploadImageError">
+                        Hình ảnh lỗi gặp phải
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab3" data-bs-toggle="tab" data-bs-target="#lichsubaohanh"
                         type="button" role="tab">
                         Lịch sử bảo hành
@@ -436,13 +468,124 @@
                             </tr>
                             <tr>
                                 <td>4. Ảnh tiếp nhận bàn giao</td>
-                                <td><button class="btn btn-primary btn-sm"
-                                        onclick="showImages('{{ $data->image_upload }}')">Xem ảnh</button></td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm"
+                                        onclick="showReceptionImages('{{ $data->image_upload }}')">
+                                        Xem ảnh
+                                    </button>
+                                </td>
                             </tr>
                             <tr>
                                 <td>5. Video</td>
-                                <td><button class="btn btn-primary btn-sm"
-                                        onclick="showVideo('{{ $data->video_upload }}')">Xem video</button></td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm"
+                                        onclick="showReceptionVideo('{{ $data->video_upload }}')">
+                                        Xem video
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="tabUploadImageError" role="tabpanel" tabindex="0"
+                aria-labelledby="tabUploadImageErrorTab">
+                <div class="p-3">
+                    <h5 class="fw-bold mb-3">Hình ảnh lỗi gặp phải</h5>
+                    @if (!empty($data->image_upload_error))
+                        <p class="mt-3 text-success small mb-0">
+                            Đã có hình ảnh được lưu cho mã phiếu này.
+                        </p>
+                    @else
+                        <p class="mt-3 text-muted fst-italic mb-0">
+                            Chưa có hình ảnh lỗi nào được tải lên cho mã phiếu này.
+                        </p>
+                    @endif
+                    <table class="table table-bordered table-striped">
+                        <thead class="table-dark text-center">
+                            <tr>
+                                <th class="w-25">Thông tin</th>
+                                <th class="w-75">Nội dung</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Hình ảnh lỗi trong quá trình sửa chữa</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm"
+                                        onclick="openErrorImageModal(this)"
+                                        data-images="{{ $data->image_upload_error ?? '' }}"
+                                        data-is-error="true">
+                                        Upload ảnh
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Ghi chú cho ảnh lỗi</td>
+                                <td>
+                                    @php
+                                        $errorBatches = $data->error_image_batches ?? collect();
+                                    @endphp
+
+                                    @if ($errorBatches->isNotEmpty())
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-sm mb-0 error-note-table">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="text-start">Thời gian</th>
+                                                        <th class="text-start">Ghi chú</th>
+                                                        <th class="text-center">Thao tác</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($errorBatches as $batch)
+                                                        <tr class="align-middle">
+                                                            <!-- Cột thời gian -->
+                                                            <td class="error-note-time text-start text-nowrap">
+                                                                <span class="d-sm-none d-block small text-muted">Thời gian</span>
+                                                                {{ optional($batch->created_at)->format('d/m/Y H:i') ?? 'N/A' }}
+                                                            </td>
+
+                                                            <!-- Cột ghi chú -->
+                                                            <td class="text-start text-break">
+                                                                <span class="d-sm-none d-block small text-muted">Ghi chú</span>
+                                                                {{ $batch->note ?: '—' }}
+                                                            </td>
+
+                                                            <!-- Cột thao tác -->
+                                                            <td class="text-center">
+                                                                <span class="d-sm-none d-block small text-muted mb-1">Thao tác</span>
+                                                                @if (!empty($batch->images))
+                                                                    <button type="button"
+                                                                        class="btn btn-outline-primary btn-sm px-3"
+                                                                        onclick="openErrorImageModal(this)"
+                                                                        data-images="{{ $batch->images }}"
+                                                                        data-is-error="true">
+                                                                        Xem ảnh
+                                                                    </button>
+                                                                @else
+                                                                    <span class="text-muted small">Không có ảnh</span>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <span class="text-muted fst-italic">Chưa có ghi chú nào.</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Video</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm"
+                                        onclick="showErrorVideo('{{ $data->video_upload_error ?? '' }}')">
+                                        Xem video
+                                    </button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -845,6 +988,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="errorNoteContainer" class="mb-3 d-none">
+                        <label class="form-label fw-semibold" for="photoNoteInput">Ghi chú ảnh lỗi</label>
+                        <textarea id="photoNoteInput" class="form-control" rows="2"
+                            placeholder="Nhập ghi chú cho đợt ảnh lỗi này"></textarea>
+                        <small class="text-muted">Ghi chú sẽ được lưu kèm theo lần upload ảnh lỗi hiện tại.</small>
+                    </div>
                     <div id="carouselImagePreview" class="carousel slide" data-bs-ride="carousel">
                         <div class="carousel-inner" id="carouselInner"></div>
                         <button class="carousel-control-prev" type="button" data-bs-target="#carouselImagePreview"
@@ -2194,85 +2343,248 @@
             });
         });
     </script>
+    {{-- JS hiển thị ảnh / video và upload (cả tiếp nhận và lỗi) --}}
     <script>
-        function showImages(imageString) {
-            const carouselInner = document.getElementById("carouselInner");
-            carouselInner.innerHTML = "";
+        const baseUrl = @json(config('services.warranty.image_base_url'));
+        const photoUploadUrl = @json(route('photo.upload'));
+        const videoUploadUrl = @json(route('video.upload'));
+        const errorNoteHistory = @json($data->note_error ?? '');
 
-            const baseUrl = "https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public";
-            const imageList = imageString.split(',');
+        let isErrorUpload = false;
+        let isErrorVideoUpload = false;
+        let selectedPhotos = [];
+        const fallbackSeparatorRegex = /\s*(?:\|\||\|)\s*/;
+        const normalizedBaseUrl = (baseUrl || '').replace(/\/$/, '');
+        const storageRootMatch = normalizedBaseUrl.match(/(.*)\/storage\/app\/public$/);
+        const appBaseUrl = storageRootMatch ? storageRootMatch[1] : normalizedBaseUrl;
+        const $errorNoteContainer = $('#errorNoteContainer');
+        const $errorNoteHistory = $('#errorNoteHistory');
+        const $photoNoteInput = $('#photoNoteInput');
 
-            if (!imageString || imageList.length === 0) {
-                carouselInner.innerHTML = "<div class='text-center'>Không có ảnh nào để hiển thị.</div>";
-            } else {
-                imageList.forEach((imgUrl, index) => {
-                    let finalUrl = imgUrl.trim();
-                    let isGoogleDrive = false;
-                    if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
-                        if (finalUrl.startsWith("uploads/")) {
-                            finalUrl = baseUrl + "/storage/" + finalUrl;
-                        } else if (finalUrl.startsWith("/storage/")) {
-                            finalUrl = baseUrl + finalUrl;
-                        } else {
-                            finalUrl = baseUrl + "/" + finalUrl;
-                        }
-                    }
+        // Ảnh tiếp nhận (tab Tình trạng tiếp nhận)
+        function showReceptionImages(imageString) {
+            isErrorUpload = false;
+            toggleErrorNoteUI(false);
+            showImages(imageString);
+        }
 
-                    // Nếu là link Google Drive
-                    const match = finalUrl.match(/\/file\/d\/([^/]+)\//);
-                    if (match) {
-                        const fileId = match[1];
-                        finalUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-                        isGoogleDrive = true;
-                    }
+        function buildImageSourceChain(rawSource) {
+            if (!rawSource) return [];
+            const trimmed = rawSource.trim();
+            if (!trimmed) return [];
 
-                    const item = document.createElement("div");
-                    item.classList.add("carousel-item");
-                    if (index === 0) item.classList.add("active");
+            const candidates = trimmed.split(fallbackSeparatorRegex).filter(Boolean);
+            const sources = candidates.length ? candidates : [trimmed];
+            const normalizedSources = [];
 
-                    if (isGoogleDrive) {
-                        const iframe = document.createElement("iframe");
-                        iframe.src = finalUrl;
-                        iframe.classList.add("d-block", "w-100");
-                        iframe.style.width = "100%";
-                        iframe.style.height = "600px";
-                        iframe.style.border = "none";
-                        iframe.allow = "fullscreen";
-                        item.appendChild(iframe);
-                    } else {
-                        const img = document.createElement("img");
-                        img.src = finalUrl;
-                        img.classList.add("d-block", "w-100", "fullscreen-img");
-                        img.style.maxHeight = "600px";
-                        img.style.objectFit = "contain";
+            sources.forEach((candidate) => {
+                const descriptor = normalizeImageSourcePath(candidate);
+                if (
+                    descriptor &&
+                    !normalizedSources.some((item) => item.url === descriptor.url)
+                ) {
+                    normalizedSources.push(descriptor);
+                }
+            });
 
-                        img.addEventListener('click', () => {
-                            if (img.requestFullscreen) {
-                                img.requestFullscreen();
-                            } else if (img.webkitRequestFullscreen) {
-                                img.webkitRequestFullscreen();
-                            } else if (img.msRequestFullscreen) {
-                                img.msRequestFullscreen();
-                            }
-                        });
+            return normalizedSources;
+        }
 
-                        item.appendChild(img);
-                    }
-                    carouselInner.appendChild(item);
-                });
+        function normalizeImageSourcePath(source) {
+            if (!source) return null;
+
+            let finalUrl = source.trim();
+            if (!finalUrl) return null;
+
+            const hasProtocol =
+                finalUrl.startsWith('http://') || finalUrl.startsWith('https://');
+
+            if (!hasProtocol) {
+                finalUrl = buildLocalUrl(finalUrl);
+            } else if (finalUrl.startsWith('/storage/')) {
+                finalUrl = `${appBaseUrl}${finalUrl}`;
             }
 
-            const modal = new bootstrap.Modal(document.getElementById("imageModal"));
+            return buildDriveDescriptor(finalUrl);
+        }
+
+        function buildLocalUrl(relativePath) {
+            if (!relativePath) return normalizedBaseUrl;
+
+            if (relativePath.startsWith('/storage/')) {
+                return `${appBaseUrl}${relativePath}`;
+            }
+
+            const sanitized = relativePath.replace(/^\/+/, '');
+            return `${normalizedBaseUrl}/${sanitized}`;
+        }
+
+        function buildDriveDescriptor(url) {
+            if (!url) return null;
+
+            const directMatch = url.match(/\/file\/d\/([^/]+)\//);
+            if (directMatch) {
+                return {
+                    url: `https://drive.google.com/file/d/${directMatch[1]}/preview`,
+                    type: 'drive',
+                };
+            }
+
+            const queryMatch = url.match(/[?&]id=([^&]+)/);
+            if (queryMatch) {
+                return {
+                    url: `https://drive.google.com/file/d/${queryMatch[1]}/preview`,
+                    type: 'drive',
+                };
+            }
+
+            return { url, type: 'image' };
+        }
+
+        function renderCarouselMedia(container, sources, attempt = 0) {
+            if (!Array.isArray(sources) || sources.length === 0) {
+                container.innerHTML =
+                    "<div class='text-center text-muted py-4'>Không thể hiển thị ảnh.</div>";
+                return;
+            }
+
+            if (attempt >= sources.length) {
+                container.innerHTML =
+                    "<div class='text-center text-muted py-4'>Không thể tải ảnh từ các nguồn hiện có.</div>";
+                return;
+            }
+
+            container.innerHTML = '';
+            const currentSource = sources[attempt];
+
+            if (currentSource.type === 'drive') {
+                const iframe = document.createElement('iframe');
+                iframe.src = currentSource.url;
+                iframe.classList.add('d-block', 'w-100');
+                iframe.style.width = '100%';
+                iframe.style.height = '600px';
+                iframe.style.border = 'none';
+                iframe.allow = 'fullscreen';
+                iframe.addEventListener('error', () =>
+                    renderCarouselMedia(container, sources, attempt + 1)
+                );
+                container.appendChild(iframe);
+                return;
+            }
+
+            const img = document.createElement('img');
+            img.src = currentSource.url;
+            img.classList.add('d-block', 'w-100', 'fullscreen-img');
+            img.style.maxHeight = '600px';
+            img.style.objectFit = 'contain';
+
+            img.addEventListener('click', () => {
+                if (img.requestFullscreen) img.requestFullscreen();
+                else if (img.webkitRequestFullscreen) img.webkitRequestFullscreen();
+                else if (img.msRequestFullscreen) img.msRequestFullscreen();
+            });
+
+            img.addEventListener('error', () =>
+                renderCarouselMedia(container, sources, attempt + 1)
+            );
+
+            container.appendChild(img);
+        }
+
+        // Hiển thị ảnh (dùng chung)
+        function showImages(imageString) {
+            const carouselInner = document.getElementById('carouselInner');
+            carouselInner.innerHTML = '';
+
+            const imageList = imageString ? imageString.split(',') : [];
+
+            if (!imageString || imageList.length === 0) {
+                carouselInner.innerHTML =
+                    "<div class='text-center'>Không có ảnh nào để hiển thị.</div>";
+            } else {
+                let activeAssigned = false;
+
+                imageList.forEach((rawSource) => {
+                    if (!rawSource) return;
+
+                    const sources = buildImageSourceChain(rawSource);
+                    if (sources.length === 0) {
+                        return;
+                    }
+
+                    const item = document.createElement('div');
+                    item.classList.add('carousel-item');
+                    if (!activeAssigned) {
+                        item.classList.add('active');
+                        activeAssigned = true;
+                    }
+
+                    renderCarouselMedia(item, sources);
+                    carouselInner.appendChild(item);
+                });
+
+                if (!activeAssigned) {
+                    carouselInner.innerHTML =
+                        "<div class='text-center'>Không có ảnh hợp lệ để hiển thị.</div>";
+                }
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
             $('#savePhotoBtn').addClass('d-none');
             modal.show();
         }
 
-        function showVideo(videoPath) {
+        // Ảnh lỗi (tab Hình ảnh lỗi gặp phải)
+        function openErrorImageModal(button) {
+            const imageString = button.getAttribute('data-images') || '';
+            const isError = button.getAttribute('data-is-error') === 'true';
+            isErrorUpload = isError;
+
+            // reset danh sách ảnh được chọn mỗi lần mở modal lỗi
+            selectedPhotos = [];
+
+            toggleErrorNoteUI(isError);
+            showImages(imageString);
+            $('#savePhotoBtn').removeClass('d-none');
+        }
+
+        function toggleErrorNoteUI(shouldShow) {
+            if (!$errorNoteContainer.length) return;
+
+            if (shouldShow) {
+                $errorNoteContainer.removeClass('d-none');
+                const history = (errorNoteHistory || '').trim();
+                if (history) {
+                    $errorNoteHistory.removeClass('d-none').text(history);
+                } else {
+                    $errorNoteHistory.addClass('d-none').text('');
+                }
+                $photoNoteInput.val('');
+            } else {
+                $errorNoteContainer.addClass('d-none');
+                $photoNoteInput.val('');
+            }
+        }
+
+        // Video tiếp nhận
+        function showReceptionVideo(videoPath) {
+            isErrorVideoUpload = false;
+            displayVideo(videoPath);
+        }
+
+        // Video lỗi
+        function showErrorVideo(videoPath) {
+            isErrorVideoUpload = true;
+            displayVideo(videoPath);
+        }
+
+        function displayVideo(videoPath) {
             const modalBody = document.getElementById('modalVideoBody');
-            modalBody.innerHTML = ''; // Xoá nội dung cũ
+            modalBody.innerHTML = '';
 
             if (!videoPath) {
-                modalBody.innerHTML = "<div class='text-center'>Không video nào để hiển thị.</div>";
+                modalBody.innerHTML =
+                    "<div class='text-center'>Không video nào để hiển thị.</div>";
                 const modal = new bootstrap.Modal(document.getElementById('videoModal'));
                 modal.show();
                 return;
@@ -2290,11 +2602,14 @@
                     iframe.frameBorder = '0';
                     modalBody.appendChild(iframe);
                 } else {
-                    modalBody.innerHTML = 'Không thể phát video từ liên kết Google Drive này.';
+                    modalBody.innerHTML =
+                        'Không thể phát video từ liên kết này.';
                 }
             } else {
                 const video = document.createElement('video');
-                video.src = "https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public/" + videoPath;
+                video.src =
+                    'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public/' +
+                    videoPath;
                 video.controls = true;
                 video.className = 'w-100';
                 video.style.maxHeight = '80vh';
@@ -2310,13 +2625,19 @@
             return match ? match[1] : null;
         }
 
-        $('#videoModal').on('hidden.bs.modal', function() {
+        $('#videoModal').on('hidden.bs.modal', function () {
             const modalBody = document.getElementById('modalVideoBody');
             $('#saveVideoBtn').addClass('d-none');
             modalBody.innerHTML = '';
+            isErrorVideoUpload = false;
         });
 
-        //thêm ảnh
+        $('#imageModal').on('hidden.bs.modal', function () {
+            isErrorUpload = false;
+            toggleErrorNoteUI(false);
+        });
+
+        // Upload ảnh
         var PhotoUploadId = null;
 
         function triggerPhotoUpload(button) {
@@ -2324,13 +2645,12 @@
             document.getElementById('photoUpload').click();
         }
 
-        let selectedPhotos = [];
-
         function handlePhotoload(input) {
             const files = input.files;
             if (!files || files.length === 0) return;
 
-            const maxSize = 15 * 1024 * 1024;
+            // giới hạn 3MB cho mỗi ảnh
+            const maxSize = 3 * 1024 * 1024;
             selectedPhotos = [];
 
             const $carouselInner = $('#carouselInner');
@@ -2340,20 +2660,24 @@
 
             Array.from(files).forEach((file) => {
                 if (file.size > maxSize) {
-                    Swal.fire('Cảnh báo', `Ảnh "${file.name}" vượt quá 5MB`, 'warning');
+                    Swal.fire(
+                        'Cảnh báo',
+                        `Ảnh "${file.name}" vượt quá 3MB, vui lòng chọn ảnh khác.`,
+                        'warning'
+                    );
                     return;
                 }
 
                 selectedPhotos.push(file);
 
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     const isActive = validIndex === 0 ? 'active' : '';
                     const carouselItem = `
-                    <div class="carousel-item ${isActive}">
-                        <img src="${e.target.result}" class="d-block w-100" style="object-fit: contain; max-height: 500px;" alt="Ảnh ${validIndex + 1}">
-                    </div>
-                `;
+                        <div class="carousel-item ${isActive}">
+                            <img src="${e.target.result}" class="d-block w-100" style="object-fit: contain; max-height: 500px;" alt="Ảnh ${validIndex + 1}">
+                        </div>
+                    `;
                     $carouselInner.append(carouselItem);
                     validIndex++;
                 };
@@ -2364,32 +2688,51 @@
                 $('#savePhotoBtn').removeClass('d-none');
             } else {
                 $('#savePhotoBtn').addClass('d-none');
-                Swal.fire('Cảnh báo', 'Không có ảnh nào hợp lệ (dưới 5MB) được chọn', 'warning', false);
+                Swal.fire(
+                    'Cảnh báo',
+                    'Không có ảnh nào hợp lệ (dưới 3MB) được chọn',
+                    'warning',
+                    false
+                );
             }
         }
 
-
         function UdatePhotos() {
+            if (!selectedPhotos || selectedPhotos.length === 0) {
+                Swal.fire(
+                    'Thông báo',
+                    'Vui lòng chọn ít nhất một ảnh để tải lên.',
+                    'warning'
+                );
+                return;
+            }
+
             const formData = new FormData();
             const id = $('#savePhotoBtn').data('id');
 
             formData.append('id', id);
+            formData.append('is_error', isErrorUpload ? 1 : 0);
+            if (isErrorUpload && $photoNoteInput.length) {
+                formData.append('note_error', ($photoNoteInput.val() || '').trim());
+            }
 
-            selectedPhotos.forEach((file, index) => {
+            selectedPhotos.forEach((file) => {
                 formData.append('photos[]', file);
             });
+
             OpenWaitBox();
             $.ajax({
-                url: '{{ route('photo.upload') }}',
+                url: photoUploadUrl,
                 type: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    Accept: 'application/json',
                 },
                 data: formData,
                 processData: false,
                 contentType: false,
-                success: function(res) {
-                    CloseWaitBox()
+                success: function (res) {
+                    CloseWaitBox();
                     if (res.success) {
                         Swal.fire('Thành công', 'Lưu thành công!', 'success');
                         location.reload();
@@ -2397,15 +2740,15 @@
                         alert('Lỗi: ' + res.message);
                     }
                 },
-                error: function(err) {
-                    CloseWaitBox()
+                error: function (err) {
+                    CloseWaitBox();
                     console.error(err);
                     alert('Đã xảy ra lỗi khi upload ảnh.');
-                }
+                },
             });
         }
 
-        //thêm video
+        // Upload video
         var videoUploadId = null;
 
         function triggerVideoUpload(button) {
@@ -2421,7 +2764,11 @@
             }
             const maxSize = 50 * 1024 * 1024;
             if (file.size > maxSize) {
-                Swal.fire('Cảnh báo', `Video "${file.name}" vượt quá 50MB và sẽ không được tải lên.`, 'warning');
+                Swal.fire(
+                    'Cảnh báo',
+                    `Video "${file.name}" vượt quá 50MB và sẽ không được tải lên.`,
+                    'warning'
+                );
                 input.value = '';
                 return;
             }
@@ -2437,36 +2784,39 @@
         }
 
         function UdateVideo() {
-            var $btn = $('#saveVideoBtn');
-            var id = $btn.data('id');
-            var file = $('#videoUpload')[0].files[0];
+            const $btn = $('#saveVideoBtn');
+            const id = $btn.data('id');
+            const file = $('#videoUpload')[0].files[0];
             const formData = new FormData();
             formData.append('id', id);
             formData.append('video', file);
+            formData.append('is_error', isErrorVideoUpload ? 1 : 0);
+
             OpenWaitBox();
             $.ajax({
-                url: '{{ route('video.upload') }}',
+                url: videoUploadUrl,
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    Accept: 'application/json',
                 },
                 data: formData,
                 processData: false,
                 contentType: false,
-                success: function(response) {
+                success: function (response) {
                     CloseWaitBox();
                     if (response.success) {
                         Swal.fire('Thành công', 'Lưu thành công!', 'success');
                         location.reload();
                     } else {
-                        alert("Lưu thất bại: " + response.message);
+                        alert('Lưu thất bại: ' + response.message);
                     }
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     CloseWaitBox();
                     console.error(xhr);
-                    alert("Có lỗi xảy ra khi gửi request.");
-                }
+                    alert('Có lỗi xảy ra khi gửi request.');
+                },
             });
         }
     </script>
