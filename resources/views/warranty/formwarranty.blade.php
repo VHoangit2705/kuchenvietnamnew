@@ -138,7 +138,7 @@
                         <label for="return_date" class="form-label mt-1">Ngày hẹn trả. (<span
                                 style="color: red;">*</span>)</label>
                         <input id="return_date" name="return_date" type="text" class="form-control date-input"
-                            placeholder="dd/mm/yyyy" maxlength="10" required>
+                            placeholder="dd/mm/yyyy" maxlength="10" readonly required>
                         <div class="error text-danger small mt-1"></div>
                     </div>
                     <div class="form-group description_error">
