@@ -739,12 +739,12 @@ class LoginController extends Controller
             ]);
         }
 
-        $passwordChangedAt = \Carbon\Carbon::parse($user->password_changed_at);
+        $passwordChangedAt = Carbon::parse($user->password_changed_at);
         $daysSinceChange = $passwordChangedAt->diffInDays(now());
-        $daysRemaining = 30 - $daysSinceChange;
+        $daysRemaining = 90 - $daysSinceChange;
 
-        // Cảnh báo nếu đã quá 30 ngày hoặc còn ít hơn 7 ngày
-        if ($daysSinceChange >= 30 || $daysRemaining <= 7) {
+        // Chỉ cảnh báo nếu đã quá 90 ngày
+        if ($daysSinceChange >= 90) {
             return response()->json([
                 'should_warn' => true,
                 'days_remaining' => max(0, $daysRemaining),

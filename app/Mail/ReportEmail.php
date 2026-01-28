@@ -70,7 +70,7 @@ class ReportEmail extends Mailable
             $subject .= ' (' . $this->zoneLabel . ')';
         }
 
-        $mail = $this->from('nghia520414@gmail.com', config('mail.from.name', 'Công ty'))
+        $mail = $this->from(config('mail.from.address'), config('mail.from.name', 'Công ty'))
             ->subject($subject)
             ->view('emails.report')
             ->with([
