@@ -75,6 +75,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
     Route::get('/baohanh/getproductcategory', [WarrantyController::class, 'getProductCategory'])->name('warranty.getProductCategory');
     Route::get('/baohanh/getproductsbycategory', [WarrantyController::class, 'getProductsByCategory'])->name('warranty.getProductsByCategory');
+    Route::get('/baohanh/getproductsuggestions', [WarrantyController::class, 'getProductSuggestions'])->name('warranty.getProductSuggestions');
     //Cảnh báo khóa nhập hộ ca bảo hành
     Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
     Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');

@@ -53,7 +53,7 @@ class WarrantyController extends Controller
         $this->middleware('permission:Tra cứu tiếp nhận')->only(['CheckWarranty']);
         $this->middleware('permission:Tạo phiếu tiếp nhận bảo hành')->only(['FormWarrantyCard']);
     }
-    
+
     public function IndexKuchen()
     {
         session(['brand' => "kuchen"]);
@@ -63,7 +63,7 @@ class WarrantyController extends Controller
         $zoneWithoutFirst = implode(' ', array_slice($parts, 1));
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
-         // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
         $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
         $toDate = Carbon::parse(request('toDate', now()));
         $branchMap = [
@@ -125,27 +125,27 @@ class WarrantyController extends Controller
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
             'chuadiephoi' => $tabQuery->where('type', 'agent_component')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_id')
-                      ->orWhere('collaborator_id', '');
+                        ->orWhere('collaborator_id', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_name')
-                      ->orWhere('collaborator_name', '');
+                        ->orWhere('collaborator_name', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_phone')
-                      ->orWhere('collaborator_phone', '');
+                        ->orWhere('collaborator_phone', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_address')
-                      ->orWhere('collaborator_address', '');
+                        ->orWhere('collaborator_address', '');
                 }),
             default => null,
         };
 
         $data = $tabQuery->orderByDesc('received_date')->orderByDesc('id')->paginate(self::$pageSize)->withQueryString();
-         $products = [];
+        $products = [];
         if (session('brand') == 'kuchen') {
             $products = Product::where('view', '1')->select('product_name')->get()->toArray();
         }
@@ -173,7 +173,7 @@ class WarrantyController extends Controller
         $userBranch = strtoupper(session('brand')) . ' ' . $zoneWithoutFirst;
         $vitri = strtolower(session('position'));
         // $today = Carbon::today()->toDateString();
-       // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
+        // Lấy ngày từ request, nếu không có thì mặc định 30 ngày trước
         $fromDate = Carbon::parse(request('fromDate', now()->subDays(30)));
         $toDate = Carbon::parse(request('toDate', now()));
         $branchMap = [
@@ -239,21 +239,21 @@ class WarrantyController extends Controller
             'chophanhoi' => $tabQuery->where('status', 'Chờ KH phản hồi'),
             'quahan' => $tabQuery->whereDate('return_date', '<=', now())->where('status', 'Đang sửa chữa')->orderBy('id', 'asc'),
             'chuadiephoi' => $tabQuery->where('type', 'agent_component')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_id')
-                      ->orWhere('collaborator_id', '');
+                        ->orWhere('collaborator_id', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_name')
-                      ->orWhere('collaborator_name', '');
+                        ->orWhere('collaborator_name', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_phone')
-                      ->orWhere('collaborator_phone', '');
+                        ->orWhere('collaborator_phone', '');
                 })
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('collaborator_address')
-                      ->orWhere('collaborator_address', '');
+                        ->orWhere('collaborator_address', '');
                 }),
             default => null,
         };
@@ -302,7 +302,7 @@ class WarrantyController extends Controller
             ->whereDate('return_date', '<=', now())
             ->where('status', 'Đang sửa chữa')
             ->count();
-        if($count < 1){
+        if ($count < 1) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không có ca bảo hành nào quá hạn.'
@@ -374,7 +374,7 @@ class WarrantyController extends Controller
 
         return view("warranty.warranty", compact("data", "hoantat", "dangsua", "chophanhoi", "quahan", "userBranch"));
     }
-    
+
     public function UpdateStatus(Request $request)
     {
         $request->validate([
@@ -391,7 +391,7 @@ class WarrantyController extends Controller
         }
 
         $wr = WarrantyRequest::find($request->id);
-        if ((Empty($wr->image_upload) && empty($wr->video_upload)) && $request->status == 'Đã hoàn tất') {
+        if ((empty($wr->image_upload) && empty($wr->video_upload)) && $request->status == 'Đã hoàn tất') {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn phải thêm ảnh hoặc video sản phẩm lỗi.'
@@ -400,7 +400,7 @@ class WarrantyController extends Controller
 
         if ($wr->type === 'agent_component' && $request->status === 'Đã hoàn tất') {
             $missingFields = [];
-            if(empty($wr->collaborator_id)){
+            if (empty($wr->collaborator_id)) {
                 $missingFields[] = 'ID CTV';
             }
             if (empty($wr->collaborator_name)) {
@@ -412,7 +412,7 @@ class WarrantyController extends Controller
             if (empty($wr->collaborator_address)) {
                 $missingFields[] = 'Địa chỉ CTV';
             }
-            
+
             if (!empty($missingFields)) {
                 return response()->json([
                     'success' => false,
@@ -457,7 +457,7 @@ class WarrantyController extends Controller
         $data = WarrantyRequest::with(['details', 'repairJobs'])
             ->where('id', $id)
             ->first();
-        
+
         if (!$data) {
             abort(404, 'Không tìm thấy phiếu bảo hành');
         }
@@ -535,12 +535,12 @@ class WarrantyController extends Controller
         $detailsCollection = $data->relationLoaded('details')
             ? $data->getRelation('details')
             : $data->details;
-        
+
         // Đảm bảo relationship được set để tránh query lại khi truy cập trong view
         if (!$data->relationLoaded('details')) {
             $data->setRelation('details', $detailsCollection);
         }
-        
+
         // Sử dụng relationship đã eager load và sort trong memory (không query lại)
         $quatrinhsuaRaw = $detailsCollection
             ->sortBy([
@@ -548,13 +548,13 @@ class WarrantyController extends Controller
                 ['id', 'asc']
             ])
             ->values();
-        
+
         // Nhóm các bản ghi có cùng error_type, solution, và Ngaytao
         $quatrinhsua = collect();
         $grouped = $quatrinhsuaRaw->groupBy(function ($item) {
             return $item->error_type . '|' . $item->solution . '|' . $item->Ngaytao;
         });
-        
+
         foreach ($grouped as $group) {
             $firstItem = $group->first();
             $components = $group->map(function ($item, $index) {
@@ -566,20 +566,20 @@ class WarrantyController extends Controller
                     'total' => $item->quantity * $item->unit_price
                 ];
             });
-            
+
             // Tính tổng số lượng và thành tiền
             $totalQuantity = $group->sum('quantity');
             $totalAmount = $group->sum(function ($item) {
                 return $item->quantity * $item->unit_price;
             });
-            
+
             // Kiểm tra xem có nhiều linh kiện với đơn giá khác nhau không
             $uniquePrices = $group->pluck('unit_price')->unique()->count();
             $hasMultiplePrices = $uniquePrices > 1 || $group->count() > 1;
-            
+
             // Tạo object mới với thông tin đã nhóm
             $groupedItem = (object) [
-                'id' => $firstItem->id, 
+                'id' => $firstItem->id,
                 'error_type' => $firstItem->error_type,
                 'solution' => $firstItem->solution,
                 'replacement' => $components,
@@ -590,10 +590,10 @@ class WarrantyController extends Controller
                 'warranty_request_id' => $firstItem->warranty_request_id,
                 'edit_by' => $firstItem->edit_by,
             ];
-            
+
             $quatrinhsua->push($groupedItem);
         }
-        
+
         // Eager load details cho history để tránh N+1 queries
         // Loại trừ warranty request hiện tại để tránh query lại details đã load
         $history = WarrantyRequest::with('details')
@@ -603,33 +603,33 @@ class WarrantyController extends Controller
             ->where('id', '!=', $data->id) // Loại trừ warranty request hiện tại
             ->orderBy('received_date', 'desc')
             ->get();
-        
+
         // Thêm warranty request hiện tại vào history và sắp xếp lại theo received_date
         // Sử dụng details đã eager load sẵn, không query lại
         $history->push($data);
         $history = $history->sortByDesc('received_date')->values();
-        
+
         // Lấy danh sách linh kiện
         $linhkien = Product::where('view', '2')
             ->select('product_name', 'view')
             ->get();
-        
+
         // Lấy danh sách sản phẩm dựa trên brand
         $view = session('brand') === 'hurom' ? 3 : 1;
         $sanpham = Product::where('view', $view)
             ->select('product_name', 'view')
             ->get();
-        
+
         // Lấy danh sách categories (website_id = 2)
         $categories = Category::where('website_id', 2)
             ->where('status', 1)
             ->orderBy('sort_order')
             ->orderBy('name_vi')
             ->get(['id', 'name_vi', 'name_en', 'parent_id']);
-        
+
         $repairJobs = $data->repairJobs->sortBy('created_at')->values();
         $repairJobsTotal = $repairJobs->sum('total_price');
-        
+
         // Truyền cả dữ liệu để có thể sử dụng khi edit
         return view('warranty.warrantydetails', compact(
             'data',
@@ -661,7 +661,7 @@ class WarrantyController extends Controller
         if (!$isSpecialCase && is_array($request->replacement) && count($request->replacement) > 0) {
             $isMultipleComponents = true;
         }
-        
+
         // Validation rules cơ bản
         $rules = [
             'error_type' => 'required|string|max:255',
@@ -703,9 +703,11 @@ class WarrantyController extends Controller
             if ($isMultipleComponents) {
                 $hasValidComponent = false;
                 foreach ($request->replacement as $index => $replacement) {
-                    if (!empty($replacement) && 
-                        isset($request->quantity[$index]) && 
-                        $request->quantity[$index] > 0) {
+                    if (
+                        !empty($replacement) &&
+                        isset($request->quantity[$index]) &&
+                        $request->quantity[$index] > 0
+                    ) {
                         $hasValidComponent = true;
                         break;
                     }
@@ -744,7 +746,7 @@ class WarrantyController extends Controller
                 'errors' => $validator->errors()->toArray(),
                 'request_data' => $request->except(['_token'])
             ]);
-            
+
             return response()->json([
                 'errors' => $validator->errors(),
                 'debug' => [
@@ -783,7 +785,7 @@ class WarrantyController extends Controller
             $commonData['unit_price'] = 0;
             $commonData['total'] = 0;
             $commonData['replacement_price'] = 0;
-            
+
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
         }
@@ -795,7 +797,7 @@ class WarrantyController extends Controller
             $commonData['unit_price'] = 0;
             $commonData['total'] = 0;
             $commonData['replacement_price'] = 0;
-            
+
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
         }
@@ -807,7 +809,7 @@ class WarrantyController extends Controller
             $commonData['unit_price'] = 0;
             $commonData['total'] = 0;
             $commonData['replacement_price'] = 0;
-            
+
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
         }
@@ -819,7 +821,7 @@ class WarrantyController extends Controller
             $commonData['unit_price'] = 0;
             $commonData['total'] = 0;
             $commonData['replacement_price'] = 0;
-            
+
             WarrantyRequestDetail::create($commonData);
             return response()->json(['success' => true, 'created' => true]);
         }
@@ -838,10 +840,10 @@ class WarrantyController extends Controller
             $commonData['unit_price'] = $extraFee;
             $commonData['total'] = $extraFee;
             $commonData['replacement_price'] = $extraFee;
-            
+
             WarrantyRequestDetail::create($commonData);
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'created' => true,
                 'message' => 'Đã lưu thông tin thu cũ đổi mới thành công.'
             ]);
@@ -855,15 +857,17 @@ class WarrantyController extends Controller
             $unitPrices = $request->unit_price ?? [];
 
             foreach ($replacements as $index => $replacement) {
-                if (empty($replacement) || 
-                    !isset($quantities[$index]) || 
-                    $quantities[$index] <= 0) {
+                if (
+                    empty($replacement) ||
+                    !isset($quantities[$index]) ||
+                    $quantities[$index] <= 0
+                ) {
                     continue;
                 }
 
                 $quantity = (int)($quantities[$index] ?? 0);
                 $unitPrice = (int)($unitPrices[$index] ?? 0);
-                
+
                 // Tìm giá sản phẩm
                 $product = Product::getProductByName($replacement);
                 if (!$product) {
@@ -887,7 +891,7 @@ class WarrantyController extends Controller
 
             if ($createdCount > 0) {
                 return response()->json([
-                    'success' => true, 
+                    'success' => true,
                     'created' => true,
                     'message' => "Đã lưu {$createdCount} linh kiện thành công."
                 ]);
@@ -937,8 +941,8 @@ class WarrantyController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => $deletedCount > 1 
-                        ? "Đã xóa {$deletedCount} bản ghi thành công." 
+                    'message' => $deletedCount > 1
+                        ? "Đã xóa {$deletedCount} bản ghi thành công."
                         : 'Xóa bản ghi thành công.'
                 ]);
             } else {
@@ -1036,30 +1040,30 @@ class WarrantyController extends Controller
         if ($request->id) {
             $detail = WarrantyRequest::find($request->id);
             if ($detail) {
-                if($type == 'return_date' && ($value == null || $value <= $detail->received_date)){
+                if ($type == 'return_date' && ($value == null || $value <= $detail->received_date)) {
                     return response()->json([
-                        'success' => false, 
-                        'message' => "Ngày hẹn trả phải lớn hơn hoặc bằng ngày tiếp nhận.", 
+                        'success' => false,
+                        'message' => "Ngày hẹn trả phải lớn hơn hoặc bằng ngày tiếp nhận.",
                         'old_value' => $detail->return_date,
                     ]);
                 }
-                if($type == 'shipment_date' && ($value == null || $value >= $detail->received_date)){
+                if ($type == 'shipment_date' && ($value == null || $value >= $detail->received_date)) {
                     return response()->json([
-                        'success' => false, 
+                        'success' => false,
                         'message' => "Ngày xuất kho phải nhỏ hơn hoặc bằng ngày tiếp nhận.",
                         'old_value' => $detail->shipment_date,
                     ]);
                 }
-                if($type == 'serial_number' && $value == null){
+                if ($type == 'serial_number' && $value == null) {
                     return response()->json([
                         'success' => false,
                         'message' => "Số seri tem bảo hành không được để trống.",
                         'old_value' => $detail->serial_number,
                     ]);
                 }
-                if($type == 'address'){
+                if ($type == 'address') {
                     // Validate địa chỉ: chữ, số và các ký tự '().,-', tối đa 100 ký tự
-                    if($value != null && strlen($value) > 100){
+                    if ($value != null && strlen($value) > 100) {
                         return response()->json([
                             'success' => false,
                             'message' => "Địa chỉ tối đa 100 ký tự.",
@@ -1067,7 +1071,7 @@ class WarrantyController extends Controller
                         ]);
                     }
                     // Kiểm tra ký tự hợp lệ (chữ, số, khoảng trắng, và các ký tự đặc biệt: ().,-)
-                    if($value != null && !preg_match('/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ().,\-]+$/', $value)){
+                    if ($value != null && !preg_match('/^[a-zA-Z0-9\sàáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ().,\-]+$/', $value)) {
                         return response()->json([
                             'success' => false,
                             'message' => "Chỉ cho phép chữ, số và các ký tự '().,-'",
@@ -1076,15 +1080,15 @@ class WarrantyController extends Controller
                     }
                 }
                 // Validate full name
-                if($type == 'full_name'){
-                    if($value == null || trim($value) === ''){
+                if ($type == 'full_name') {
+                    if ($value == null || trim($value) === '') {
                         return response()->json([
                             'success' => false,
                             'message' => "Tên khách hàng không được để trống.",
                             'old_value' => $detail->full_name,
                         ]);
                     }
-                    if(strlen($value) > 100){
+                    if (strlen($value) > 100) {
                         return response()->json([
                             'success' => false,
                             'message' => "Tên khách hàng tối đa 100 ký tự.",
@@ -1092,7 +1096,7 @@ class WarrantyController extends Controller
                         ]);
                     }
                     // Allow letters (unicode), spaces, dot, comma, hyphen, apostrophe
-                    if(!preg_match('/^[\p{L}\s\.,\'\-]+$/u', $value)){
+                    if (!preg_match('/^[\p{L}\s\.,\'\-]+$/u', $value)) {
                         return response()->json([
                             'success' => false,
                             'message' => "Tên khách hàng chứa ký tự không hợp lệ.",
@@ -1101,8 +1105,8 @@ class WarrantyController extends Controller
                     }
                 }
                 // Validate phone number
-                if($type == 'phone_number'){
-                    if($value == null || trim($value) === ''){
+                if ($type == 'phone_number') {
+                    if ($value == null || trim($value) === '') {
                         return response()->json([
                             'success' => false,
                             'message' => "Số điện thoại không được để trống.",
@@ -1110,7 +1114,7 @@ class WarrantyController extends Controller
                         ]);
                     }
                     // allow digits, spaces, +, -
-                    if(!preg_match('/^[0-9\s\+\-]+$/', $value)){
+                    if (!preg_match('/^[0-9\s\+\-]+$/', $value)) {
                         return response()->json([
                             'success' => false,
                             'message' => "Số điện thoại chỉ được gồm chữ số, khoảng trắng, '+' và '-'.",
@@ -1119,7 +1123,7 @@ class WarrantyController extends Controller
                     }
                     // count digits only
                     $digits = preg_replace('/\D+/', '', $value);
-                    if(strlen($digits) < 7 || strlen($digits) > 15){
+                    if (strlen($digits) < 7 || strlen($digits) > 15) {
                         return response()->json([
                             'success' => false,
                             'message' => "Số điện thoại không hợp lệ.",
@@ -1134,16 +1138,16 @@ class WarrantyController extends Controller
         return response()->json(['success' => false, 'message' => "Không tìm thấy bản ghi"]);
     }
 
-        //thêm ảnh
-        public function UploadPhoto(Request $request)
+    //thêm ảnh
+    public function UploadPhoto(Request $request)
     {
         $photos = [];
         $warranty = WarrantyRequest::find($request->id);
-        
+
         if (!$warranty) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy phiếu bảo hành']);
         }
-        
+
         // Ảnh lỗi hay ảnh tiếp nhận?
         $isError = $request->boolean('is_error');
 
@@ -1168,7 +1172,7 @@ class WarrantyController extends Controller
             $path = $photo->store('photos', 'public');
             $photos[] = $path;
         }
-        
+
         if (!empty($photos)) {
             if ($isError) {
                 // Ảnh lỗi: mỗi lần upload tạo MỘT bản ghi mới trong warranty_upload_error
@@ -1193,22 +1197,22 @@ class WarrantyController extends Controller
                 $warranty->save();
             }
         }
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Upload thành công',
         ]);
     }
-        //thêm video
-        public function UploadVideo(Request $request)
+    //thêm video
+    public function UploadVideo(Request $request)
     {
         $videoPath = null;
         $warranty = WarrantyRequest::find($request->id);
-        
+
         if (!$warranty) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy phiếu bảo hành']);
         }
-        
+
         // Video lỗi hay video tiếp nhận?
         $isError = $request->boolean('is_error');
 
@@ -1225,7 +1229,7 @@ class WarrantyController extends Controller
                         ->whereNull('video_upload_error')
                         ->orderBy('created_at', 'desc')
                         ->first();
-                    
+
                     if ($existingRecord) {
                         // Cập nhật bản ghi hiện có
                         $existingRecord->video_upload_error = $videoPath;
@@ -1242,7 +1246,7 @@ class WarrantyController extends Controller
                     $warranty->video_upload = $videoPath;
                     $warranty->save();
                 }
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Upload thành công',
@@ -1270,14 +1274,14 @@ class WarrantyController extends Controller
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
-        
+
         // Lấy công sửa chữa và tính tổng
         $repairJobs = $data->repairJobs->sortBy('created_at')->values();
         $repairJobsTotal = $repairJobs->sum('total_price');
-        
+
         // Tổng tiền bao gồm cả linh kiện và công sửa chữa
         $grandTotal = $total + $repairJobsTotal;
-        
+
         $ctv = null;
         if ($data->type == 'agent_component') {
             $ctv = [
@@ -1308,7 +1312,7 @@ class WarrantyController extends Controller
         }
         // Lấy tháng bảo hành của sản phẩm
         $month = Product::where('product_name', $data->product)->value('month') ?? 0;
-        
+
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
         $paymentQr = $this->buildPaymentQr($data, $grandTotal);
@@ -1328,14 +1332,14 @@ class WarrantyController extends Controller
         foreach ($items as $item) {
             $total += $item->quantity * $item->unit_price;
         }
-        
+
         // Lấy công sửa chữa và tính tổng
         $repairJobs = $data->repairJobs->sortBy('created_at')->values();
         $repairJobsTotal = $repairJobs->sum('total_price');
-        
+
         // Tổng tiền bao gồm cả linh kiện và công sửa chữa
         $grandTotal = $total + $repairJobsTotal;
-        
+
         $ctv = null;
         if ($data->type == 'agent_component') {
             $ctv = WarrantyCollaborator::getById($data->collaborator_id);
@@ -1362,21 +1366,34 @@ class WarrantyController extends Controller
         }
         // Lấy tháng bảo hành của sản phẩm
         $month = Product::where('product_name', $data->product)->value('month') ?? 0;
-        
+
         $warrantyDate = Carbon::parse($data->shipment_date)->addMonths($month);
         $strWar = $warrantyDate < Carbon::now() ? 'Hết hạn bảo hành' : 'Còn hạn bảo hành';
         $paymentQr = $this->buildPaymentQr($data, $grandTotal);
 
         // Tạo PDF
         $pdf = PDF::loadView('warranty.print', compact(
-            'data', 'items', 'total', 'repairJobs', 'repairJobsTotal', 'grandTotal', 'name', 'city', 'website', 'address', 'hotline', 'strWar', 'ctv', 'paymentQr'
+            'data',
+            'items',
+            'total',
+            'repairJobs',
+            'repairJobsTotal',
+            'grandTotal',
+            'name',
+            'city',
+            'website',
+            'address',
+            'hotline',
+            'strWar',
+            'ctv',
+            'paymentQr'
         ))->setPaper('A4');
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => "attachment; filename=phieu-bao-hanh-{$id}.pdf",
         ]);
     }
-    
+
     public function Request($id)
     {
         $warrantyRequest = WarrantyRequest::findOrFail($id);
@@ -1499,7 +1516,7 @@ class WarrantyController extends Controller
         }
         return view('warranty.formwarranty', compact('warranty', 'lstproduct', 'products', 'chinhanh', 'provinces'));
     }
-    
+
     public function FindWarranty(Request $request)
     {
         $view = session('brand') === 'hurom' ? 3 : 1;
@@ -1511,22 +1528,22 @@ class WarrantyController extends Controller
             $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
             if (!$warrantyData) {
                 $warrantyData = WarrantyActive::where('serial', $serialNumber)->first();
-                if($warrantyData){
+                if ($warrantyData) {
                     $product = Product::where('product_name', $warrantyData->product)
-                            ->where('view', $view)
-                            ->select('product_name', 'month')->first();
+                        ->where('view', $view)
+                        ->select('product_name', 'month')->first();
                     if (!$product) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Không tìm thấy thông tin bảo hành cho mã đã nhập.'
-                        ]);  
+                        ]);
                     }
                     $product->warranty_code = strtoupper($serialNumber);
                     $lstproduct[] = $product;
                     // Lịch sử bảo hành từ database mặc định
                     $warranty = WarrantyRequest::whereRaw('LOWER(serial_number) = ?', [$serialNumber])->first();
                     $history = $warranty ? $warranty->details()->with('warrantyRequest:id,received_date')->get() : [];
-    
+
                     // Render view
                     $view = view('components.warranty_info', [
                         'warranty' => $warrantyData,
@@ -1536,21 +1553,20 @@ class WarrantyController extends Controller
                         'received_date' => $warranty?->received_date,
                         'history' => $history
                     ])->render();
-    
+
                     return response()->json([
                         'success' => true,
                         'view' => $view,
                         'message' => 'Thông tin bảo hành'
                     ]);
                 }
-                
             }
 
             if (!$warrantyData) {
                 // Chỉ áp dụng logic suffix cho mã cũ bị lỗi (có prefix 2025050500)
                 $baseCodes = Enum::getCodes();
                 $isOldErrorCode = false;
-                
+
                 // Kiểm tra xem mã nhập vào có phải là mã cũ bị lỗi không
                 foreach ($baseCodes as $baseCode) {
                     $normalizedBaseCode = strtolower($baseCode);
@@ -1562,7 +1578,7 @@ class WarrantyController extends Controller
                         break;
                     }
                 }
-                
+
                 // Chỉ áp dụng logic suffix nếu là mã cũ bị lỗi
                 if ($isOldErrorCode) {
                     $suffix = substr($serialNumber, -3);
@@ -1596,7 +1612,7 @@ class WarrantyController extends Controller
                     ->get();
             }
 
-            if($lstproduct->isEmpty()){
+            if ($lstproduct->isEmpty()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không tìm thấy thông tin bảo hành cho mã đã nhập.'
@@ -1636,7 +1652,7 @@ class WarrantyController extends Controller
         $view = session('brand') === 'hurom' ? 3 : 1;
         try {
             $orderCode = $request->input('order_code');
-            
+
             if (empty($orderCode)) {
                 return response()->json([
                     'success' => false,
@@ -1753,6 +1769,7 @@ class WarrantyController extends Controller
         try {
             $rawPhone = trim((string) $request->input('phone_number'));
             $normalizedPhone = preg_replace('/\D+/', '', $rawPhone);
+            $productNameFilter = trim((string) $request->input('product_name', ''));
 
             if (!$normalizedPhone) {
                 return response()->json([
@@ -1772,32 +1789,40 @@ class WarrantyController extends Controller
             $phoneNormalizer = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(%s, ' ', ''), '.', ''), '-', ''), '(', ''), ')', ''), '+', '')";
             $warrantyPhoneColumn = sprintf($phoneNormalizer, 'phone_number');
 
-            $warrantyRequests = WarrantyRequest::with(['details'])
+            // Tìm yêu cầu bảo hành theo SĐT
+            $warrantyRequestsQuery = WarrantyRequest::with(['details'])
                 ->where('view', $view)
                 ->whereRaw($warrantyPhoneColumn . ' LIKE ?', [$normalizedPattern])
                 ->orderByDesc('received_date')
-                ->orderByDesc('id')
-                ->get();
+                ->orderByDesc('id');
+
+            // Nếu có filter theo tên sản phẩm, thêm điều kiện
+            if (!empty($productNameFilter)) {
+                $warrantyRequestsQuery->where('product', 'LIKE', '%' . $productNameFilter . '%');
+            }
+
+            $warrantyRequests = $warrantyRequestsQuery->get();
 
             $warrantyIds = $warrantyRequests->pluck('id')->filter()->toArray();
 
             $repairHistory = collect();
             if (!empty($warrantyIds)) {
-                $repairHistory = WarrantyRequestDetail::with([
+                $repairHistoryQuery = WarrantyRequestDetail::with([
                     'warrantyRequest' => function ($relation) {
                         $relation->select('id', 'product', 'serial_number', 'staff_received', 'received_date');
                     }
                 ])
                     ->whereIn('warranty_request_id', $warrantyIds)
-                    ->orderByDesc('Ngaytao')
-                    ->get();
+                    ->orderByDesc('Ngaytao');
+
+                $repairHistory = $repairHistoryQuery->get();
             }
 
             // 1. Tìm tất cả đơn hàng theo SĐT trong bảng orders
             $orderPhoneColumnRaw = sprintf($phoneNormalizer, 'customer_phone');
             $orders = Order::query()
                 ->whereRaw($orderPhoneColumnRaw . ' LIKE ?', [$normalizedPattern])
-                ->select('id', 'order_code1', 'order_code2', 'customer_name', 'customer_phone', 'created_at')
+                ->select('id', 'order_code1', 'order_code2', 'customer_name', 'customer_phone', 'customer_address', 'created_at')
                 ->get();
 
             $orderIds = $orders->pluck('id')->filter()->toArray();
@@ -1805,12 +1830,19 @@ class WarrantyController extends Controller
             // 2. Lấy danh sách sản phẩm đã mua từ order_products cho các đơn hàng ở trên
             $purchasedProducts = collect();
             if (!empty($orderIds)) {
-                $purchasedProducts = OrderProduct::query()
+                $purchasedProductsQuery = OrderProduct::query()
                     ->leftJoin('orders as o', 'order_products.order_id', '=', 'o.id')
                     ->leftJoin('product_warranties as pw', 'order_products.id', '=', 'pw.order_product_id')
                     ->leftJoin('products as p', 'order_products.product_name', '=', 'p.product_name')
                     ->whereIn('o.id', $orderIds)
-                    ->where('p.view', $view)
+                    ->where('p.view', $view);
+
+                // Nếu có filter theo tên sản phẩm, thêm điều kiện
+                if (!empty($productNameFilter)) {
+                    $purchasedProductsQuery->where('order_products.product_name', 'LIKE', '%' . $productNameFilter . '%');
+                }
+
+                $purchasedProducts = $purchasedProductsQuery
                     ->select(
                         'o.order_code1',
                         'o.order_code2',
@@ -1827,9 +1859,13 @@ class WarrantyController extends Controller
             }
 
             if ($warrantyRequests->isEmpty() && $purchasedProducts->isEmpty() && $repairHistory->isEmpty()) {
+                $message = 'Không tìm thấy dữ liệu cho số điện thoại đã nhập.';
+                if (!empty($productNameFilter)) {
+                    $message = 'Không tìm thấy sản phẩm "' . $productNameFilter . '" cho số điện thoại đã nhập.';
+                }
                 return response()->json([
                     'success' => false,
-                    'message' => 'Không tìm thấy dữ liệu cho số điện thoại đã nhập.'
+                    'message' => $message
                 ]);
             }
 
@@ -1837,7 +1873,8 @@ class WarrantyController extends Controller
                 'warrantyRequests' => $warrantyRequests,
                 'purchasedProducts' => $purchasedProducts,
                 'repairHistory' => $repairHistory,
-                'phoneDisplay' => $rawPhone ?: $normalizedPhone
+                'phoneDisplay' => $rawPhone ?: $normalizedPhone,
+                'productFilter' => $productNameFilter
             ])->render();
 
             return response()->json([
@@ -1862,7 +1899,7 @@ class WarrantyController extends Controller
         }
         $result = TemBaoHanh::where('serial', $serial)->orWhere('ma_pin', $serial)->first();
         $khachHang = null;
-        if(!$result){
+        if (!$result) {
             return response()->json(['success' => false, 'type' => 1]);
         }
         $khachHang = KhachHang::where('serial', $result->serial)->first();
@@ -1882,11 +1919,11 @@ class WarrantyController extends Controller
             $finalCodes = array_map(function ($code) use ($suffix) {
                 return $code . $suffix;
             }, $baseCodes);
-            
+
             $warrantyData = ProductWarranty::with(['order_product.order'])
                 ->whereRaw('LOWER(warranty_code) = ?', [$serialNumber])
                 ->first();
-            if (!$warrantyData){
+            if (!$warrantyData) {
                 $possibleOldCode = false;
                 foreach ($baseCodes as $code) {
                     $normalizedBaseCode = strtolower($code);
@@ -1900,10 +1937,10 @@ class WarrantyController extends Controller
                 }
 
                 if ($possibleOldCode) {
-                $warrantyData = ProductWarranty::with(['order_product.order'])
-                    ->whereIn('warranty_code', $finalCodes)
-                    ->first();
-                $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
+                    $warrantyData = ProductWarranty::with(['order_product.order'])
+                        ->whereIn('warranty_code', $finalCodes)
+                        ->first();
+                    $serialNumber = $warrantyData?->warranty_code ?? $serialNumber;
                 }
             }
 
@@ -1925,13 +1962,13 @@ class WarrantyController extends Controller
                     ->select('op.product_name', 'p.nhap_tay', 'product_warranties.warranty_code')->get();
             }
 
-            
+
 
             return response()->json([
                 'success' => true,
                 'warranty' => $warrantyData,
                 'lstproduct' => $lstproduct,
-                'message' => 'Thông tin bảo hành '. $serialNumber
+                'message' => 'Thông tin bảo hành ' . $serialNumber
             ]);
         } catch (\Exception $e) {
             Log::error('Lỗi FindWarranty: ' . $e->getMessage());
@@ -1942,17 +1979,18 @@ class WarrantyController extends Controller
         }
     }
 
-    public function getCollaboratorByPhoneNumber(Request $request){
+    public function getCollaboratorByPhoneNumber(Request $request)
+    {
         $phone = $request->phone;
         $item = WarrantyCollaborator::where('phone', $phone)->first();
-        if(!$item){
+        if (!$item) {
             return response()->json(['success' => false, 'message' => "không tìm thấy cộng tác viên có số điện thoại " . $phone]);
         }
-        return response()->json(['success'=> true, 'message'=> 'ok', 'data'=> $item]);
+        return response()->json(['success' => true, 'message' => 'ok', 'data' => $item]);
     }
     public function CreateWarrany(Request $request)
     {
-        
+
 
         $view = Session('brand') === 'hurom' ? 3 : 1;
         $name = $request->product;
@@ -1965,13 +2003,13 @@ class WarrantyController extends Controller
         }
         $shipmentDate = Carbon::createFromFormat('d/m/Y', $request->shipment_date);
         $warrantyEnd = $shipmentDate->copy()->addMonths($product->month);
-        
+
         // Kiểm tra anomaly và chặn nếu vượt ngưỡng
         $staffName = session('user');
         $branch = $request->branch;
         $anomalyDetector = new WarrantyAnomalyDetector();
         $anomalyCheck = $anomalyDetector->checkAndBlock($staffName, $branch);
-        
+
         if ($anomalyCheck['blocked']) {
             return response()->json([
                 'success' => false,
@@ -1979,13 +2017,13 @@ class WarrantyController extends Controller
                 'block_info' => $anomalyCheck['block_info']
             ], 403);
         }
-        
+
         //Kiểm tra trùng lặp trong 48 giờ (toàn hệ thống)
         $serialNumber = $request->serial_number;
         $serialThanMay = $request->serial_thanmay;
         $productName = $request->product;
         $customerPhone = $request->phone_number;
-        
+
         // Kiểm tra trùng trong 48 giờ
         $duplicateCheck = $this->checkDuplicateWarranty(
             $serialNumber,
@@ -1994,12 +2032,12 @@ class WarrantyController extends Controller
             $customerPhone,
             $staffName // Truyền tên nhân viên hiện tại
         );
-        
+
         if ($duplicateCheck['exists']) {
             $existingWarranty = $duplicateCheck['warranty'];
             $hoursAgo = Carbon::parse($existingWarranty->received_date)->diffInHours(now());
             $daysAgo = Carbon::parse($existingWarranty->received_date)->diffInDays(now());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => $duplicateCheck['message'],
@@ -2019,7 +2057,7 @@ class WarrantyController extends Controller
                 ]
             ], 409); // HTTP 409 Conflict
         }
-        
+
         $pw = ProductWarranty::with('order_product.order')
             ->where('warranty_code', $request->serial_number)
             ->first();
@@ -2048,7 +2086,7 @@ class WarrantyController extends Controller
             'initial_fault_condition' => $request->initial_fault_condition,
             'product_fault_condition' => $request->product_fault_condition,
             'product_quantity_description' => $request->product_quantity_description,
-            'view'=> $view,
+            'view' => $view,
             'province_id' => $request->province_id,
             'district_id' => $request->district_id,
             'ward_id' => $request->ward_id,
@@ -2081,7 +2119,7 @@ class WarrantyController extends Controller
                 'success' => false
             ], 404);
         }
-        
+
         // Xử lý ảnh - chỉ lưu vào warranty_requests (không phải lỗi)
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
@@ -2106,7 +2144,7 @@ class WarrantyController extends Controller
                 $warranty->video_upload = $videoPath;
             }
         }
-        
+
         $warranty->save();
 
         return response()->json([
@@ -2160,7 +2198,7 @@ class WarrantyController extends Controller
                 ->where('is_active', true)
                 ->where('blocked_until', '>', now())
                 ->first();
-            
+
             // Chuyển sang array và thêm field mới
             $alertData = $alert->toArray();
             $alertData['has_active_block'] = $block !== null;
@@ -2295,7 +2333,7 @@ class WarrantyController extends Controller
     {
         $categoryId = $request->input('category_id');
         $view = session('brand') === 'hurom' ? 3 : 1;
-        
+
         if (!$categoryId) {
             return response()->json([
                 'success' => false,
@@ -2308,7 +2346,7 @@ class WarrantyController extends Controller
         // Thử lấy từ bảng product_categories qua relationship
         try {
             $products = Product::where('view', $view)
-                ->whereHas('categories', function($q) use ($categoryId) {
+                ->whereHas('categories', function ($q) use ($categoryId) {
                     $q->where('categories.id', $categoryId);
                 })
                 ->select('product_name', 'id', 'price')
@@ -2336,12 +2374,37 @@ class WarrantyController extends Controller
     }
 
     /**
+     * Lấy danh sách sản phẩm để gợi ý autocomplete
+     */
+    public function getProductSuggestions(Request $request)
+    {
+        $view = session('brand') === 'hurom' ? 3 : 1;
+        $search = $request->input('search', '');
+
+        $products = Product::where('view', $view)
+            ->when($search, function ($query) use ($search) {
+                $query->where('product_name', 'LIKE', '%' . $search . '%');
+            })
+            ->select('product_name')
+            ->distinct()
+            ->orderBy('product_name')
+            ->limit(50)
+            ->get()
+            ->pluck('product_name');
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
      * Lấy category của sản phẩm
      */
     public function getProductCategory(Request $request)
     {
         $productName = $request->input('product_name');
-        
+
         if (!$productName) {
             return response()->json([
                 'success' => false,
@@ -2350,7 +2413,7 @@ class WarrantyController extends Controller
         }
 
         $product = Product::where('product_name', $productName)->first();
-        
+
         if (!$product) {
             return response()->json([
                 'success' => false,
@@ -2399,27 +2462,27 @@ class WarrantyController extends Controller
      * @return array ['exists' => bool, 'warranty' => WarrantyRequest|null, 'message' => string]
      */
     private function checkDuplicateWarranty(
-        $serialNumber, 
-        $serialThanMay, 
-        $productName, 
+        $serialNumber,
+        $serialThanMay,
+        $productName,
         $customerPhone,
         $currentStaffName
     ) {
         $hoursAgo = Carbon::now()->subHours(48);
-        
+
         // Normalize dữ liệu: trim và kiểm tra rỗng
         $serialNumber = $serialNumber ? trim($serialNumber) : null;
         $serialThanMay = $serialThanMay ? trim($serialThanMay) : null;
         // Normalize số điện thoại: bỏ tất cả ký tự không phải số
         $customerPhone = $customerPhone ? preg_replace('/[^0-9]/', '', trim($customerPhone)) : null;
-        
+
         // Trường hợp 1: Có serial_number hợp lệ (ưu tiên cao nhất)
         if ($serialNumber && $serialNumber !== '' && $serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI') {
             $existing = WarrantyRequest::whereRaw('LOWER(serial_number) = ?', [strtolower($serialNumber)])
                 ->where('received_date', '>=', $hoursAgo)
                 ->orderBy('received_date', 'desc')
                 ->first();
-                
+
             if ($existing) {
                 // Kiểm tra xem có phải cùng nhân viên tạo không
                 // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
@@ -2433,18 +2496,18 @@ class WarrantyController extends Controller
                 // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
-        
+
         // Trường hợp 2: Không có serial_number hợp lệ nhưng có serial_thanmay
         // Kiểm tra: serial_number rỗng/null/'HÀNG KHÔNG CÓ MÃ SERI' VÀ serial_thanmay có giá trị
         $hasValidSerialNumber = $serialNumber && $serialNumber !== '' && $serialNumber !== 'HÀNG KHÔNG CÓ MÃ SERI';
         $hasValidSerialThanMay = $serialThanMay && $serialThanMay !== '';
-        
+
         if (!$hasValidSerialNumber && $hasValidSerialThanMay) {
             $existing = WarrantyRequest::whereRaw('LOWER(serial_thanmay) = ?', [strtolower($serialThanMay)])
                 ->where('received_date', '>=', $hoursAgo)
                 ->orderBy('received_date', 'desc')
                 ->first();
-                
+
             if ($existing) {
                 // Kiểm tra xem có phải cùng nhân viên tạo không
                 // Nếu cùng nhân viên thì cho phép tạo lại, nếu khác nhân viên thì chặn
@@ -2458,7 +2521,7 @@ class WarrantyController extends Controller
                 // Nếu cùng nhân viên thì không chặn (cho phép tạo lại)
             }
         }
-        
+
         // Trường hợp 3: Không có cả serial_number và serial_thanmay hợp lệ
         // Kiểm tra theo product + phone_number (lưu ý: phone có thể thay đổi)
         if (!$hasValidSerialNumber && !$hasValidSerialThanMay) {
@@ -2467,7 +2530,7 @@ class WarrantyController extends Controller
                 ->where('received_date', '>=', $hoursAgo)
                 ->orderBy('received_date', 'desc')
                 ->get();
-            
+
             // So sánh phone đã được normalize (chỉ số)
             $existing = $candidates->first(function ($item) use ($customerPhone, $currentStaffName) {
                 $dbPhone = preg_replace('/[^0-9]/', '', $item->phone_number ?? '');
@@ -2477,7 +2540,7 @@ class WarrantyController extends Controller
                 }
                 return false;
             });
-                
+
             if ($existing) {
                 return [
                     'exists' => true,
@@ -2486,8 +2549,7 @@ class WarrantyController extends Controller
                 ];
             }
         }
-        
+
         return ['exists' => false, 'warranty' => null, 'message' => ''];
     }
-
 }

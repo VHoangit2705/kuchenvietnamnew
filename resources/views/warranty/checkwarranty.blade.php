@@ -1,6 +1,10 @@
 @extends('layout.layout')
 
 @section('content')
+<!-- Load jQuery UI for autocomplete -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
 <div class="container-fluid mt-3">
     <div class="row g-4">
         <div class="col-12 col-md-12">
@@ -12,27 +16,52 @@
                 </div>
                 <div class="card-body">
                     <div class="col-12">
-                        <label for="search_code" class="form-label">Nhập mã tem bảo hành hoặc mã đơn hàng (<span style="color: red;">*</span>)</label>
-                        <input id="search_code" name="search_code" type="text" class="form-control mb-2" placeholder="Nhập mã tem bảo hành / mã đơn hàng">
+                        <label for="search_code" class="form-label">Nhập mã tem bảo hành hoặc mã đơn hàng (<span
+                                style="color: red;">*</span>)</label>
+                        <input id="search_code" name="search_code" type="text" class="form-control mb-2"
+                            placeholder="Nhập mã tem bảo hành / mã đơn hàng">
                         <div id="error-message-search" class="text-danger mb-2" style="display: none;"></div>
                         {{-- tra cứu theo số điện thoại khách hàng --}}
-                        <label for="search_phone" class="form-label">Tra cứu theo số điện thoại khách hàng</label>
-                        <input id="search_phone" name="search_phone" type="text" class="form-control mb-2" placeholder="Nhập số điện thoại (ví dụ: 0987 123 456)">
+                        <div class="mt-2">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="search_phone" class="form-label">
+                                        Tra cứu theo số điện thoại khách hàng
+                                    </label>
+                                    <input id="search_phone" name="search_phone" type="text" class="form-control"
+                                        placeholder="Nhập số điện thoại (ví dụ: 0987 123 456)">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="search_product" class="form-label">
+                                        Tra cứu theo sản phẩm đã mua
+                                    </label>
+                                    <input id="search_product" name="search_product" type="text" class="form-control"
+                                        placeholder="Nhập tên sản phẩm">
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="error-message-phone" class="text-danger mb-2" style="display: none;"></div>
                     </div>
-                    <p>- Hệ thống sẽ ưu tiên kiểm tra theo mã bảo hành. Nếu không tìm thấy, hệ thống sẽ tự động tra cứu theo mã đơn hàng (order_code1 / order_code2).</p>
-                    <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút dưới.</p>
-                    <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
+                    <p>- Hệ thống sẽ ưu tiên kiểm tra theo mã bảo hành. Nếu không tìm thấy, hệ thống sẽ tự động tra cứu
+                        theo mã đơn hàng (order_code1 / order_code2).</p>
+                    <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng
+                        nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút
+                        dưới.</p>
+                    <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui
+                        lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
 
                     <div class="d-flex gap-2 flex-wrap">
                         <button class="btn btn-primary px-4" id="btn-check">Tra cứu</button>
-                        <button onclick="window.location.href='{{ route('warranty.formcard') }} '" class="btn btn-warning text-dark">&#43; Tạo phiếu bảo hành</button>
+                        <button onclick="window.location.href='{{ route('warranty.formcard') }} '"
+                            class="btn btn-warning text-dark">&#43; Tạo phiếu bảo hành</button>
                         <button class="btn btn-success" id="btn_check_qick">Quét mã QR</button>
                     </div>
                     <video id="video" autoplay playsinline></video>
                 </div>
             </div>
-            
+
         </div>
     </div>
     <!-- Thông tin khách hàng -->
@@ -81,6 +110,28 @@
         background: black;
         margin-top: 50px;
     }
+
+    /* Autocomplete styling */
+    .ui-autocomplete {
+        max-height: 200px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        z-index: 1000;
+    }
+
+    .ui-menu-item {
+        font-size: 14px;
+    }
+
+    .ui-menu-item-wrapper {
+        padding: 8px 12px;
+    }
+
+    .ui-menu-item-wrapper:hover {
+        background-color: #007bff;
+        color: white;
+    }
+
 </style>
 <script>
     // validation form kiểm tra bảo hành
@@ -182,6 +233,44 @@
             validatePhoneSearch(false);
         });
 
+        // Autocomplete cho sản phẩm
+        if (typeof $.fn.autocomplete !== 'undefined') {
+            // console.log('jQuery UI Autocomplete available');
+            $('#search_product').autocomplete({
+                minLength: 2,
+                delay: 300,
+                source: function(request, response) {
+                    // console.log('Autocomplete triggered with term:', request.term);
+                    $.ajax({
+                        url: '{{ route("warranty.getProductSuggestions") }}',
+                        method: 'GET',
+                        data: {
+                            search: request.term
+                        },
+                        success: function(data) {
+                            console.log('API Response:', data);
+                            if (data.success && data.data) {
+                                response(data.data);
+                            } else {
+                                response([]);
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('API Error:', status, error);
+                            response([]);
+                        }
+                    });
+                },
+                select: function(event, ui) {
+                    $(this).val(ui.item.value);
+                    return false;
+                }
+            });
+            console.log('Autocomplete initialized on #search_product');
+        } else {
+            console.error('jQuery UI Autocomplete not loaded!');
+        }
+
         // Xử lý sự kiện click nút "Tra cứu"
         $('#btn-check').click(function(e) {
             e.preventDefault();
@@ -254,11 +343,13 @@
 
     function searchWarrantyByPhone(value) {
         OpenWaitBox();
+        const productName = $('#search_product').val().trim();
         $.ajax({
             url: '{{ route("warranty.findbyphone") }}',
             method: 'POST',
             data: {
                 phone_number: value,
+                product_name: productName,
                 _token: '{{ csrf_token() }}'
             },
             success: function(response) {
@@ -311,7 +402,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
 <script>
-  const codeReader = new ZXing.BrowserMultiFormatReader();
+    const codeReader = new ZXing.BrowserMultiFormatReader();
   const videoElement = document.getElementById('video');
   
   document.getElementById('btn_check_qick').addEventListener('click', async () => {
