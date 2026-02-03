@@ -42,7 +42,12 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold">Xuất xứ <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Xuất xứ <span class="text-danger">*</span></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" id="btnAddOrigin" data-bs-toggle="modal" data-bs-target="#modalAddOrigin" disabled title="Thêm xuất xứ mới">
+                            <i class="bi bi-plus-lg"></i> Thêm
+                        </button>
+                    </label>
                     <select class="form-select" id="createOrigin" disabled>
                         <option value="">-- Chọn xuất xứ --</option>
                     </select>
@@ -125,6 +130,45 @@
     </div>
 </div>
 
+<!-- Modal: Thêm xuất xứ -->
+<div class="modal fade" id="modalAddOrigin" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow" style="border-radius: 15px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Thêm xuất xứ sản phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAddOrigin">
+                    <input type="hidden" name="product_id" id="originProductId" value="">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Xuất xứ <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="xuat_xu" placeholder="VD: Trung Quốc, Việt Nam" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mã model <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="model_code" placeholder="VD: KU-8881" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Phiên bản</label>
+                            <input type="text" class="form-control" name="version" placeholder="VD: V1, 2024">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Năm phát hành</label>
+                            <input type="number" class="form-control" name="release_year" placeholder="VD: 2024" min="1990" max="2100">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Thêm xuất xứ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Thêm mã lỗi -->
 <div class="modal fade" id="modalAddError" tabindex="-1">
     <div class="modal-dialog">
@@ -165,172 +209,21 @@
     </div>
 </div>
 
+<link rel="stylesheet" href="{{ asset('css/technicaldocument/create.css') }}">
+
 <script>
-$(function () {
-    var selectedModelId = null;
-
-    function resetSelect(sel, placeholder, disabled) {
-        $(sel).html('<option value="">' + placeholder + '</option>').prop('disabled', disabled);
-    }
-
-    // Bước 1: Danh mục → load Sản phẩm
-    $('#createCategory').on('change', function () {
-        var cid = $(this).val();
-        resetSelect('#createProduct', '-- Chọn sản phẩm --', true);
-        resetSelect('#createOrigin', '-- Chọn xuất xứ --', true);
-        resetSelect('#createModelId', '-- Chọn mã SP --', true);
-        $('#blockAfterModel').hide();
-        if (!cid) return;
-        $.get('{{ route("warranty.document.getProductsByCategory") }}', { category_id: cid }, function (res) {
-            resetSelect('#createProduct', '-- Chọn sản phẩm --', false);
-            (res || []).forEach(function (p) {
-                $('#createProduct').append('<option value="' + p.id + '">' + (p.name || p.product_name || '') + (p.model ? ' (' + p.model + ')' : '') + '</option>');
-            });
-        });
-    });
-
-    // Bước 2: Sản phẩm → load Xuất xứ
-    $('#createProduct').on('change', function () {
-        var pid = $(this).val();
-        resetSelect('#createOrigin', '-- Chọn xuất xứ --', true);
-        resetSelect('#createModelId', '-- Chọn mã SP --', true);
-        $('#blockAfterModel').hide();
-        if (!pid) return;
-        $.get('{{ route("warranty.document.getOriginsByProduct") }}', { product_id: pid }, function (res) {
-            resetSelect('#createOrigin', '-- Chọn xuất xứ --', false);
-            (res || []).forEach(function (o) {
-                $('#createOrigin').append('<option value="' + (o.xuat_xu || '') + '">' + (o.xuat_xu || '') + '</option>');
-            });
-        });
-    });
-
-    // Bước 3–4: Xuất xứ → load Mã SP
-    $('#createOrigin').on('change', function () {
-        var pid = $('#createProduct').val();
-        var origin = $(this).val();
-        resetSelect('#createModelId', '-- Chọn mã SP --', true);
-        $('#blockAfterModel').hide();
-        if (!origin) return;
-        $.get('{{ route("warranty.document.getModelsByOrigin") }}', { product_id: pid, xuat_xu: origin }, function (res) {
-            resetSelect('#createModelId', '-- Chọn mã SP --', false);
-            (res || []).forEach(function (m) {
-                $('#createModelId').append('<option value="' + m.id + '">' + (m.model_code || '') + (m.version ? ' (' + m.version + ')' : '') + '</option>');
-            });
-        });
-    });
-
-    // Bước 4: Chọn Model → hiện block thêm lỗi & hướng dẫn, load danh sách lỗi
-    $('#createModelId').on('change', function () {
-        selectedModelId = $(this).val();
-        if (!selectedModelId) {
-            $('#blockAfterModel').hide();
-            return;
+    window.technicalDocumentCreateConfig = {
+        csrfToken: "{{ csrf_token() }}",
+        routes: {
+            getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
+            getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
+            getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
+            getErrorsByModel: "{{ route('warranty.document.getErrorsByModel') }}",
+            storeOrigin: "{{ route('warranty.document.storeOrigin') }}",
+            storeError: "{{ route('warranty.document.storeError') }}",
+            storeRepairGuide: "{{ route('warranty.document.storeRepairGuide') }}"
         }
-        $('#blockAfterModel').show();
-        loadErrorsByModel(selectedModelId);
-    });
-
-    function loadErrorsByModel(modelId) {
-        $.get('{{ route("warranty.document.getErrorsByModel") }}', { model_id: modelId }, function (res) {
-            var opts = '<option value="">-- Chọn mã lỗi --</option>';
-            (res || []).forEach(function (e) {
-                opts += '<option value="' + e.id + '">' + (e.error_code || '') + ' - ' + (e.error_name || '') + '</option>';
-            });
-            $('#createErrorId').html(opts);
-            $('#errorList').empty();
-            if (res && res.length) {
-                res.forEach(function (e) {
-                    $('#errorList').append(
-                        '<li class="list-group-item d-flex justify-content-between align-items-center">' +
-                        '<span><strong>' + (e.error_code || '') + '</strong> ' + (e.error_name || '') + ' <span class="badge bg-secondary">' + (e.severity || 'normal') + '</span></span>' +
-                        '</li>'
-                    );
-                });
-            } else {
-                $('#errorList').append('<li class="list-group-item text-muted">Chưa có mã lỗi. Bấm "Thêm mã lỗi" ở trên.</li>');
-            }
-        });
-    }
-
-    // Modal: Thêm mã lỗi (Bước 5)
-    $('#formAddError').on('submit', function (e) {
-        e.preventDefault();
-        if (!selectedModelId) {
-            alert('Vui lòng chọn Mã sản phẩm (Model) trước.');
-            return;
-        }
-        var fd = new FormData(this);
-        fd.append('model_id', selectedModelId);
-        fd.append('_token', '{{ csrf_token() }}');
-        $.ajax({
-            url: '{{ route("warranty.document.storeError") }}',
-            type: 'POST',
-            data: fd,
-            processData: false,
-            contentType: false,
-            success: function () {
-                $('#modalAddError').modal('hide');
-                $('#formAddError')[0].reset();
-                loadErrorsByModel(selectedModelId);
-            },
-            error: function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) || (xhr.responseJSON && xhr.responseJSON.errors) ? JSON.stringify(xhr.responseJSON.errors) : 'Có lỗi xảy ra.';
-                alert(msg);
-            }
-        });
-    });
-
-    // Chọn mã lỗi → gán vào form hướng dẫn
-    $('#createErrorId').on('change', function () {
-        $('#guideErrorId').val($(this).val());
-    });
-
-    // Bước 6–7: Lưu hướng dẫn + tài liệu
-    $('#guideForm').on('submit', function (e) {
-        e.preventDefault();
-        var errorId = $('#guideErrorId').val() || $('#createErrorId').val();
-        if (!errorId) {
-            alert('Vui lòng chọn mã lỗi.');
-            return;
-        }
-        var fd = new FormData();
-        fd.append('error_id', errorId);
-        fd.append('title', $('#guideTitle').val());
-        fd.append('steps', $('#guideSteps').val());
-        fd.append('estimated_time', $('#guideEstimatedTime').val() || 0);
-        fd.append('safety_note', $('#guideSafetyNote').val());
-        fd.append('_token', '{{ csrf_token() }}');
-        var files = document.getElementById('docFiles').files;
-        for (var i = 0; i < files.length; i++) {
-            fd.append('files[]', files[i]);
-        }
-        $.ajax({
-            url: '{{ route("warranty.document.storeRepairGuide") }}',
-            type: 'POST',
-            data: fd,
-            processData: false,
-            contentType: false,
-            success: function (res) {
-                if (res && res.message) alert(res.message);
-                $('#guideForm')[0].reset();
-                $('#guideErrorId').val('');
-                document.getElementById('docFiles').value = '';
-                $('#uploadedDocList').empty();
-                loadErrorsByModel(selectedModelId);
-            },
-            error: function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) || (xhr.responseJSON && xhr.responseJSON.errors) ? JSON.stringify(xhr.responseJSON.errors) : 'Có lỗi xảy ra.';
-                alert(msg);
-            }
-        });
-    });
-
-    $('#btnResetGuide').on('click', function () {
-        $('#guideForm')[0].reset();
-        $('#guideErrorId').val('');
-        document.getElementById('docFiles').value = '';
-        $('#uploadedDocList').empty();
-    });
-});
+    };
 </script>
+<script src="{{ asset('js/technicaldocument/create.js') }}"></script>
 @endsection

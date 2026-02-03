@@ -57,6 +57,58 @@ class TechnicalDocumentController extends Controller
             ->get(['id', 'model_code', 'version']);
     }
 
+    // Thêm xuất xứ sản phẩm (tạo product_model mới)
+    public function storeOrigin(Request $request)
+    {
+        $request->validate([
+            'product_id'   => 'required|integer',
+            'xuat_xu'      => 'required|string|max:255',
+            'model_code'   => 'required|string|max:100',
+            'version'      => 'nullable|string|max:50',
+            'release_year' => 'nullable|integer|min:1990|max:2100',
+        ], [
+            'product_id.required' => 'Vui lòng chọn sản phẩm.',
+            'xuat_xu.required'   => 'Xuất xứ không được để trống.',
+            'model_code.required'=> 'Mã model không được để trống.',
+        ]);
+
+        $productId = (int) $request->product_id;
+        if (!Product::where('id', $productId)->exists()) {
+            return response()->json(['message' => 'Sản phẩm không tồn tại.'], 422);
+        }
+
+        $modelCode = trim($request->model_code);
+        $version = $request->filled('version') ? trim($request->version) : null;
+
+        $exists = ProductModel::where('product_id', $productId)
+            ->where('model_code', $modelCode)
+            ->where(function ($q) use ($version) {
+                if ($version === null || $version === '') {
+                    $q->whereNull('version');
+                } else {
+                    $q->where('version', $version);
+                }
+            })
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'Mã model "' . $modelCode . '"' . ($version ? ' (phiên bản ' . $version . ')' : '') . ' đã tồn tại cho sản phẩm này.',
+            ], 422);
+        }
+
+        ProductModel::create([
+            'product_id'   => $productId,
+            'xuat_xu'      => trim($request->xuat_xu),
+            'model_code'   => $modelCode,
+            'version'      => $version,
+            'release_year' => $request->filled('release_year') ? (int) $request->release_year : null,
+            'status'       => 'active',
+        ]);
+
+        return response()->json(['message' => 'Đã thêm xuất xứ thành công.']);
+    }
+
     // 4. Danh sách mã lỗi theo model (Bước 5)
     public function getErrorsByModel(Request $request)
     {

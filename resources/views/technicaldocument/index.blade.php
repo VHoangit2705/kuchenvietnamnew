@@ -154,146 +154,17 @@
     </div>
 </div>
 
-<style>
-    /* Styling remains same */
-    .bg-light-warning { background-color: #fff9e6; }
-    
-    .tech-card {
-        transition: all 0.3s ease;
-        border: 1px solid #dee2e6;
-        cursor: pointer;
-    }
-    .tech-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        border-color: var(--bs-primary);
-    }
-    
-    .tech-steps ol {
-        counter-reset: tech-step;
-        list-style: none;
-        padding-left: 0;
-    }
-    .tech-steps li {
-        position: relative;
-        padding-left: 40px;
-        margin-bottom: 15px;
-        color: #555;
-    }
-    .tech-steps li::before {
-        counter-increment: tech-step;
-        content: counter(tech-step);
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 30px;
-        height: 30px;
-        background-color: #e9ecef;
-        color: #495057;
-        font-weight: bold;
-        border-radius: 50%;
-        text-align: center;
-        line-height: 30px;
-    }
-    
-    .document-item {
-        transition: background-color 0.2s;
-    }
-    .document-item:hover {
-        background-color: #f8f9fa;
-    }
-</style>
+<link rel="stylesheet" href="{{ asset('css/technicaldocument/index.css') }}">
 
 <script>
-$(function () {
-
-    function resetSelect(id, placeholder, disable = true) {
-        $(id).html(`<option value="">${placeholder}</option>`)
-             .prop('disabled', disable);
-    }
-
-    // 1. Chọn danh mục → load sản phẩm
-    $('#categorySelect').on('change', function () {
-        const categoryId = $(this).val();
-
-        resetSelect('#productNameSelect', '-- Chọn sản phẩm --', true);
-        resetSelect('#originSelect', '-- Chọn xuất xứ --', true);
-        resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-        $('#btnSearch').prop('disabled', true);
-
-        if (!categoryId) return;
-
-        $.get('{{ route("warranty.document.getProductsByCategory") }}', {
-            category_id: categoryId
-        }, function (res) {
-            resetSelect('#productNameSelect', '-- Chọn sản phẩm --', false);
-            (res || []).forEach(p => {
-                $('#productNameSelect').append(
-                    `<option value="${p.id}">${p.name || p.product_name || ''} ${(p.model ? '(' + p.model + ')' : '')}</option>`
-                );
-            });
-        }).fail(function () {
-            resetSelect('#productNameSelect', '-- Chọn sản phẩm --', false);
-        });
-    });
-
-    // 2. Chọn sản phẩm → load xuất xứ
-    $('#productNameSelect').on('change', function () {
-        const productId = $(this).val();
-
-        resetSelect('#originSelect', '-- Chọn xuất xứ --', true);
-        resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-        $('#btnSearch').prop('disabled', true);
-
-        if (!productId) return;
-
-        $.get('{{ route("warranty.document.getOriginsByProduct") }}', {
-            product_id: productId
-        }, function (res) {
-            resetSelect('#originSelect', '-- Chọn xuất xứ --', false);
-            (res || []).forEach(o => {
-                $('#originSelect').append(
-                    `<option value="${o.xuat_xu}">${o.xuat_xu}</option>`
-                );
-            });
-        }).fail(function () {
-            resetSelect('#originSelect', '-- Chọn xuất xứ --', false);
-        });
-    });
-
-    // 3. Chọn xuất xứ → load mã sản phẩm (model)
-    $('#originSelect').on('change', function () {
-        const productId = $('#productNameSelect').val();
-        const origin = $(this).val();
-
-        resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-        $('#btnSearch').prop('disabled', true);
-
-        if (!origin) return;
-
-        $.get('{{ route("warranty.document.getModelsByOrigin") }}', {
-            product_id: productId,
-            xuat_xu: origin
-        }, function (res) {
-            resetSelect('#productCodeSelect', '-- Chọn mã SP --', false);
-            (res || []).forEach(m => {
-                $('#productCodeSelect').append(
-                    `<option value="${m.id}">${m.model_code || ''} ${m.version ? '(' + m.version + ')' : ''}</option>`
-                );
-            });
-        }).fail(function () {
-            resetSelect('#productCodeSelect', '-- Chọn mã SP --', false);
-        });
-    });
-
-    // 4. Chọn mã SP → enable tìm kiếm
-    $('#productCodeSelect').on('change', function () {
-        $('#btnSearch').prop('disabled', !$(this).val());
-    });
-
-});
+    window.technicalDocumentIndexConfig = {
+        routes: {
+            getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
+            getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
+            getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}"
+        }
+    };
 </script>
-
-
+<script src="{{ asset('js/technicaldocument/index.js') }}"></script>
 @endsection
 

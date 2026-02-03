@@ -162,6 +162,10 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         [TechnicalDocumentController::class, 'getErrorsByModel']
     )->name('warranty.document.getErrorsByModel');
 
+    Route::post('/store-origin',
+        [TechnicalDocumentController::class, 'storeOrigin']
+    )->name('warranty.document.storeOrigin')->middleware('role:admin,kythuatvien');
+
     Route::post('/store-error',
         [TechnicalDocumentController::class, 'storeError']
     )->name('warranty.document.storeError')->middleware('role:admin,kythuatvien');
