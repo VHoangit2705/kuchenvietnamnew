@@ -89,6 +89,136 @@
         jQuery('#productCodeSelect').on('change', function () {
             jQuery('#btnSearch').prop('disabled', !jQuery(this).val());
         });
+
+        // 5. Bấm Tìm kiếm → load mã lỗi theo model, hiển thị bảng
+        jQuery('#btnSearch').on('click', function () {
+            var modelId = jQuery('#productCodeSelect').val();
+            if (!modelId) {
+                alert('Vui lòng chọn Mã sản phẩm trước khi tìm kiếm.');
+                return;
+            }
+
+            jQuery('#errorTableCard').show();
+            jQuery('#emptyState').addClass('d-none');
+            jQuery('#errorTableBody').html('<tr><td colspan="6" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải...</td></tr>');
+
+            jQuery.get(routes.getErrorsByModel || '', { model_id: modelId }, function (res) {
+                var rows = res || [];
+                if (rows.length === 0) {
+                    jQuery('#errorTableCard').hide();
+                    jQuery('#emptyState').removeClass('d-none');
+                    return;
+                }
+
+                var html = '';
+                rows.forEach(function (e, i) {
+                    var severityLabel = { normal: 'Thường', common: 'Phổ biến', critical: 'Nghiêm trọng' }[e.severity] || e.severity;
+                    var severityClass = { normal: 'secondary', common: 'warning', critical: 'danger' }[e.severity] || 'secondary';
+                    var desc = (e.description || '').toString().substring(0, 80);
+                    if ((e.description || '').length > 80) desc += '...';
+                    html += '<tr>' +
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td><span class="badge bg-dark">' + (e.error_code || '') + '</span></td>' +
+                        '<td class="fw-semibold">' + (e.error_name || '') + '</td>' +
+                        '<td><span class="badge bg-' + severityClass + '">' + severityLabel + '</span></td>' +
+                        '<td class="text-muted small">' + (desc || '—') + '</td>' +
+                        '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-view-error" data-id="' + e.id + '" data-code="' + (e.error_code || '') + '" data-name="' + (e.error_name || '').replace(/"/g, '&quot;') + '" data-desc="' + (e.description || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" title="Xem chi tiết"><i class="bi bi-eye"></i></button></td>' +
+                        '</tr>';
+                });
+                jQuery('#errorTableBody').html(html);
+            }).fail(function () {
+                jQuery('#errorTableBody').html('<tr><td colspan="6" class="text-center py-4 text-danger">Không tải được dữ liệu. Kiểm tra kết nối hoặc thử lại.</td></tr>');
+                jQuery('#emptyState').addClass('d-none');
+            });
+        });
+
+        // Click Xem chi tiết → gọi API load hướng dẫn + tài liệu/ảnh/video, mở modal
+        jQuery(document).on('click', '.btn-view-error', function () {
+            var errorId = jQuery(this).data('id');
+            var code = jQuery(this).data('code');
+            var name = jQuery(this).data('name');
+            var desc = jQuery(this).data('desc');
+
+            jQuery('#detailErrorCode').text(code || '');
+            jQuery('#detailErrorName').text(name || '');
+            jQuery('#detailDescription').text(desc || 'Chưa có mô tả.');
+            jQuery('#detailSolution').html('<p class="text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải...</p>');
+            jQuery('#detailDocuments').empty();
+            jQuery('#detailMediaInner').html('<div class="text-center py-4 text-muted">Đang tải...</div>');
+            jQuery('#errorDetailModal').modal('show');
+
+            jQuery.get(routes.getErrorDetail || '', { error_id: errorId }, function (res) {
+                var guides = (res && res.repair_guides) ? res.repair_guides : [];
+                var firstGuide = guides[0];
+
+                if (firstGuide && firstGuide.steps) {
+                    var stepsHtml = '<ol class="mb-0">';
+                    var lines = (firstGuide.steps || '').split(/\r?\n/).filter(function (s) { return s.trim(); });
+                    lines.forEach(function (line) {
+                        stepsHtml += '<li class="mb-2">' + escapeHtml(line.trim()) + '</li>';
+                    });
+                    stepsHtml += '</ol>';
+                    if (firstGuide.safety_note) {
+                        stepsHtml += '<div class="alert alert-warning mt-3 mb-0"><strong>Lưu ý an toàn:</strong> ' + escapeHtml(firstGuide.safety_note) + '</div>';
+                    }
+                    jQuery('#detailSolution').html(stepsHtml);
+                } else {
+                    jQuery('#detailSolution').html('<p class="text-muted">Chưa có hướng dẫn xử lý.</p>');
+                }
+
+                var allDocs = [];
+                guides.forEach(function (g) {
+                    (g.documents || []).forEach(function (d) {
+                        allDocs.push({ title: d.title, doc_type: d.doc_type, file_url: d.file_url, file_type: d.file_type });
+                    });
+                });
+
+                var docListHtml = '';
+                allDocs.forEach(function (d) {
+                    docListHtml += '<a href="' + d.file_url + '" target="_blank" class="list-group-item list-group-item-action document-item">' +
+                        '<i class="bi bi-file-earmark-' + (d.doc_type === 'manual' ? 'pdf' : 'image') + ' me-2"></i>' + escapeHtml(d.title) + ' <small class="text-muted">(' + (d.file_type || '') + ')</small></a>';
+                });
+                jQuery('#detailDocuments').html(docListHtml || '<p class="text-muted small mb-0">Chưa có tài liệu đính kèm.</p>');
+
+                var mediaItems = allDocs.filter(function (d) {
+                    return d.doc_type === 'image' || d.doc_type === 'video' || (d.file_type && /^(jpg|jpeg|png|gif|webp|mp4|webm)$/i.test(d.file_type));
+                });
+                var carouselHtml = '';
+                if (mediaItems.length > 0) {
+                    mediaItems.forEach(function (item, idx) {
+                        var active = idx === 0 ? ' active' : '';
+                        var isVideo = /^(mp4|webm|ogg)$/i.test(item.file_type || '');
+                        if (isVideo) {
+                            carouselHtml += '<div class="carousel-item' + active + '"><div class="ratio ratio-16x9"><video src="' + item.file_url + '" controls class="w-100"></video></div></div>';
+                        } else {
+                            carouselHtml += '<div class="carousel-item' + active + '"><img src="' + item.file_url + '" class="d-block w-100" alt="' + escapeHtml(item.title) + '" style="max-height: 400px; object-fit: contain;"></div>';
+                        }
+                    });
+                    jQuery('#detailMediaInner').html(carouselHtml);
+                    if (mediaItems.length > 1) {
+                        jQuery('#mediaCarousel').carousel(0);
+                    }
+                } else {
+                    jQuery('#detailMediaInner').html('<div class="text-center py-5 text-muted"><i class="bi bi-images fs-1 opacity-50"></i><p class="mt-2 mb-0">Không có hình ảnh / video minh họa.</p></div>');
+                }
+
+                if (allDocs.length > 0) {
+                    jQuery('#btnDownloadAll').attr('href', allDocs[0].file_url).attr('target', '_blank').show();
+                } else {
+                    jQuery('#btnDownloadAll').hide();
+                }
+            }).fail(function () {
+                jQuery('#detailSolution').html('<p class="text-muted">Không tải được chi tiết.</p>');
+                jQuery('#detailMediaInner').html('<div class="text-center py-5 text-muted">Không tải được dữ liệu.</div>');
+            });
+        });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     }
 
     if (document.readyState === 'loading') {

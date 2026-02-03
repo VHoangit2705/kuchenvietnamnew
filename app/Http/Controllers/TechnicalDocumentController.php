@@ -109,6 +109,62 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => 'Đã thêm xuất xứ thành công.']);
     }
 
+    // Chi tiết lỗi: hướng dẫn sửa + tài liệu/ảnh/video đính kèm (cho modal Tra cứu)
+    public function getErrorDetail(Request $request)
+    {
+        $errorId = (int) $request->get('error_id');
+        if (!$errorId) {
+            return response()->json(['error' => 'Thiếu error_id'], 400);
+        }
+
+        $error = CommonError::with([
+            'repairGuides.technicalDocuments.documentVersions',
+        ])->find($errorId);
+
+        if (!$error) {
+            return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
+        }
+
+        $storageUrl = rtrim(asset('storage'), '/');
+
+        $repairGuides = $error->repairGuides->map(function ($guide) use ($storageUrl) {
+            $documents = [];
+            foreach ($guide->technicalDocuments as $doc) {
+                $version = $doc->documentVersions->sortByDesc('id')->first();
+                if (!$version) {
+                    continue;
+                }
+                $fileUrl = $storageUrl . '/' . ltrim($version->file_path, '/');
+                $documents[] = [
+                    'id'        => $doc->id,
+                    'title'     => $doc->title,
+                    'doc_type'  => $doc->doc_type,
+                    'file_url'  => $fileUrl,
+                    'file_type' => $version->file_type,
+                ];
+            }
+            return [
+                'id'             => $guide->id,
+                'title'          => $guide->title,
+                'steps'          => $guide->steps,
+                'estimated_time' => $guide->estimated_time,
+                'safety_note'    => $guide->safety_note,
+                'documents'      => $documents,
+            ];
+        });
+
+        return response()->json([
+            'error'         => [
+                'id'          => $error->id,
+                'error_code'  => $error->error_code,
+                'error_name'  => $error->error_name,
+                'description' => $error->description,
+                'severity'    => $error->severity,
+            ],
+            'repair_guides' => $repairGuides,
+        ]);
+    }
+
     // 4. Danh sách mã lỗi theo model (Bước 5)
     public function getErrorsByModel(Request $request)
     {

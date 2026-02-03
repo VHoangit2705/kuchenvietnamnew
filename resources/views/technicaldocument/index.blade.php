@@ -1,150 +1,167 @@
 @extends('layout.layout')
 
 @section('content')
-<div class="container-fluid py-4">
-    <!-- Header Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2 class="fw-bold text-primary"><i class="bi bi-tools me-2"></i>Tra cứu lỗi kỹ thuật</h2>
-                    <p class="text-muted mb-0">Hệ thống tra cứu tài liệu sửa chữa dành cho kỹ thuật viên</p>
-                </div>
-                <div>
-                    <a href="{{ route('warranty.document.create') }}" class="btn btn-primary btn-sm me-2">
-                        <i class="bi bi-plus-lg me-1"></i>Thêm mới
-                    </a>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Làm mới
-                    </button>
-                </div>
-            </div>
+<div class="container-fluid py-5 bg-light min-vh-100">
+    <div class="row mb-5">
+        <div class="col-md-8 mx-auto text-center">
+            <h1 class="fw-bold text-primary mb-2">Tra Cứu Lỗi Kỹ Thuật</h1>
+            <p class="text-muted">Hệ thống cơ sở dữ liệu sửa chữa & bảo hành chính hãng</p>
         </div>
     </div>
 
-    <!-- Search/Filter Section -->
-    <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
-        <div class="card-body p-4">
-            <div class="row g-3">
-                <!-- 1. Danh mục -->
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold text-secondary">Danh mục sản phẩm</label>
-                    <select class="form-select" id="categorySelect">
-                        <option selected disabled>-- Chọn danh mục --</option>
-                        @foreach($categories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name_vi }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                
-                <!-- 2. Sản phẩm (Tên/Loại) -->
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold text-secondary">Sản phẩm</label>
-                    <select class="form-select" id="productNameSelect">
-                        <option selected disabled>-- Chọn sản phẩm --</option>
-                    </select>
-                </div>
-
-                <!-- 3. Xuất xứ -->
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold text-secondary">Xuất xứ</label>
-                    <select class="form-select" id="originSelect" disabled>
-                        <option selected disabled>-- Chọn xuất xứ --</option>
-                    </select>
-                </div>
-
-                <!-- 4. Mã sản phẩm -->
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold text-secondary">Mã sản phẩm</label>
-                    <div class="input-group">
-                        <select class="form-select" id="productCodeSelect" disabled>
-                            <option selected disabled>-- Chọn mã SP --</option>
-                        </select>
-                        <button class="btn btn-primary" type="button" id="btnSearch" disabled>
-                            <i class="bi bi-search"></i>
-                        </button>
+    <div class="row justify-content-center mb-5">
+        <div class="col-xl-10">
+            <div class="card border-0 shadow-lg rounded-pill overflow-hidden d-none d-lg-block">
+                <div class="card-body p-1">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-3 border-end">
+                            <select class="form-select border-0 py-3 ps-4 fw-semibold" id="categorySelect" style="border-radius: 30px 0 0 30px;">
+                                <option selected disabled>Danh mục sản phẩm</option>
+                                @foreach($categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name_vi }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-3 border-end">
+                            <select class="form-select border-0 py-3 ps-3" id="productNameSelect">
+                                <option selected disabled>Chọn sản phẩm...</option>
+                            </select>
+                        </div>
+                        <div class="col-2 border-end">
+                            <select class="form-select border-0 py-3 ps-3" id="originSelect" disabled>
+                                <option selected disabled>Xuất xứ...</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <select class="form-select border-0 py-3 ps-3 fw-bold text-primary" id="productCodeSelect" disabled>
+                                <option selected disabled>Mã Model...</option>
+                            </select>
+                        </div>
+                        <div class="col-1 pe-1">
+                            <button class="btn btn-primary w-100 rounded-pill py-3 h-100" type="button" id="btnSearch" disabled>
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            <div class="card border-0 shadow rounded-4 d-lg-none">
+                <div class="card-body p-3">
+                    <div class="d-grid gap-3">
+                        <select class="form-select" id="categorySelect_m"><option>Danh mục...</option></select>
+                        <div class="alert alert-info small mb-0"><i class="bi bi-pc-display me-1"></i> Vui lòng sử dụng máy tính để có trải nghiệm tra cứu tốt nhất.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-3">
+                <a href="{{ route('warranty.document.create') }}" class="btn btn-link text-decoration-none text-secondary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i>Thêm dữ liệu mới
+                </a>
+                <span class="text-muted mx-2">|</span>
+                <button class="btn btn-link text-decoration-none text-secondary btn-sm" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Làm mới bộ lọc
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Results Section (Initially Hidden) -->
-    <div id="resultsSection" style="display: none;">
-        <h5 class="mb-3 fw-bold text-dark border-start border-4 border-primary ps-3">Danh sách mã lỗi thường gặp</h5>
-        
-        <div class="row g-4" id="errorGrid">
-            <!-- Example Item Generated by JS -->
+    <div id="resultsSection" class="container-xl px-0">
+        <div class="d-flex align-items-center mb-3">
+            <h5 class="fw-bold text-dark mb-0 me-auto">Kết quả tra cứu</h5>
+            </div>
+
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden" id="errorTableCard">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="errorTable">
+                    <thead class="bg-light text-uppercase text-secondary small">
+                        <tr>
+                            <th class="py-3 ps-4" style="width: 50px;">#</th>
+                            <th class="py-3" style="min-width: 100px;">Mã lỗi</th>
+                            <th class="py-3">Hiện tượng / Tên lỗi</th>
+                            <th class="py-3" style="width: 120px;">Mức độ</th>
+                            <th class="py-3">Mô tả sơ bộ</th>
+                            <th class="py-3 text-center" style="width: 100px;">Chi tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody id="errorTableBody" class="bg-white">
+                        <tr id="placeholderRow">
+                            <td colspan="6" class="text-center py-5">
+                                <div class="py-4">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/6104/6104865.png" alt="Search" width="80" class="opacity-25 mb-3">
+                                    <h6 class="text-muted fw-normal">Vui lòng chọn đầy đủ thông tin ở thanh tìm kiếm phía trên</h6>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- Empty State -->
         <div id="emptyState" class="text-center py-5 d-none">
-            <img src="https://cdn-icons-png.flaticon.com/512/7486/7486777.png" alt="No data" style="width: 100px; opacity: 0.5;">
-            <p class="text-muted mt-3">Không tìm thấy dữ liệu phù hợp.</p>
+            <div class="card border-0 bg-transparent">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-inbox-fill text-muted display-1 opacity-25"></i>
+                    </div>
+                    <h5 class="text-secondary">Không tìm thấy dữ liệu</h5>
+                    <p class="text-muted">Model này chưa được cập nhật mã lỗi nào.</p>
+                    <a href="{{ route('warranty.document.create') }}" class="btn btn-outline-primary rounded-pill mt-2">
+                        <i class="bi bi-plus-lg me-1"></i>Đóng góp dữ liệu ngay
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Detailed Modal (No Changes needed) -->
 <div class="modal fade" id="errorDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
-            <div class="modal-header bg-primary text-white py-3">
-                <h5 class="modal-title fw-bold" id="detailModalTitle">Chi tiết lỗi</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
             <div class="modal-body p-0">
                 <div class="row g-0 h-100">
-                    <!-- Left Side: Description & Solution -->
-                    <div class="col-lg-7 p-4 border-end">
-                        <div class="mb-4">
-                            <span class="badge bg-danger rounded-pill mb-2 px-3 py-2" id="detailErrorCode">E-01</span>
-                            <h3 class="fw-bold text-dark mb-3" id="detailErrorName">Lỗi cảm biến LIDAR</h3>
-                            
-                            <div class="alert alert-light border-start border-4 border-warning bg-light-warning">
-                                <h6 class="fw-bold text-warning mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Mô tả hiện tượng</h6>
-                                <p class="mb-0 text-secondary" id="detailDescription">Robot khởi động nhưng quay tại chỗ, báo lỗi Lidar bị kẹt hoặc không quay.</p>
+                    <div class="col-lg-7 d-flex flex-column h-100">
+                        <div class="p-4 border-bottom bg-white sticky-top">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-danger-subtle text-danger px-3 py-2 rounded-pill border border-danger-subtle" id="detailErrorCode">E-00</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
+                            <h3 class="fw-bold text-dark mb-2" id="detailErrorName">Tên lỗi sản phẩm</h3>
+                            <p class="text-muted mb-0" id="detailDescription">Mô tả chi tiết về hiện tượng...</p>
                         </div>
-
-                        <div class="card border-0 bg-light rounded-3 mb-4">
-                            <div class="card-body">
-                                <h5 class="fw-bold text-success mb-3"><i class="bi bi-wrench-adjustable-circle-fill me-2"></i>Hướng dẫn xử lý</h5>
-                                <div id="detailSolution" class="tech-steps">
-                                    <!-- Steps content -->
+                        
+                        <div class="p-4 flex-grow-1 bg-light custom-scrollbar" style="overflow-y: auto;">
+                            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold text-primary text-uppercase small mb-3"><i class="bi bi-tools me-2"></i>Quy trình xử lý</h6>
+                                    <div id="detailSolution" class="tech-steps">
+                                        </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div>
-                            <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Tài liệu tham khảo</h6>
-                            <div class="list-group list-group-flush" id="detailDocuments">
-                                <!-- Docs content -->
+                            <div class="mb-2">
+                                <h6 class="fw-bold text-secondary text-uppercase small mb-3"><i class="bi bi-paperclip me-2"></i>Tài liệu đính kèm</h6>
+                                <div class="list-group list-group-flush rounded-3 border-0" id="detailDocuments">
+                                    </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right Side: Media -->
-                    <div class="col-lg-5 bg-light p-4">
-                        <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-images me-2"></i>Hình ảnh / Video minh họa</h6>
-                        
-                        <div id="mediaCarousel" class="carousel slide rounded-3 overflow-hidden shadow-sm mb-3" data-bs-ride="carousel">
-                            <div class="carousel-inner" id="detailMediaInner">
-                                <!-- Slides -->
-                            </div>
+                    <div class="col-lg-5 bg-dark d-flex flex-column justify-content-center align-items-center position-relative">
+                        <div id="mediaCarousel" class="carousel slide w-100 h-100" data-bs-ride="false"> <div class="carousel-inner h-100 d-flex align-items-center" id="detailMediaInner">
+                                </div>
                             <button class="carousel-control-prev" type="button" data-bs-target="#mediaCarousel" data-bs-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Previous</span>
+                                <span class="carousel-control-prev-icon bg-dark rounded-circle p-3" aria-hidden="true"></span>
                             </button>
                             <button class="carousel-control-next" type="button" data-bs-target="#mediaCarousel" data-bs-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Next</span>
+                                <span class="carousel-control-next-icon bg-dark rounded-circle p-3" aria-hidden="true"></span>
                             </button>
                         </div>
                         
-                        <div class="d-grid gap-2">
-                            <a href="#" class="btn btn-outline-primary" id="btnDownloadAll">
-                                <i class="bi bi-cloud-arrow-down-fill me-2"></i>Tải xuống toàn bộ tài liệu
+                        <div class="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-dark text-center">
+                            <a href="#" class="btn btn-light rounded-pill btn-sm fw-bold shadow" id="btnDownloadAll">
+                                <i class="bi bi-download me-2"></i>Tải toàn bộ tài liệu
                             </a>
                         </div>
                     </div>
@@ -154,17 +171,34 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/technicaldocument/index.css') }}">
+<style>
+    /* Custom Scrollbar for cleaner look */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    
+    /* Tech Steps Styling */
+    .tech-steps ol { padding-left: 1.2rem; }
+    .tech-steps li { margin-bottom: 0.5rem; color: #333; }
+    
+    /* Floating Search Bar Tweaks */
+    .form-select:focus { box-shadow: none; background-color: #f8f9fa; }
+    
+    /* Modal Image Fit */
+    .carousel-item img { max-height: 80vh; object-fit: contain; width: 100%; }
+</style>
 
 <script>
     window.technicalDocumentIndexConfig = {
         routes: {
             getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
             getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
-            getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}"
+            getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
+            getErrorsByModel: "{{ route('warranty.document.getErrorsByModel') }}",
+            getErrorDetail: "{{ route('warranty.document.getErrorDetail') }}"
         }
     };
 </script>
 <script src="{{ asset('js/technicaldocument/index.js') }}"></script>
 @endsection
-
