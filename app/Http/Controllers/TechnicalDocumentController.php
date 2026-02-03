@@ -234,8 +234,9 @@ class TechnicalDocumentController extends Controller
             'steps.required'    => 'Các bước xử lý không được để trống.',
         ]);
 
-        $error = CommonError::findOrFail($request->error_id);
+        $error = CommonError::with('productModel')->findOrFail($request->error_id);
         $modelId = $error->model_id;
+        $productModel = $error->productModel;
 
         $guide = RepairGuide::create([
             'error_id'       => $request->error_id,
@@ -250,7 +251,12 @@ class TechnicalDocumentController extends Controller
             $disk = 'public';
             $basePath = 'technical_documents/' . date('Y/m/d');
 
-            foreach ($uploadedFiles as $file) {
+            // Lấy thông tin model để đặt tên file
+            $modelCode = $productModel ? str_replace(' ', '_', $productModel->model_code) : 'MODEL';
+            $modelVersion = $productModel && $productModel->version ? str_replace(' ', '_', $productModel->version) : '';
+            $errorCode = str_replace(' ', '_', $error->error_code);
+
+            foreach ($uploadedFiles as $index => $file) {
                 $ext = strtolower($file->getClientOriginalExtension());
                 $docType = match ($ext) {
                     'pdf' => 'manual',
@@ -259,7 +265,15 @@ class TechnicalDocumentController extends Controller
                     default => 'repair',
                 };
 
-                $path = $file->store($basePath, $disk);
+                // Tên file có cấu trúc: {model_code}_{error_code}_v{model_version}_{doc_type}_{timestamp}_{index}.{ext}
+                $timestamp = time();
+                $fileName = $modelCode . '_' . $errorCode;
+                if ($modelVersion) {
+                    $fileName .= '_v' . $modelVersion;
+                }
+                $fileName .= '_' . $docType . '_' . $timestamp . '_' . ($index + 1) . '.' . $ext;
+
+                $path = $file->storeAs($basePath, $fileName, $disk);
 
                 $doc = TechnicalDocument::create([
                     'model_id'    => $modelId,
