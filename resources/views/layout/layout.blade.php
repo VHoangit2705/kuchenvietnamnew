@@ -84,6 +84,9 @@
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
                 @endif
+                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
+                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
+                @endif
                 @endif
             </nav>
             <!-- Account Section -->
@@ -141,6 +144,9 @@
                 @endif
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                @endif
+                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
+                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
                 @endif
                 @endif
             </nav>

@@ -19,6 +19,7 @@ use App\Http\Controllers\UserAgencyController;
 use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
 use App\Http\Controllers\CollaboratorInstallBulkController;
+use App\Http\Controllers\TechnicalDocumentController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -35,7 +36,7 @@ Route::middleware('auth')->get('/keep-alive', function () {
 });
 
 // Home
-Route::middleware(['auth', \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckCookieLogin::class])->group(function () {
     Route::get('/', [HomeController::class, 'Index'])->name("home");
     Route::get('/baohanh/capnhat', [HomeController::class, 'UpdateWarrantyEnd'])->name('capnhat');
     Route::get('/baohanh/capnhatactiv', [HomeController::class, 'UpdateWarrantyActive'])->name('capnhatkichhoatbaohanh');
@@ -44,7 +45,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckCookieLogin::class])->group
 });
 
 // Warranty
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/thongbao', [WarrantyController::class, 'ThongBaoBaoHanh'])->name("warranty.thongbao");
     Route::get('/baohanh/kuchen/timkiem', [WarrantyController::class, 'Search'])->name("warranty.search");
     Route::post('/baohanh/kuchen', [WarrantyController::class, 'UpdateStatus'])->name("warranty.updatestatus");
@@ -85,7 +86,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 });
 
 // Collaborator
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/congtacvien', [CollaboratorController::class, 'Index'])->name('ctv.getlist');
     Route::post('/getbyid', [CollaboratorController::class, 'getByID'])->name('ctv.getbyid');
     Route::get('/getdistrict/{province_id}', [CollaboratorController::class, 'GetDistrictByProvinveId'])->name('ctv.getdistrict');
@@ -116,7 +117,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 });
 
 // Report
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/baohanh/baocao', [ReportController::class, "Index"])->name('baocao');
     Route::get('/sanpham', [ReportController::class, 'RecommentProduct'])->name('baocao.sanpham');
     Route::get('/linhkien', [ReportController::class, 'RecommentProductPart'])->name('baocao.linhkien');
@@ -130,7 +131,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 Route::get('/reports/view/{filename}', [ReportController::class, 'viewReportPdf']);
 
 //Code Warranty
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/baohanh/inphieubaohanh', [PrintWarrantyController::class, "Index"])->name('warrantycard');
     Route::get('/baohanh/inphieubaohanh/loc', [PrintWarrantyController::class, "Search"])->name('warrantycard.search');
     Route::post('/baohanh/inphieubaohanh/taomoi', [PrintWarrantyController::class, "Create"])->name('warrantycard.create');
@@ -141,6 +142,36 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/inphieubaohanh/tem/{id}', [PrintWarrantyController::class, 'TemView'])->name('warrantycard.tem');
     Route::get('/baohanh/inphieubaohanh/dowloadtem/{id}', [PrintWarrantyController::class, 'TemDowload'])->name('warrantycard.temdowload');
     Route::get('/baocaokichhoatbaohanh', [PrintWarrantyController::class, 'ExportActiveWarranty'])->name('baocaokichhoatbaohanh');
+    Route::get('/baohanh/tailieukithuat', [TechnicalDocumentController::class, 'Index'])->name('warranty.document')->middleware('role:admin,kythuatvien');
+    Route::get('/baohanh/tailieukithuat/create', [TechnicalDocumentController::class, 'Create'])->name('warranty.document.create')->middleware('role:admin,kythuatvien');
+    Route::prefix('baohanh/tailieukithuat')->group(function () {
+
+    Route::get('/get-products-by-category',
+        [TechnicalDocumentController::class, 'getProductsByCategory']
+    )->name('warranty.document.getProductsByCategory');
+
+    Route::get('/get-origins-by-product',
+        [TechnicalDocumentController::class, 'getOriginsByProduct']
+    )->name('warranty.document.getOriginsByProduct');
+
+    Route::get('/get-models-by-origin',
+        [TechnicalDocumentController::class, 'getModelsByOrigin']
+    )->name('warranty.document.getModelsByOrigin');
+
+    Route::get('/get-errors-by-model',
+        [TechnicalDocumentController::class, 'getErrorsByModel']
+    )->name('warranty.document.getErrorsByModel');
+
+    Route::post('/store-error',
+        [TechnicalDocumentController::class, 'storeError']
+    )->name('warranty.document.storeError')->middleware('role:admin,kythuatvien');
+
+    Route::post('/store-repair-guide',
+        [TechnicalDocumentController::class, 'storeRepairGuide']
+    )->name('warranty.document.storeRepairGuide')->middleware('role:admin,kythuatvien');
+
+});
+
 });
 
 //Permissions
