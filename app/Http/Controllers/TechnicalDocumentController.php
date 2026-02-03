@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 use App\Models\Kho\Category;
 use App\Models\Kho\Product;
 use App\Models\Kho\ProductModel;
@@ -163,6 +164,65 @@ class TechnicalDocumentController extends Controller
             ],
             'repair_guides' => $repairGuides,
         ]);
+    }
+
+    // Download toàn bộ tài liệu của mã lỗi (ZIP)
+    public function downloadAllDocuments(Request $request)
+    {
+        $errorId = (int) $request->get('error_id');
+        if (!$errorId) {
+            abort(400, 'Thiếu error_id');
+        }
+
+        $error = CommonError::with([
+            'productModel',
+            'repairGuides.technicalDocuments.documentVersions',
+        ])->find($errorId);
+
+        if (!$error) {
+            abort(404, 'Không tìm thấy mã lỗi');
+        }
+
+        $filePaths = [];
+        foreach ($error->repairGuides as $guide) {
+            foreach ($guide->technicalDocuments as $doc) {
+                $version = $doc->documentVersions->sortByDesc('id')->first();
+                if ($version && $version->file_path) {
+                    $fullPath = storage_path('app/public/' . ltrim($version->file_path, '/'));
+                    if (file_exists($fullPath)) {
+                        $filePaths[] = [
+                            'path' => $fullPath,
+                            'name' => basename($version->file_path),
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($filePaths)) {
+            abort(404, 'Không có tài liệu nào để tải.');
+        }
+
+        $modelCode = $error->productModel ? str_replace(' ', '_', $error->productModel->model_code) : 'MODEL';
+        $errorCode = str_replace(' ', '_', $error->error_code);
+        $zipFileName = $modelCode . '_' . $errorCode . '_Documents_' . time() . '.zip';
+        $zipPath = storage_path('app/public/temp/' . $zipFileName);
+
+        if (!is_dir(dirname($zipPath))) {
+            mkdir(dirname($zipPath), 0755, true);
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            abort(500, 'Không tạo được file ZIP.');
+        }
+
+        foreach ($filePaths as $file) {
+            $zip->addFile($file['path'], $file['name']);
+        }
+        $zip->close();
+
+        return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
     }
 
     // 4. Danh sách mã lỗi theo model (Bước 5)

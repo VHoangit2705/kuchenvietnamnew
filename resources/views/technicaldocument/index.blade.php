@@ -171,6 +171,36 @@
     </div>
 </div>
 
+<!-- Modal Preview PDF -->
+<div class="modal fade" id="pdfPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="pdfPreviewTitle">Xem tài liệu PDF</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="pdfPreviewIframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Preview Ảnh -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content bg-transparent border-0">
+            <div class="modal-header border-0 bg-dark bg-opacity-75 text-white">
+                <h5 class="modal-title" id="imagePreviewTitle">Xem hình ảnh</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="imagePreviewImg" src="" alt="Preview" class="img-fluid" style="max-height: 85vh; width: auto;">
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     /* Custom Scrollbar for cleaner look */
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -196,7 +226,8 @@
             getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
             getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
             getErrorsByModel: "{{ route('warranty.document.getErrorsByModel') }}",
-            getErrorDetail: "{{ route('warranty.document.getErrorDetail') }}"
+            getErrorDetail: "{{ route('warranty.document.getErrorDetail') }}",
+            downloadAllDocuments: "{{ route('warranty.document.downloadAllDocuments') }}"
         }
     };
 </script>

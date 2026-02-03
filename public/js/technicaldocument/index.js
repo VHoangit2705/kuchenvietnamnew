@@ -174,9 +174,15 @@
                 });
 
                 var docListHtml = '';
-                allDocs.forEach(function (d) {
-                    docListHtml += '<a href="' + d.file_url + '" target="_blank" class="list-group-item list-group-item-action document-item">' +
-                        '<i class="bi bi-file-earmark-' + (d.doc_type === 'manual' ? 'pdf' : 'image') + ' me-2"></i>' + escapeHtml(d.title) + ' <small class="text-muted">(' + (d.file_type || '') + ')</small></a>';
+                allDocs.forEach(function (d, idx) {
+                    var icon = 'file-earmark';
+                    if (d.doc_type === 'manual' || d.file_type === 'pdf') icon = 'file-earmark-pdf';
+                    else if (d.doc_type === 'image' || /^(jpg|jpeg|png|gif|webp)$/i.test(d.file_type)) icon = 'file-earmark-image';
+                    else if (d.doc_type === 'video' || /^(mp4|webm|ogg)$/i.test(d.file_type)) icon = 'file-earmark-play';
+
+                    docListHtml += '<a href="javascript:void(0)" class="list-group-item list-group-item-action document-item btn-preview-doc" ' +
+                        'data-url="' + escapeHtml(d.file_url) + '" data-title="' + escapeHtml(d.title) + '" data-type="' + escapeHtml(d.file_type || '') + '">' +
+                        '<i class="bi bi-' + icon + ' me-2"></i>' + escapeHtml(d.title) + ' <small class="text-muted">(' + (d.file_type || '') + ')</small></a>';
                 });
                 jQuery('#detailDocuments').html(docListHtml || '<p class="text-muted small mb-0">Chưa có tài liệu đính kèm.</p>');
 
@@ -203,7 +209,10 @@
                 }
 
                 if (allDocs.length > 0) {
-                    jQuery('#btnDownloadAll').attr('href', allDocs[0].file_url).attr('target', '_blank').show();
+                    jQuery('#btnDownloadAll')
+                        .attr('href', (routes.downloadAllDocuments || '') + '?error_id=' + errorId)
+                        .attr('download', '')
+                        .show();
                 } else {
                     jQuery('#btnDownloadAll').hide();
                 }
@@ -211,6 +220,30 @@
                 jQuery('#detailSolution').html('<p class="text-muted">Không tải được chi tiết.</p>');
                 jQuery('#detailMediaInner').html('<div class="text-center py-5 text-muted">Không tải được dữ liệu.</div>');
             });
+        });
+
+        // Click vào tài liệu → mở modal preview (PDF/ảnh/video) thay vì tab mới
+        jQuery(document).on('click', '.btn-preview-doc', function () {
+            var url = jQuery(this).data('url');
+            var title = jQuery(this).data('title');
+            var fileType = (jQuery(this).data('type') || '').toLowerCase();
+
+            if (fileType === 'pdf') {
+                jQuery('#pdfPreviewTitle').text(title || 'Tài liệu PDF');
+                jQuery('#pdfPreviewIframe').attr('src', url);
+                jQuery('#pdfPreviewModal').modal('show');
+            } else if (/^(jpg|jpeg|png|gif|webp)$/i.test(fileType)) {
+                jQuery('#imagePreviewTitle').text(title || 'Hình ảnh');
+                jQuery('#imagePreviewImg').attr('src', url);
+                jQuery('#imagePreviewModal').modal('show');
+            } else {
+                window.open(url, '_blank');
+            }
+        });
+
+        // Đóng modal PDF → xóa src để tránh reload
+        jQuery('#pdfPreviewModal').on('hidden.bs.modal', function () {
+            jQuery('#pdfPreviewIframe').attr('src', '');
         });
 
         function escapeHtml(text) {

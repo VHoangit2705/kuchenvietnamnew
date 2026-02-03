@@ -166,6 +166,10 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         [TechnicalDocumentController::class, 'getErrorDetail']
     )->name('warranty.document.getErrorDetail');
 
+    Route::get('/download-all-documents',
+        [TechnicalDocumentController::class, 'downloadAllDocuments']
+    )->name('warranty.document.downloadAllDocuments');
+
     Route::post('/store-origin',
         [TechnicalDocumentController::class, 'storeOrigin']
     )->name('warranty.document.storeOrigin')->middleware('role:admin,kythuatvien');
