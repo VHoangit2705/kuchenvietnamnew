@@ -63,8 +63,8 @@
         ward: "{{ request('ward') }}"
     };
 </script>
-<script src="{{ asset('js/collaborator/shared.js') }}"></script>
-<script src="{{ asset('js/collaborator/search.js') }}"></script>
-<script src="{{ asset('js/collaborator/form-modal.js') }}"></script>
-<script src="{{ asset('js/collaborator/table-actions.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/shared.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/search.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/form-modal.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/table-actions.js') }}"></script>
 @endsection

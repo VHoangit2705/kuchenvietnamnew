@@ -75,5 +75,5 @@
         csrfToken: '{{ csrf_token() }}'
     };
 </script>
-<script src="{{ asset('js/warranty/anomaly_alerts.js') }}"></script>
+<script src="{{ asset('public/js/warranty/anomaly_alerts.js') }}"></script>
 @endsection

@@ -98,5 +98,5 @@
         @include('components.status_modal')
     </div>
 
-    <script src="{{ asset('js/warranty/warranty.js') }}"></script>
+    <script src="{{ asset('public/js/warranty/warranty.js') }}"></script>
 @endsection
