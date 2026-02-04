@@ -109,28 +109,6 @@ class Product extends Model
 		return $this->categories()->first();
 	}
 
-
-	/**
-	 * Relationship với categories qua bảng product_categories
-	 */
-	public function categories()
-	{
-		return $this->belongsToMany(
-			Category::class,
-			'product_categories',
-			'product_id',
-			'category_id'
-		)->where('categories.website_id', 2);
-	}
-
-	/**
-	 * Lấy category đầu tiên của sản phẩm
-	 */
-	public function getCategoryAttribute()
-	{
-		return $this->categories()->first();
-	}
-
 	public static function getListProduct($view)
 	{
 		return self::where('view',  $view) 
