@@ -2608,7 +2608,7 @@
             } else {
                 const video = document.createElement('video');
                 video.src =
-                    'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public/' +
+                    'https://kythuat.kuchenvietnam.vn/storage/app/public/' +
                     videoPath;
                 video.controls = true;
                 video.className = 'w-100';

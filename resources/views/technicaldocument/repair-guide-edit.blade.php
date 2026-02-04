@@ -108,5 +108,5 @@ window.repairGuideData = {
     detachUrl: '{{ url('baohanh/tailieukithuat/repair-guides') }}/{{ $guide->id }}/documents/'
 };
 </script>
-<script src="{{ asset('public/js/technicaldocument/repair-guide-edit.js') }}"></script>
+<script src="{{ asset('js/technicaldocument/repair-guide-edit.js') }}"></script>
 @endsection

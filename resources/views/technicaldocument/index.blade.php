@@ -197,5 +197,5 @@
         }
     };
 </script>
-<script src="{{ asset('public/js/technicaldocument/index.js') }}"></script>
+<script src="{{ asset('js/technicaldocument/index.js') }}"></script>
 @endsection

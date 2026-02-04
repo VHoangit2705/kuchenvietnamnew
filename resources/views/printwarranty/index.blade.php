@@ -138,15 +138,15 @@
     </div>
     
     <!-- Load validation functions trước -->
-    <script src="{{ asset('public/js/printwarranty/validations.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/validations.js') }}"></script>
     
     <!-- Load các module chức năng -->
-    <script src="{{ asset('public/js/printwarranty/ui.js') }}"></script>
-    <script src="{{ asset('public/js/printwarranty/submit.js') }}"></script>
-    <script src="{{ asset('public/js/printwarranty/serial_input.js') }}"></script>
-    <script src="{{ asset('public/js/printwarranty/file.js') }}"></script>
-    <script src="{{ asset('public/js/printwarranty/search.js') }}"></script>
-    <script src="{{ asset('public/js/printwarranty/export.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/ui.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/submit.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/serial_input.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/file.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/search.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/export.js') }}"></script>
     
     <!-- Khởi tạo dữ liệu và main file -->
     <script>
@@ -165,5 +165,5 @@
             initPrintWarranty();
         });
     </script>
-    <script src="{{ asset('public/js/printwarranty/index.js') }}"></script>
+    <script src="{{ asset('js/printwarranty/index.js') }}"></script>
 @endsection
