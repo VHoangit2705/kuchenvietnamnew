@@ -1,0 +1,42 @@
+name: Deploy Laravel to cPanel via FTP Kythuat (Server installs vendor)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # 2️⃣ Prepare deploy (KHÔNG vendor)
+      - name: Prepare deploy
+        run: |
+          mkdir deploy
+          rsync -av \
+            --exclude="vendor" \
+            --exclude=".git*" \
+            --exclude=".github*" \
+            --exclude=".env" \
+            --exclude="node_modules" \
+            --exclude="tests" \
+            --exclude="storage/logs" \
+            --exclude="README.md" \
+            ./ deploy/
+
+      # 3️⃣ FTP upload code only
+      - name: FTP Deploy (code only)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.SERVER }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./deploy/
+          server-dir: /
