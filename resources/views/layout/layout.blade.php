@@ -208,55 +208,7 @@
     </div>
     <!-- <footer class="bg-dark py-2 position-relative" style="height: 60px; flex-shrink: 0;" >
     </footer> -->
-    <!--test-->
-    <script>
-        function NewYear2026Notice() {
-            const now = new Date();
-            const currentYear = now.getFullYear();
 
-            // Chỉ hiển thị trong năm 2026
-            if (currentYear !== 2026) return;
-
-            const STORAGE_KEY = 'newyear2026_notice_closed_at';
-            const HIDE_DURATION = 12 * 60 * 60 * 1000; // 12 giờ
-
-            const lastClosedTime = localStorage.getItem(STORAGE_KEY);
-
-            if (lastClosedTime) {
-                const diff = Date.now() - parseInt(lastClosedTime, 10);
-                if (diff < HIDE_DURATION) {
-                    return; // Chưa đủ 12h thì không hiện
-                }
-            }
-
-            Swal.fire({
-                title: '🎉 Chào mừng năm mới 2026',
-                html: `
-                <div class="text-center">
-                    <img src="{{ asset('public/imgs/chao2026.jpg') }}" 
-                         alt="Chào mừng năm mới 2026"
-                         class="img-fluid mb-3"
-                         style="max-height:350px;">
-                    <p class="fw-bold mb-2">
-                        🎉 Ngày làm việc đầu tiên của năm 2026
-                    </p>
-                    <p>
-                        KÜCHEN kính chúc Quý Anh/Chị nhân viên công ty.<br>
-                        <strong>Sức khỏe – Thành công – Nhiều khởi sắc</strong><br>
-                        Chúc một năm làm việc hiệu quả và thuận lợi!
-                    </p>
-                </div>
-            `,
-                icon: 'success',
-                confirmButtonText: 'Bắt đầu làm việc',
-                allowOutsideClick: false,
-                allowEscapeKey: false
-            }).then(() => {
-                // Lưu thời điểm đóng popup
-                localStorage.setItem(STORAGE_KEY, Date.now());
-            });
-        }
-    </script>
     <script>
         function goBackOrReload() {
             if (document.referrer) {
