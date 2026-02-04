@@ -10,8 +10,12 @@
                     <p class="text-muted mb-0 small">Thiết lập dữ liệu sửa chữa chuẩn hóa cho từng Model sản phẩm</p>
                 </div>
                 <div>
+                    <div class="d-flex gap-2">
                     <a href="{{ route('warranty.document') }}" class="btn btn-outline-secondary rounded-pill px-4">
-                        <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+                        <i class="bi bi-arrow-left me-1"></i>Quay lại tra cứu
+                    </a>
+                    <a href="{{ route('warranty.document.documents.index') }}" class="btn btn-outline-primary rounded-pill px-4">
+                        <i class="bi bi-folder2-open me-1"></i>Quản lý tài liệu
                     </a>
                 </div>
             </div>
@@ -109,6 +113,10 @@
                                 <select class="form-select form-select-lg bg-light border-0 fw-bold text-danger" id="createErrorId">
                                     <option value="">-- Vui lòng chọn mã lỗi bên trái --</option>
                                 </select>
+                                <div id="repairGuidesListCard" class="mt-3 card border-0 bg-light rounded-3 overflow-hidden" style="display: none;">
+                                    <div class="card-header py-2 px-3 fw-semibold small text-secondary">Hướng dẫn sửa của mã lỗi này</div>
+                                    <div id="repairGuidesList" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;"></div>
+                                </div>
                             </div>
 
                             <div class="row g-3 mb-3">
@@ -210,11 +218,12 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-danger"><i class="bi bi-bug me-2"></i>Khai báo lỗi mới</h5>
+                <h5 class="modal-title fw-bold text-danger" id="modalAddErrorTitle"><i class="bi bi-bug me-2"></i>Khai báo lỗi mới</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <form id="formAddError">
+                    <input type="hidden" id="errorEditId" name="error_edit_id" value="">
                     <div class="row g-2 mb-3">
                         <div class="col-4">
                             <div class="form-floating">
@@ -261,9 +270,16 @@
             getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
             getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
             getErrorsByModel: "{{ route('warranty.document.getErrorsByModel') }}",
+            getErrorById: "{{ url('baohanh/tailieukithuat/common-errors') }}",
             storeOrigin: "{{ route('warranty.document.storeOrigin') }}",
             storeError: "{{ route('warranty.document.storeError') }}",
-            storeRepairGuide: "{{ route('warranty.document.storeRepairGuide') }}"
+            updateError: "{{ url('baohanh/tailieukithuat/common-errors') }}",
+            destroyError: "{{ url('baohanh/tailieukithuat/common-errors') }}",
+            storeRepairGuide: "{{ route('warranty.document.storeRepairGuide') }}",
+            getRepairGuidesByError: "{{ route('warranty.document.repairGuides.byError') }}",
+            editRepairGuide: "{{ url('baohanh/tailieukithuat/repair-guides/edit') }}",
+            updateRepairGuide: "{{ url('baohanh/tailieukithuat/repair-guides') }}",
+            destroyRepairGuide: "{{ url('baohanh/tailieukithuat/repair-guides') }}"
         }
     };
 </script>

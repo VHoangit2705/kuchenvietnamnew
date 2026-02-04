@@ -23,7 +23,7 @@
                             </select>
                         </div>
                         <div class="col-3 border-end">
-                            <select class="form-select border-0 py-3 ps-3" id="productNameSelect">
+                            <select class="form-select border-0 py-3 ps-3" id="productNameSelect" disabled>
                                 <option selected disabled>Chọn sản phẩm...</option>
                             </select>
                         </div>
@@ -55,13 +55,26 @@
                 </div>
             </div>
             
-            <div class="text-center mt-3">
-                <a href="{{ route('warranty.document.create') }}" class="btn btn-link text-decoration-none text-secondary btn-sm">
-                    <i class="bi bi-plus-circle me-1"></i>Thêm dữ liệu mới
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                {{-- Style xanh lá nhạt cho hành động thêm --}}
+                <a href="{{ route('warranty.document.create') }}" 
+                   class="btn border-0 text-success fw-bold px-3 py-2"
+                   style="background-color: #d1e7dd;">
+                    <i class="bi bi-plus-square-fill me-2"></i>Thêm dữ liệu
                 </a>
-                <span class="text-muted mx-2">|</span>
-                <button class="btn btn-link text-decoration-none text-secondary btn-sm" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Làm mới bộ lọc
+            
+                {{-- Style xanh dương nhạt cho tài liệu --}}
+                <a href="{{ route('warranty.document.documents.index') }}" 
+                   class="btn border-0 text-primary fw-bold px-3 py-2"
+                   style="background-color: #cfe2ff;">
+                    <i class="bi bi-folder-fill me-2"></i>Quản lý tài liệu
+                </a>
+            
+                {{-- Style xám cho reset --}}
+                <button onclick="location.reload()" 
+                        class="btn border-0 text-secondary px-3 py-2"
+                        style="background-color: #e2e3e5;">
+                    <i class="bi bi-arrow-repeat me-1"></i>Reset
                 </button>
             </div>
         </div>

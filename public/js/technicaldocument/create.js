@@ -36,8 +36,10 @@
             if (res && res.length) {
                 res.forEach(function (e) {
                     jQuery('#errorList').append(
-                        '<li class="list-group-item d-flex justify-content-between align-items-center">' +
+                        '<li class="list-group-item d-flex justify-content-between align-items-center" data-id="' + e.id + '">' +
                         '<span><strong>' + (e.error_code || '') + '</strong> ' + (e.error_name || '') + ' <span class="badge bg-secondary">' + (e.severity || 'normal') + '</span></span>' +
+                        '<div class="btn-group btn-group-sm"><button type="button" class="btn btn-outline-primary btn-edit-error" data-id="' + e.id + '" title="Sửa"><i class="bi bi-pencil"></i></button>' +
+                        '<button type="button" class="btn btn-outline-danger btn-delete-error" data-id="' + e.id + '" title="Xóa"><i class="bi bi-trash"></i></button></div>' +
                         '</li>'
                     );
                 });
@@ -137,34 +139,135 @@
             loadErrorsByModel(selectedModelId);
         });
 
-        // Modal: Thêm mã lỗi (Bước 5)
-        jQuery('#formAddError').on('submit', function (e) {
-            e.preventDefault();
-            if (!selectedModelId) {
-                alert('Vui lòng chọn Mã sản phẩm (Model) trước.');
-                return;
+        // Mở modal Thêm mã lỗi → clear edit mode
+        jQuery('#modalAddError').on('show.bs.modal', function (ev) {
+            if (!jQuery(ev.relatedTarget).hasClass('btn-edit-error')) {
+                jQuery('#errorEditId').val('');
+                jQuery('#modalAddErrorTitle').html('<i class="bi bi-bug me-2"></i>Khai báo lỗi mới');
             }
-            var fd = new FormData(this);
-            fd.append('model_id', selectedModelId);
-            fd.append('_token', csrfToken);
+        });
+
+        // Sửa mã lỗi: load dữ liệu và mở modal
+        jQuery('#errorList').on('click', '.btn-edit-error', function () {
+            var id = jQuery(this).data('id');
+            jQuery('#modalAddErrorTitle').text('Sửa mã lỗi');
+            jQuery.get(routes.getErrorById + '/' + id).then(function (res) {
+                jQuery('#errorEditId').val(res.id);
+                jQuery('#modalErrorCode').val(res.error_code || '');
+                jQuery('#modalErrorName').val(res.error_name || '');
+                jQuery('#modalSeverity').val(res.severity || 'normal');
+                jQuery('#modalDesc').val(res.description || '');
+                jQuery('#modalAddError').modal('show');
+            }).fail(function (xhr) { showError(xhr); });
+        });
+
+        // Xóa mã lỗi
+        jQuery('#errorList').on('click', '.btn-delete-error', function () {
+            if (!confirm('Bạn có chắc muốn xóa mã lỗi này?')) return;
+            var id = jQuery(this).data('id');
             jQuery.ajax({
-                url: routes.storeError || '',
-                type: 'POST',
-                data: fd,
-                processData: false,
-                contentType: false,
-                success: function () {
-                    jQuery('#modalAddError').modal('hide');
-                    jQuery('#formAddError')[0].reset();
+                url: routes.destroyError + '/' + id,
+                type: 'DELETE',
+                data: { _token: csrfToken },
+                success: function (res) {
+                    if (res && res.message) alert(res.message);
                     loadErrorsByModel(selectedModelId);
                 },
                 error: function (xhr) { showError(xhr); }
             });
         });
 
-        // Chọn mã lỗi → gán vào form hướng dẫn
+        // Modal: Thêm/Sửa mã lỗi (Bước 5)
+        jQuery('#formAddError').on('submit', function (e) {
+            e.preventDefault();
+            var editId = jQuery('#errorEditId').val();
+            if (editId) {
+                var fd = new FormData(this);
+                fd.append('_token', csrfToken);
+                fd.append('_method', 'PUT');
+                jQuery.ajax({
+                    url: routes.updateError + '/' + editId,
+                    type: 'POST',
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function (res) {
+                        jQuery('#modalAddError').modal('hide');
+                        jQuery('#formAddError')[0].reset();
+                        jQuery('#errorEditId').val('');
+                        if (res && res.message) alert(res.message);
+                        loadErrorsByModel(selectedModelId);
+                    },
+                    error: function (xhr) { showError(xhr); }
+                });
+            } else {
+                if (!selectedModelId) {
+                    alert('Vui lòng chọn Mã sản phẩm (Model) trước.');
+                    return;
+                }
+                var fd = new FormData(this);
+                fd.append('model_id', selectedModelId);
+                fd.append('_token', csrfToken);
+                jQuery.ajax({
+                    url: routes.storeError || '',
+                    type: 'POST',
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function () {
+                        jQuery('#modalAddError').modal('hide');
+                        jQuery('#formAddError')[0].reset();
+                        loadErrorsByModel(selectedModelId);
+                    },
+                    error: function (xhr) { showError(xhr); }
+                });
+            }
+        });
+
+        // Chọn mã lỗi → gán vào form hướng dẫn + load danh sách hướng dẫn sửa
         jQuery('#createErrorId').on('change', function () {
-            jQuery('#guideErrorId').val(jQuery(this).val());
+            var errId = jQuery(this).val();
+            jQuery('#guideErrorId').val(errId);
+            var card = jQuery('#repairGuidesListCard');
+            var list = jQuery('#repairGuidesList');
+            list.empty();
+            if (!errId) {
+                card.hide();
+                return;
+            }
+            jQuery.get(routes.getRepairGuidesByError || '', { error_id: errId }, function (res) {
+                if (res && res.length) {
+                    res.forEach(function (g) {
+                        list.append(
+                            '<div class="list-group-item d-flex justify-content-between align-items-center py-2">' +
+                            '<span class="small">' + (g.title || '') + '</span>' +
+                            '<div class="btn-group btn-group-sm">' +
+                            '<a href="' + (routes.editRepairGuide || '') + '/' + g.id + '" class="btn btn-outline-primary btn-sm" title="Sửa"><i class="bi bi-pencil"></i></a>' +
+                            '<button type="button" class="btn btn-outline-danger btn-sm btn-delete-guide" data-id="' + g.id + '" title="Xóa"><i class="bi bi-trash"></i></button>' +
+                            '</div></div>'
+                        );
+                    });
+                    card.show();
+                } else {
+                    card.hide();
+                }
+            });
+        });
+
+        // Xóa hướng dẫn sửa
+        jQuery('#repairGuidesList').on('click', '.btn-delete-guide', function () {
+            if (!confirm('Bạn có chắc muốn xóa hướng dẫn sửa này?')) return;
+            var id = jQuery(this).data('id');
+            jQuery.ajax({
+                url: (routes.destroyRepairGuide || '') + '/' + id,
+                type: 'DELETE',
+                data: { _token: csrfToken },
+                success: function (res) {
+                    if (res && res.message) alert(res.message);
+                    jQuery('#createErrorId').trigger('change');
+                },
+                error: function (xhr) { showError(xhr); }
+            });
         });
 
         // Bước 6–7: Lưu hướng dẫn + tài liệu

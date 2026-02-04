@@ -182,6 +182,29 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         [TechnicalDocumentController::class, 'storeRepairGuide']
     )->name('warranty.document.storeRepairGuide')->middleware('role:admin,kythuatvien');
 
+    // Common errors CRUD (update, destroy; create/store đã có)
+    Route::get('/common-errors/{id}', [TechnicalDocumentController::class, 'getErrorById'])->name('warranty.document.commonError.show');
+    Route::put('/common-errors/{id}', [TechnicalDocumentController::class, 'updateError'])->name('warranty.document.commonError.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/common-errors/{id}', [TechnicalDocumentController::class, 'destroyError'])->name('warranty.document.commonError.destroy')->middleware('role:admin,kythuatvien');
+
+    // Repair guides CRUD (edit, update, destroy; create/store đã có)
+    Route::get('/repair-guides-by-error', [TechnicalDocumentController::class, 'getRepairGuidesByError'])->name('warranty.document.repairGuides.byError');
+    Route::get('/repair-guides/edit/{id}', [TechnicalDocumentController::class, 'editRepairGuide'])->name('warranty.document.repairGuide.edit')->middleware('role:admin,kythuatvien');
+    Route::put('/repair-guides/{id}', [TechnicalDocumentController::class, 'updateRepairGuide'])->name('warranty.document.repairGuide.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/repair-guides/{id}', [TechnicalDocumentController::class, 'destroyRepairGuide'])->name('warranty.document.repairGuide.destroy')->middleware('role:admin,kythuatvien');
+    Route::post('/repair-guides/{id}/attach-documents', [TechnicalDocumentController::class, 'attachDocumentsToRepairGuide'])->name('warranty.document.repairGuide.attachDocuments')->middleware('role:admin,kythuatvien');
+    Route::delete('/repair-guides/{id}/documents/{documentId}', [TechnicalDocumentController::class, 'detachDocumentFromRepairGuide'])->name('warranty.document.repairGuide.detachDocument')->middleware('role:admin,kythuatvien');
+
+    // Technical documents CRUD
+    Route::get('/documents', [TechnicalDocumentController::class, 'indexDocuments'])->name('warranty.document.documents.index')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/create', [TechnicalDocumentController::class, 'createDocument'])->name('warranty.document.documents.create')->middleware('role:admin,kythuatvien');
+    Route::post('/documents', [TechnicalDocumentController::class, 'storeDocument'])->name('warranty.document.documents.store')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/edit/{id}', [TechnicalDocumentController::class, 'editDocument'])->name('warranty.document.documents.edit')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/{id}', [TechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show')->middleware('role:admin,kythuatvien');
+    Route::put('/documents/{id}', [TechnicalDocumentController::class, 'updateDocument'])->name('warranty.document.documents.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy')->middleware('role:admin,kythuatvien');
+    Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+
 });
 
 });
