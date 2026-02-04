@@ -54,12 +54,6 @@ class User extends Authenticatable  implements OAuthenticatable
 	 */
 	protected $cachedPermissions = null;
 	
-	
-	/**
-	 * Cache permissions để tránh query lặp lại
-	 */
-	protected $cachedPermissions = null;
-	
 	public function roles()
 	{
 		return $this->belongsToMany(Role::class, 'user_role', 'user_id', 'role_id');
