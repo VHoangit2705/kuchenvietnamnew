@@ -232,4 +232,3 @@ $(document).ready(function() {
         return changes.filter(change => orderFields.includes(change.field));
     }
 });
-

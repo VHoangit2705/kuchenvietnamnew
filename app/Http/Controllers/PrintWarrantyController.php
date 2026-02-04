@@ -34,7 +34,7 @@ class PrintWarrantyController extends Controller
         $view = Session('brand') === 'hurom' ? 3 : 1;
         
         // Cache Product query - dữ liệu ít thay đổi, cache 1 giờ
-        $products = Cache::remember("products_view_{$view}", 3600, function() use ($view) {
+        $products = Cache::remember("products_view_{$view}", 10, function() use ($view) {
             return Product::where('view', $view)
                 ->select('id', 'view', 'product_name')
                 ->get()

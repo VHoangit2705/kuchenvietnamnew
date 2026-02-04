@@ -60,4 +60,3 @@ class Notification extends Model
         $this->save();
     }
 }
-

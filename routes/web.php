@@ -23,6 +23,12 @@ use App\Http\Controllers\CollaboratorInstallBulkController;
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
+
 
 // Password change routes
 Route::middleware('auth')->group(function () {
@@ -63,7 +69,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/request/{id}', [WarrantyController::class, 'Request'])->name('warranty.request');
     Route::get('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'CheckWarranty'])->name("warranty.check");
     Route::post('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'FindWarranty'])->name("warranty.find"); // tra cứu
-    Route::post('/baohanh/kiemtrabaohanh/order', [WarrantyController::class, 'FindWarrantyByOrderCode'])->name("warranty.findbyorder"); // tra cứu theo mã đơn hàng
+    Route::post('/baohanh/kiemtrabaohanh/order', [WarrantyController::class, 'FindWarrantyByOrderCode'])->name("warranty.findbyorder");
     Route::post('/baohanh/kiemtrabaohanh/phone', [WarrantyController::class, 'FindWarrantyByPhone'])->name("warranty.findbyphone"); // tra cứu theo SĐT
     Route::post('/baohanh/kiemtranhanh', [WarrantyController::class, 'FindWarrantyQR'])->name("warranty.findqr"); // tra cứu qr
     Route::post('/baohanh/kiemtrabaohanhold', [WarrantyController::class, 'findWarantyOld'])->name("warranty.findold");
@@ -163,7 +169,6 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
     Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
     Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
-    
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
     Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
@@ -184,5 +189,47 @@ Route::get('/detailproblem', [TechSupportController::class, 'DetailProblem'])->n
 Route::get('/updatestatus', [TechSupportController::class, 'UpdateStatus'])->name('updatestatus');
 // Cronjob routes for report commands (public routes for scheduled tasks)
 Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandController::class, 'runSaveSnapshot']);
+
 Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
 Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
+
+// Route::get('/clear-cache', function () {
+
+//     // Clear các cache của Laravel
+//     Artisan::call('clear-compiled');
+//     Artisan::call('cache:clear');
+//     Artisan::call('config:clear');
+//     Artisan::call('route:clear');
+//     Artisan::call('view:clear');
+//     Artisan::call('optimize:clear');
+
+//     // Reset OPCACHE nếu server cho phép
+//     if (function_exists('opcache_reset')) {
+//         opcache_reset();
+//         $opcache = 'OPCACHE RESET';
+//     } else {
+//         $opcache = 'OPCACHE NOT ENABLED';
+//     }
+
+//     return response()->json([
+//         'status' => 'OK',
+//         'message' => 'Đã clear toàn bộ cache Laravel',
+//         'opcache' => $opcache,
+//         'note' => 'Composer dump-autoload cần chạy bằng SSH'
+//     ]);
+// });
+
+// Route::get('/test-model', function () {
+//     return class_exists(\App\Models\KyThuat\WarrantyUploadError::class)
+//         ? 'MODEL OK'
+//         : 'MODEL NOT FOUND';
+// });
+// Route::get('/debug-app-path', function () {
+//     return [
+//         'base_path' => base_path(),
+//         'app_path' => app_path(),
+//         'models_exist' => file_exists(app_path('Models/KyThuat/WarrantyUploadError.php')),
+//     ];
+// });
+
+

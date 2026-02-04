@@ -38,7 +38,7 @@ class User extends Authenticatable  implements OAuthenticatable
 	];
 
 	protected $fillable = [
-		'username',
+	    'username',
 		'email',
 		'full_name',
 		'password',
@@ -54,13 +54,19 @@ class User extends Authenticatable  implements OAuthenticatable
 	 */
 	protected $cachedPermissions = null;
 	
+	
+	/**
+	 * Cache permissions để tránh query lặp lại
+	 */
+	protected $cachedPermissions = null;
+	
 	public function roles()
 	{
 		return $this->belongsToMany(Role::class, 'user_role', 'user_id', 'role_id');
 	}
     public function hasAnyRole($roles)
     {
-        // Eager load roles nếu chưa có
+         // Eager load roles nếu chưa có
         if (!$this->relationLoaded('roles')) {
             $this->load('roles');
         }
@@ -81,7 +87,7 @@ class User extends Authenticatable  implements OAuthenticatable
 
     public function hasRole($roleName)
     {
-        // Eager load roles nếu chưa có
+         // Eager load roles nếu chưa có
         if (!$this->relationLoaded('roles')) {
             $this->load('roles');
         }
@@ -101,7 +107,6 @@ class User extends Authenticatable  implements OAuthenticatable
         if ($this->cachedPermissions !== null) {
             return $this->cachedPermissions;
         }
-        
         // Eager load roles với permissions nếu chưa có
         if (!$this->relationLoaded('roles')) {
             $this->load(['roles.permissions']);
@@ -109,13 +114,12 @@ class User extends Authenticatable  implements OAuthenticatable
             // Nếu roles đã load nhưng chưa có permissions thì load thêm
             $this->loadMissing('roles.permissions');
         }
-        
         // Lấy permissions từ roles đã load
         $this->cachedPermissions = $this->roles
             ->pluck('permissions')
             ->flatten()
             ->unique('id');
-        
+            
         return $this->cachedPermissions;
     }
 

@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class WarrantyAnomalyDetector
 {
-    const ALERT_THRESHOLD = 2.5; // Hệ số cảnh báo
+    const ALERT_THRESHOLD = 4.5; // Hệ số cảnh báo
     const BLOCK_DURATION_HOURS = 1; // Chặn trong 1 giờ
 
     /**
@@ -97,8 +97,8 @@ class WarrantyAnomalyDetector
         $averagePerStaff = $stats['staff_count_in_branch'] > 0 
             ? $stats['total_count'] / $stats['staff_count_in_branch'] 
             : 0;
-        $thresholdByAverage = ceil($averagePerStaff * 2.5);
-        $thresholdByPercentage = ceil($stats['total_count'] * 0.5);
+        $thresholdByAverage = ceil($averagePerStaff * 4.5);
+        $thresholdByPercentage = ceil($stats['total_count'] * 0.8);
         
         // Lấy giá trị nhỏ hơn để đảm bảo công bằng hơn (fix ko bao giờ lấy min)
         $threshold = $thresholdByPercentage;
@@ -268,10 +268,10 @@ class WarrantyAnomalyDetector
         $staffCountFormatted = number_format($staffCount, 0);
         
         if ($isExistingBlock) {
-            return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đang tạm thời bị hạn chế tiếp nhận ca bảo hành Thời gian còn lại: {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
-        } else {
-            return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đã bị hạn chế tiếp nhận ca bảo hành trong {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
-        }
+        return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đang tạm thời bị hạn chế tiếp nhận ca bảo hành Thời gian còn lại: {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
+    } else {
+        return "⚠️ HỆ THỐNG PHÁT HIỆN HOẠT ĐỘNG BẤT THƯỜNG. Tài khoản của bạn đã bị hạn chế tiếp nhận ca bảo hành trong {$timeRemaining}.\n\nVui lòng liên hệ bộ phận quản lý để được hỗ trợ.";
+    }
     }
 
     /**

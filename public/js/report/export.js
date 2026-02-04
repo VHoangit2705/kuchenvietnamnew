@@ -34,5 +34,3 @@ $(document).on('hidden.bs.modal', '#previewModal', function() {
     $('#previewModal .preview-loading').removeClass('d-none');
     $('#previewModal iframe').addClass('d-none');
 });
-
-

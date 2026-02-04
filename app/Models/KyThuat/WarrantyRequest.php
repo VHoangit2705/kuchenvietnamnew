@@ -7,7 +7,6 @@
 namespace App\Models\KyThuat;
 use App\Models\KyThuat\WarrantyCollaborator;
 use App\Models\KyThuat\WarrantyRepairJob;
-
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -145,7 +144,8 @@ class WarrantyRequest extends Model
 	{
 		return $this->belongsTo(WarrantyCollaborator::class, 'collaborator_id');
 	}
-
+	
+	
 	public function repairJobs()
 	{
 		return $this->hasMany(WarrantyRepairJob::class, 'warranty_request_id', 'id');

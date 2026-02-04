@@ -31,4 +31,3 @@ class WarrantyRepairJob extends Model
     }
 
 }
-

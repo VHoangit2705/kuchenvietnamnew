@@ -112,6 +112,8 @@ class PermissionController extends Controller
     public function CreateUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|email|max:255|unique:users,email',
             'username' => [
                 'required',
                 'string',

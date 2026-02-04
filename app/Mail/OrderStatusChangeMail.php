@@ -35,4 +35,3 @@ class OrderStatusChangeMail extends Mailable
                     ]);
     }
 }
-

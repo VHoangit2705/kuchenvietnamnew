@@ -101,8 +101,8 @@ function validateModalSerialRange() {
         showModalError($input, "Dải serial không được để trống.");
         return false;
     }
-    if (value.length > 50) {
-        showModalError($input, "Dải serial không được vượt quá 50 ký tự.");
+    if (value.length > 1000) {
+        showModalError($input, "Dải serial không được vượt quá 1000 ký tự.");
         return false;
     }
     if (!validRegex.test(value.replace(/\s/g, ''))) {

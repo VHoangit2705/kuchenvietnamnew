@@ -137,14 +137,14 @@ return [
                 'dateFormat' => 'd/m/Y H:i:s',
             ],
         ],
-
+        
         'bulk_update_by_excel' => [
             'driver' => 'single',
             'path' => storage_path('logs/bulk_update_by_excel.log'),
             'level' => 'info',
             'replace_placeholders' => true,
         ],
-
+        
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,

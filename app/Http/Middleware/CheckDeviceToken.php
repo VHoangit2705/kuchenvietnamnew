@@ -21,4 +21,3 @@ class CheckDeviceToken
         return $next($request);
     }
 }
-
