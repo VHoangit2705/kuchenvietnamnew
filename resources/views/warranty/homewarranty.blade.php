@@ -193,5 +193,5 @@
             anomalyEnabled: {{ in_array(strtolower(session('position') ?? ''), ['admin', 'quản trị viên']) ? 'true' : 'false' }}
         };
     </script>
-    <script src="{{ asset('public/js/warranty/homewarranty.js') }}"></script>
+    <script src="{{ asset('js/warranty/homewarranty.js') }}"></script>
 @endsection

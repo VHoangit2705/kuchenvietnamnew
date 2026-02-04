@@ -210,6 +210,6 @@
             products: {!! json_encode($products ?? []) !!}
         };
     </script>
-    <script src="{{ asset('public/js/warranty/formwarranty.js') }}"></script>
+    <script src="{{ asset('js/warranty/formwarranty.js') }}"></script>
 
 @endsection
