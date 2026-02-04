@@ -27,6 +27,6 @@
 <div class="container-fluid" id="previewContainer" 
      data-tem-url="{{ route('warrantycard.tem', ['id' => $item->id]) }}"
      data-item-id="{{ $item->id }}"
-     data-pdf-base-url="https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public/pdfs"></div>
-<script src="{{ asset('public/js/printwarranty/details.js') }}"></script>
+     data-pdf-base-url="https://kythuat.kuchenvietnam.vn/storage/app/public/pdfs"></div>
+<script src="{{ asset('js/printwarranty/details.js') }}"></script>
 @endsection

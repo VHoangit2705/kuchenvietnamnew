@@ -117,6 +117,6 @@ window.errorIndexData = {
     filter: @json(isset($filter) ? $filter : ['category_id' => '', 'product_id' => '', 'xuat_xu' => ''])
 };
 </script>
-<script src="{{ asset('public/js/technicaldocument/filter.js') }}"></script>
-<script src="{{ asset('public/js/technicaldocument/error-index.js') }}"></script>
+<script src="{{ asset('js/technicaldocument/filter.js') }}"></script>
+<script src="{{ asset('js/technicaldocument/error-index.js') }}"></script>
 @endsection

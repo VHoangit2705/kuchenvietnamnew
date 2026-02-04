@@ -33,7 +33,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="{{ asset('public/css/menu.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/menu.css') }}">
 </head>
 
 <body class="bg-gray text-gray-800">
@@ -666,7 +666,7 @@
             }
         }, 5 * 60 * 1000);
     </script>
-    <script src="{{ asset('public/js/validateform.js') }}"></script>
+    <script src="{{ asset('js/validateform.js') }}"></script>
 </body>
 
 </html>

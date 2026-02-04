@@ -171,5 +171,5 @@
         @endforelse
     </tbody>
 </table>
-<link rel="stylesheet" href="{{ asset('public/css/printwarranty/tablebody.css') }}">
-<script src="{{ asset('public/js/printwarranty/tablebody.js') }}"></script>
+<link rel="stylesheet" href="{{ asset('css/printwarranty/tablebody.css') }}">
+<script src="{{ asset('js/printwarranty/tablebody.js') }}"></script>
