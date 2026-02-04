@@ -39,6 +39,10 @@ class Agency extends Model
 		'name',
 		'address',
 		'phone',
+		'email',
+		'birthday',
+		'bank_account',
+		'bank_name_agency',
 		'sotaikhoan',
 		'chinhanh',
 		'cccd',
@@ -50,5 +54,14 @@ class Agency extends Model
 	public function installationOrders()
 	{
 		return $this->hasMany(InstallationOrder::class, 'agency_phone', 'phone');
+	}
+
+	/**
+	 * Quan hệ: Agency hasMany UserAgency
+	 * Một đại lý có nhiều user đại lý
+	 */
+	public function userAgencies()
+	{
+		return $this->hasMany(UserAgency::class, 'agency_id', 'id');
 	}
 }

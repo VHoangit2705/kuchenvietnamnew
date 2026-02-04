@@ -1,19 +1,25 @@
 @extends('layout.layout')
 
 @section('content')
-<form method="GET" action="{{ route('baocao') }}">
+<form method="GET" action="{{ route('baocao') }}" id="reportFilterForm">
+    <input type="hidden" name="tab" value="{{ $activeTab }}" id="activeTabInput">
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}"
-                    placeholder="Nhập tên hoặc mã seri sản phẩm">
-                <div id="suggestions-product-name" class="autocomplete-suggestions"></div>
+                <div style="position: relative;">
+                    <input type="text" id="product" name="product" class="form-control" value="{{ request('product') }}" placeholder="Nhập tên hoặc mã seri sản phẩm" autocomplete="off">
+                    <div id="product-suggestions" class="list-group position-absolute w-100 d-none"
+                    style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="replacement" name="replacement" class="form-control"
-                    value="{{ request('replacement') }}" placeholder="Nhập linh kiện sản phẩm">
-                <div id="suggestions-product-part" class="autocomplete-suggestions"></div>
+                <div style="position: relative;">
+                    <input type="text" id="replacement" name="replacement" class="form-control"
+                        placeholder="Nhập linh kiện thay thế" autocomplete="off">
+                    <div id="replacement-suggestions" class="list-group position-absolute w-100 d-none"
+                    style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                </div>
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -50,9 +56,7 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1 position-relative">
-                <input type="text" id="staff_received" name="staff_received" class="form-control"
-                    value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
-                <div id="suggestions-product-staff" class="autocomplete-suggestions"></div>
+                <input type="text" id="staff_received" name="staff_received" class="form-control" value="{{ request('staff_received') }}" placeholder="Nhập tên kỹ thuật viên">
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
@@ -79,9 +83,12 @@
             </div>
 
             <div class="col-12 col-md-6 col-lg-4 mb-1">
-                <button type="submit" class="btnsearch btn btn-primary fw-bold me-2">
+                <button type="submit" id="btnSearch" class="btnsearch btn btn-primary fw-bold me-2">
                     <img src="{{ asset('icons/filter.png') }}" alt="Filter Icon" style="width: 16px; height: 16px;">
                     Lọc
+                </button>
+                <button type="button" id="resetFiltersReport" class="btn btn-outline-secondary fw-bold me-2">
+                    Xóa bộ lọc
                 </button>
                 <a href="#" id="exportExcel" class="btn btn-success fw-bold">
                     Xuất Excel
@@ -91,282 +98,95 @@
     </div>
 </form>
 
+{{-- Tab header --}}
+<div id="reportTabHeader">
+    @include('components.tab_header_report_warranty')
+</div>
+
 <div class="container-fluid d-flex flex-column justify-content-start mt-3">
+    <div id="reportTypeFilterWrapper">
+        @if($activeTab == 'work_process')
+            @php
+                $reportType = request('reportType', 'weekly');
+                $toDateCarbon = \Carbon\Carbon::parse($toDate);
+                $fromDateCarbon = \Carbon\Carbon::parse($fromDate);
+                $weekNumber = $toDateCarbon->weekOfMonth;
+                $monthNumber = $toDateCarbon->month;
+                
+                // Lấy thông tin from_date và to_date từ bản ghi đầu tiên trong database (nếu có)
+                $firstRecord = \App\Models\KyThuat\WarrantyOverdueRateHistory::where('report_type', $reportType)
+                    ->whereNotNull('staff_received')
+                    ->where('staff_received', '!=', '')
+                    ->where(function($q) use ($fromDateCarbon, $toDateCarbon) {
+                        $q->where('from_date', '<=', $toDateCarbon->toDateString())
+                          ->where('to_date', '>=', $fromDateCarbon->toDateString());
+                    })
+                    ->orderBy('to_date', 'desc')
+                    ->first();
+                
+                $actualFromDate = $firstRecord ? $firstRecord->from_date : $fromDateCarbon->toDateString();
+                $actualToDate = $firstRecord ? $firstRecord->to_date : $toDateCarbon->toDateString();
+            @endphp
+            @include('report.partials.report_type_filter', [
+                'reportType' => $reportType,
+                'weekNumber' => $weekNumber,
+                'monthNumber' => $monthNumber,
+                'fromDate' => $actualFromDate,
+                'toDate' => $actualToDate,
+            ])
+        @endif
+    </div>
+    
     <div class="table-container" style="overflow-x: auto;">
-        <table class="table table-striped table-hover">
-            <thead class="table-dark">
-                <tr class="text-center">
-                    <th class="align-middle">STT</th>
-                    <th class="align-middle" style="max-width: 70px;">Mã serial</th>
-                    <th class="align-middle" style="min-width: 200px;">Tên sản phẩm</th>
-                    <th class="align-middle" style="min-width: 150px;">Chi nhánh</th>
-                    <th class="align-middle" style="min-width: 100px;">Khách hàng</th>
-                    <th class="align-middle" style="min-width: 80px;">Điện thoại</th>
-                    <th class="align-middle" style="min-width: 100px;">Kỹ thuật viên</th>
-                    <th class="align-middle" style="min-width: 120px;">Ngày tiếp nhận</th>
-                    <th class="align-middle" style="min-width: 120px;">Lỗi ban đầu</th>
-                    <th class="align-middle" style="min-width: 120px;">Ngày xuất kho</th>
-                    <th class="align-middle" style="min-width: 100px;">Bảo hành</th>
-                    <th class="align-middle" style="min-width: 100px;">Linh kiện</th>
-                    <th class="align-middle" style="min-width: 80px;">Đơn giá</th>
-                    <th class="align-middle" style="min-width: 60px;">SL</th>
-                    <th class="align-middle" style="min-width: 100px;">Thành tiền</th>
-                    <!--<th class="align-middle" style="min-width: 120px;">KH thanh toán</th>-->
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($data as $item)
-                @php
-                $warrantyEnd = \Carbon\Carbon::parse($item->warranty_end);
-                $receivedDate = \Carbon\Carbon::parse($item->received_date);
-                $isInWarranty = $warrantyEnd->gte($receivedDate);
-                @endphp
-                <tr>
-                    <td class="shorten-text text-center">{{ $loop->iteration }}</td>
-                    <td class="shorten-text" data-bs-toggle="tooltip">
-                        @if(Str::contains($item->product, ['Máy giặt', 'Máy sấy', 'Máy rửa bát', 'Tủ lạnh']) && !empty($item->serial_thanmay))
-                        {{ $item->serial_thanmay }}
-                        @else
-                        {{ $item->serial_number }}
-                        @endif
-                    </td>
-                    <td class="shorten-text" data-bs-toggle="tooltip" title="{{ $item->product }}">
-                        <a href="{{ route('warranty.detail', ['id' => $item->id]) }}" target="_blank" class="text-decoration-none text-primary">
-                            {{ \Illuminate\Support\Str::limit($item->product, 40, '...') }}
-                        </a>
-                    </td>
-                    <td class="shorten-text">{{ $item->branch }}</td>
-                    <td class="shorten-text" data-bs-toggle="tooltip">{{ $item->full_name }}</td>
-                    <td class="shorten-text text-center">{{ $item->phone_number }}</td>
-                    <td class="shorten-text" data-bs-toggle="tooltip">{{ $item->staff_received }}</td>
-                    <td class="shorten-text text-center" data-bs-toggle="tooltip">
-                        {{ \Carbon\Carbon::parse($item->received_date)->format('d/m/Y') }}
-                    </td>
-                    <td class="shorten-text" data-bs-toggle="tooltip">{{ $item->initial_fault_condition }}</td>
-                    <td class="shorten-text text-center" data-bs-toggle="tooltip">
-                        {{ \Carbon\Carbon::parse($item->shipment_date)->format('d/m/Y') }}
-                    </td>
-                    <td class="shorten-text text-center {{ $isInWarranty ? 'text-success' : 'text-danger' }}">
-                        {{ $isInWarranty ? 'Còn hạn BH' : 'Hết hạn BH' }}
-                    </td>
-                    <td class="shorten-text" data-bs-toggle="tooltip" title="{{$item->replacement }}">
-                        {{ \Illuminate\Support\Str::limit($item->replacement, 40, '...') }}
-                    </td>
-                    <td class="shorten-text text-center">{{number_format($item->replacement_price, 0, ',', '.') }}</td>
-                    <td class="shorten-text text-center">{{$item->quantity }}</td>
-                    <td class="shorten-text text-center">
-                        {{number_format($item->replacement_price * $item->quantity, 0, ',', '.')}}
-                    </td>
-                    <!--<td class="shorten-text text-center">{{ number_format($item->total, 0, ',', '.') }}</td>-->
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="14" class="text-center">Không có dữ liệu</td>
-                </tr>
-                @endforelse
-            </tbody>
+        <table class="table table-striped table-hover" id="reportTableContent">
+            @if($activeTab == 'work_process')
+                {{-- Bảng thống kê quá trình làm việc --}}
+                @include('report.table_content_report.table_content_work_process')
+            @else
+                {{-- Bảng thống kê ca bảo hành --}}
+                @include('report.table_content_report.table_content')
+            @endif
         </table>
     </div>
 </div>
+
+<!-- Modal Preview Excel -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen modal-dialog-scrollable" style="max-width: 108vw;">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Xem trước báo cáo Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="preview-loading text-center p-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <iframe src="" style="width: 100%; height: 95vh; border: 0;" class="d-none"></iframe>
+            </div>
+        </div>
+    </div>
 </div>
-<style>
-    .table-container {
-        padding: 0;
-        overflow-y: auto;
-    }
 
-    .table-container .table thead {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
+<link rel="stylesheet" href="{{ asset('css/report_warranty.css') }}">
 
-    .is-invalid {
-        border-color: red;
-    }
-
-    .autocomplete-suggestions {
-        position: absolute;
-        z-index: 100;
-        background: #fff;
-        border: 1px solid #ccc;
-        width: calc(100% - 20px);
-        max-height: 150px;
-        overflow-y: auto;
-        display: none;
-        box-sizing: border-box;
-    }
-</style>
-
-<script type="text/javascript">
-    $(document).ready(function() {
-        resizeTableContainer();
-        // limitButtonClicks('btnsearch', 6);
-        validateDates();
-        setupAutoComplete('#product', '#suggestions-product-name', "{{ route('baocao.sanpham') }}");
-        setupAutoComplete('#replacement', '#suggestions-product-part', "{{ route('baocao.linhkien') }}");
-        setupAutoComplete('#staff_received', '#suggestions-product-staff', "{{ route('baocao.nhanvien') }}");
-    });
-    // Ẩn dữ liệu khi quá dài và hover hiện tooltip
-    document.addEventListener("DOMContentLoaded", function() {
-        const cells = document.querySelectorAll('.shorten-text');
-        cells.forEach(cell => {
-            const originalText = cell.textContent.trim();
-            if (originalText.length > 50) {
-                const words = originalText.split(' ');
-                let shortText = '';
-                let count = 0;
-                for (let word of words) {
-                    if ((shortText + word).length > 50) break;
-                    shortText += word + ' ';
-                }
-                shortText = shortText.trim() + '...';
-                cell.textContent = shortText;
-                cell.setAttribute('title', originalText);
-                cell.setAttribute('data-bs-toggle', 'tooltip');
-            }
-        });
-        // Kích hoạt tooltip của Bootstrap
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        tooltipTriggerList.forEach(function(tooltipTriggerEl) {
-            new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-    });
-
-    function resizeTableContainer() {
-        const windowHeight = $(window).height();
-        const containerHeight = $('.container').outerHeight(true); // bao gồm margin
-        const newHeight = windowHeight - containerHeight;
-        $('.table-container').height(newHeight - 10);
-    }
-
-    // Button Xuất Excel
-    $('#exportExcel').on('click', function(e) {
-        e.preventDefault();
-        Swal.fire({
-            title: 'Đang xuất file...',
-            text: 'Vui lòng chờ trong giây lát',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-        var params = @json(request() -> all());
-
-        fetch("{{ route('xuatbaocao') }}?" + new URLSearchParams(params))
-            .then(response => {
-                Swal.close();
-                const contentType = response.headers.get("Content-Type");
-                if (contentType.includes("application/json")) {
-                    hasError = true;
-                    return response.json().then(json => {
-                        Swal.fire({
-                            icon: 'error',
-                            text: json.message
-                        });
-                    });
-                } else {
-                    return response.blob().then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = "bao_cao_bao_hanh.xlsx";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    });
-                }
-            })
-            .catch(error => {
-                hasError = true;
-                Swal.close();
-                Swal.fire({
-                    icon: 'error',
-                    text: 'Lỗi server.'
-                });
-                console.error(error);
-            })
-    });
-
-    // validate dữ liệu tìm kiếm
-    function validateDates() {
-        const fromDate = $('#fromDate').val();
-        const toDate = $('#toDate').val();
-        const today = new Date().toISOString().split('T')[0]; // format: yyyy-mm-dd
-
-        $('#fromDate, #toDate').removeClass('is-invalid');
-        // Kiểm tra nếu nhập 1 trong 2 thì phải nhập cả 2
-        if ((fromDate && !toDate) || (!fromDate && toDate)) {
-            toastr.warning("Vui lòng nhập cả 'Tiếp nhận từ ngày' và 'Đến ngày'.");
-            if (!fromDate) $('#fromDate').addClass('is-invalid');
-            if (!toDate) $('#toDate').addClass('is-invalid');
-            return false;
-        }
-        // Nếu có đủ cả 2 thì kiểm tra logic ngày
-        if (fromDate && toDate) {
-            if (fromDate > toDate) {
-                toastr.warning("'Tiếp nhận từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'.");
-                $('#fromDate').addClass('is-invalid');
-                return false;
-            }
-            if (toDate > today) {
-                toastr.warning("'Đến ngày' không được lớn hơn ngày hiện tại.");
-                $('#toDate').addClass('is-invalid');
-                return false;
-            }
-        }
-        return true;
-    }
-
-    //Gợi ý từ
-    function setupAutoComplete(inputSelector, suggestionBoxSelector, requestUrl) {
-        $(inputSelector).on('keyup', function() {
-            let query = $(this).val();
-            if (query.length === 0) {
-                $(suggestionBoxSelector).hide();
-                return;
-            }
-            if (query.length >= 5) {
-                $.ajax({
-                    url: requestUrl,
-                    type: 'GET',
-                    data: {
-                        query: query
-                    },
-                    success: function(data) {
-                        $(suggestionBoxSelector).empty();
-                        if (data.length > 0) {
-                            $(suggestionBoxSelector).show();
-                            data.forEach(function(item) {
-                                $(suggestionBoxSelector).append(
-                                    '<div class="suggestion-item" style="padding: 8px; cursor: pointer;">' + item + '</div>'
-                                );
-                            });
-                            // Gán lại sự kiện click cho từng item
-                            $(suggestionBoxSelector + ' .suggestion-item').on('click', function() {
-                                $(inputSelector).val($(this).text());
-                                $(suggestionBoxSelector).hide();
-                            });
-                        } else {
-                            $(suggestionBoxSelector).hide();
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    // Ẩn gợi ý nếu click ngoài input và danh sách gợi ý
-    $(document).on('click', function(event) {
-        if (!$(event.target).closest('#product').length && !$(event.target).closest('#suggestions-product-name').length) {
-            $('#suggestions-product-name').hide();
-        }
-        if (!$(event.target).closest('#replacement').length && !$(event.target).closest('#suggestions-product-part').length) {
-            $('#suggestions-product-part').hide();
-        }
-        if (!$(event.target).closest('#staff_received').length && !$(event.target).closest('#suggestions-product-staff').length) {
-            $('#suggestions-product-staff').hide();
-        }
-    });
+<script>
+    window.replacementList = {!! json_encode($linhkien) !!};
+    window.exportReportRoute = '{{ route('xuatbaocao') }}';
+    window.previewReportRoute = '{{ route('baocao.preview.excel') }}';
+    window.reportRoute = '{{ route('baocao') }}';
+    window.reportParams = @json(request()->all());
+    window.productSuggestRoute = '{{ route('baocao.sanpham') }}';
 </script>
+<script src="{{ asset('public/js/report/validation.js') }}"></script>
+<script src="{{ asset('public/js/report/ui.js') }}"></script>
+<script src="{{ asset('public/js/report/product_suggest.js') }}"></script>
+<script src="{{ asset('public/js/report/replacement_suggest.js') }}"></script>
+<script src="{{ asset('public/js/report/export.js') }}"></script>
+<script src="{{ asset('public/js/report/reset.js') }}"></script>
+<script src="{{ asset('public/js/report/index.js') }}"></script>
 @endsection

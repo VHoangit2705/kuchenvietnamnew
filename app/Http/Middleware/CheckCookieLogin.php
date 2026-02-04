@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\KyThuat\User;
+use App\Models\KyThuat\UserDeviceToken;
 
 class CheckCookieLogin
 {
@@ -40,9 +41,22 @@ class CheckCookieLogin
             $hashedToken = hash('sha256', $token);
             
             if (Auth::user()->cookie_value !== $hashedToken) {
+                // Chỉ xóa device token của thiết bị A (thiết bị hiện tại) chứ không xóa tất cả
+                $deviceToken = Cookie::get('browser_token');
+                if ($deviceToken) {
+                    $hashedDeviceToken = hash('sha256', $deviceToken);
+                    UserDeviceToken::where('device_token', $hashedDeviceToken)
+                        ->where('is_active', 1)
+                        ->update(['is_active' => 0]);
+                }
+                
                 Auth::logout();
                 session()->flush();
+                $request->session()->invalidate(); // Hủy session hiện tại
+                $request->session()->regenerateToken(); // Tạo lại CSRF token
                 Cookie::queue(Cookie::forget('remember_token'));
+                Cookie::queue(Cookie::forget('browser_token'));
+                Cookie::queue(Cookie::forget('machine_id'));
         
                 if ($request->expectsJson()) {
                     return response()->json(['message' => 'Phiên đăng nhập đã hết hạn.'], 401);

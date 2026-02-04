@@ -12,11 +12,23 @@ use App\Http\Controllers\ImportExcelSyncController;
 use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\PrintWarrantyController;
 use App\Http\Controllers\PermissionController;
-
+use App\Http\Controllers\ExportReportController;
+use App\Http\Controllers\Api\ReportCommandController;
+use App\Http\Controllers\RequestAgencyController;
+use App\Http\Controllers\UserAgencyController;
+use App\Http\Middleware\CheckBrandSession;
+use App\Http\Middleware\CheckCookieLogin;
+use App\Http\Controllers\CollaboratorInstallBulkController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
+
 
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
@@ -39,14 +51,20 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/chitiet/{id}', [WarrantyController::class, 'Details'])->name("warranty.detail");
     Route::post('/baohanh/chitiet/capnhat', [WarrantyController::class, 'UpdateDetail'])->name("warranty.updatedetail");
     Route::post('/baohanh/chitiet/xoa', [WarrantyController::class, 'DeleteDetail'])->name("warranty.delete");
+    Route::post('/baohanh/congsuachua', [WarrantyController::class, 'saveRepairJob'])->name('warranty.repairjobs.save');
+    Route::get('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'showRepairJob'])->name('warranty.repairjobs.show');
+    Route::delete('/baohanh/congsuachua/{repairJob}', [WarrantyController::class, 'deleteRepairJob'])->name('warranty.repairjobs.delete');
     Route::post('/baohanh/chitiet/capnhatseri', [WarrantyController::class, 'UpdateSerial'])->name("warranty.updateserial");
     Route::post('/baohanh/chitiet/uploadphoto', [WarrantyController::class, 'UploadPhoto'])->name('photo.upload');  // tải ảnh lên
     Route::post('/baohanh/chitiet/uploadvideo', [WarrantyController::class, 'UploadVideo'])->name('video.upload');  // tải video lên
     Route::get('/baohanh/phieuin/{id}', [WarrantyController::class, 'GeneratePdf'])->name('warranty.pdf');
     Route::get('/baohanh/dowloadpdf/{id}', [WarrantyController::class, 'DowloadPdf'])->name('warranty.dowloadpdf');
+    Route::get('/baohanh/qr/{id}', [WarrantyController::class, 'GetPaymentQr'])->name('warranty.qr');
     Route::get('/baohanh/request/{id}', [WarrantyController::class, 'Request'])->name('warranty.request');
     Route::get('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'CheckWarranty'])->name("warranty.check");
     Route::post('/baohanh/kiemtrabaohanh', [WarrantyController::class, 'FindWarranty'])->name("warranty.find"); // tra cứu
+    Route::post('/baohanh/kiemtrabaohanh/order', [WarrantyController::class, 'FindWarrantyByOrderCode'])->name("warranty.findbyorder");
+    Route::post('/baohanh/kiemtrabaohanh/phone', [WarrantyController::class, 'FindWarrantyByPhone'])->name("warranty.findbyphone"); // tra cứu theo SĐT
     Route::post('/baohanh/kiemtranhanh', [WarrantyController::class, 'FindWarrantyQR'])->name("warranty.findqr"); // tra cứu qr
     Route::post('/baohanh/kiemtrabaohanhold', [WarrantyController::class, 'findWarantyOld'])->name("warranty.findold");
     Route::match(['GET', 'POST'], '/baohanh/phieubaohanh', [WarrantyController::class, 'FormWarrantyCard'])->name('warranty.formcard');
@@ -55,6 +73,15 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/themanhsanpham', [WarrantyController::class, 'TakePhotoWarranty'])->name("warranty.takephoto");
     Route::post('/baohanh/savemedia', [WarrantyController::class, 'StoreMedia'])->name('warranty.storemedia');
     Route::get('/baohanh/linhkiensua/{sophieu}', [WarrantyController::class, 'GetComponents'])->name('warranty.getcomponent');
+    Route::get('/baohanh/getproductcategory', [WarrantyController::class, 'getProductCategory'])->name('warranty.getProductCategory');
+    Route::get('/baohanh/getproductsbycategory', [WarrantyController::class, 'getProductsByCategory'])->name('warranty.getProductsByCategory');
+    Route::get('/baohanh/getproductsuggestions', [WarrantyController::class, 'getProductSuggestions'])->name('warranty.getProductSuggestions');
+    //Cảnh báo khóa nhập hộ ca bảo hành
+    Route::get('/baohanh/anomaly-alerts', [WarrantyController::class, 'AnomalyAlertsPage'])->name('warranty.anomaly.page');
+    Route::get('/baohanh/anomaly-alerts/api', [WarrantyController::class, 'getAnomalyAlerts'])->name('warranty.anomaly.alerts');
+    Route::post('/baohanh/anomaly-alerts/{id}/resolve', [WarrantyController::class, 'resolveAnomalyAlert'])->name('warranty.anomaly.resolve');
+    Route::post('/baohanh/anomaly-alerts/{id}/unblock', [WarrantyController::class, 'unblockStaff'])->name('warranty.anomaly.unblock');
+    Route::delete('/baohanh/anomaly-alerts/{id}', [WarrantyController::class, 'deleteAnomalyAlert'])->name('warranty.anomaly.delete');
 });
 
 // Collaborator
@@ -78,10 +105,14 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/dieuphoi/chitiet/{id}', [CollaboratorInstallController::class, 'Details'])->name("dieuphoi.detail");
     Route::get('/dieuphoicongtacvien/counts', [CollaboratorInstallCountsController::class, 'Counts'])->name('dieuphoi.counts');
     Route::post('/dieuphoi/update', [CollaboratorInstallController::class, 'Update'])->name("dieuphoi.update");
+    Route::post('/dieuphoi/bulk-update', [CollaboratorInstallBulkController::class, 'BulkUpdate'])->name("dieuphoi.bulk.update");
+    Route::post('/dieuphoi/bulk-update-excel', [CollaboratorInstallBulkController::class, 'BulkUpdateByExcel'])->name("dieuphoi.bulk.update.excel");
+    Route::post('/dieuphoi/chitiet/update-address', [CollaboratorInstallController::class, 'UpdateDetailCustomerAddress'])->name('dieuphoi.update.address');
     Route::post('/dieuphoi/chitiet/filter', [CollaboratorInstallController::class, 'Filter'])->name('collaborators.filter');
     // Route::post('/upload-excel', [CollaboratorInstallController::class, 'ImportExcel'])->name('upload-excel'); // Import old data
     Route::post('/upload-excel-sync', [ImportExcelSyncController::class, 'ImportExcelSync'])->name('upload-excel-sync'); // Sync data with upsert
-    Route::get('/dieuphoi/baocaothongke', [CollaboratorInstallController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke', [ExportReportController::class, 'ReportCollaboratorInstall'])->name('collaborator.export');
+    Route::get('/dieuphoi/baocaothongke/preview', [ExportReportController::class, 'ReportCollaboratorInstallPreview'])->name('collaborator.export.preview');
 });
 
 // Report
@@ -91,7 +122,12 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/linhkien', [ReportController::class, 'RecommentProductPart'])->name('baocao.linhkien');
     Route::get('/nhanvien', [ReportController::class, 'RecommentStaff'])->name('baocao.nhanvien');
     Route::get('/xuatbaocao', [ReportController::class, 'GetExportExcel'])->name('xuatbaocao');
+    Route::get('/baohanh/baocao/preview-product-warranty', [ReportController::class, 'previewProductWarrantyReport'])->name('baocao.preview.product.warranty');
+    Route::get('/baohanh/baocao/preview-excel', [ReportController::class, 'previewReportExcel'])->name('baocao.preview.excel');
 });
+
+// Public route to view report PDF (for email links)
+Route::get('/reports/view/{filename}', [ReportController::class, 'viewReportPdf']);
 
 //Code Warranty
 Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
@@ -119,9 +155,76 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/admin/phanquyennhom/xoa/{id}', [PermissionController::class, 'Delete'])->name('permission.delete');
 });
 
+// Request Agency (Yêu cầu lắp đặt đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    // Quản lý xác nhận đại lý lần đầu - Phải đặt trước resource để tránh conflict
+    Route::get('/requestagency/manage-agencies', [RequestAgencyController::class, 'manageAgencies'])->name('requestagency.manage-agencies');
+    Route::get('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgencyForm'])->name('requestagency.confirm-agency-form');
+    Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
+    Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
+    Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
+
+    // Resource routes
+    Route::resource('requestagency', RequestAgencyController::class);
+    Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');
+});
+
+// User Agency (Quản lý tài khoản đại lý)
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
+    Route::post('/useragency/{id}/reset-password', [UserAgencyController::class, 'resetPassword'])->name('useragency.reset-password');
+    Route::post('/useragency/{id}/toggle-status', [UserAgencyController::class, 'toggleStatus'])->name('useragency.toggle-status');
+    Route::resource('useragency', UserAgencyController::class);
+});
+
 // hỗ trợ
 Route::get('/formerror', [TechSupportController::class, 'Index'])->name('formerror');
 Route::post('/submiterror1', [TechSupportController::class, 'SubmitError1'])->name('submiterror1');
 Route::get('/listproblem', [TechSupportController::class, 'ListProblem'])->name('listproblem');
 Route::get('/detailproblem', [TechSupportController::class, 'DetailProblem'])->name('detailproblem');
 Route::get('/updatestatus', [TechSupportController::class, 'UpdateStatus'])->name('updatestatus');
+// Cronjob routes for report commands (public routes for scheduled tasks)
+Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandController::class, 'runSaveSnapshot']);
+
+Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
+Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
+
+// Route::get('/clear-cache', function () {
+
+//     // Clear các cache của Laravel
+//     Artisan::call('clear-compiled');
+//     Artisan::call('cache:clear');
+//     Artisan::call('config:clear');
+//     Artisan::call('route:clear');
+//     Artisan::call('view:clear');
+//     Artisan::call('optimize:clear');
+
+//     // Reset OPCACHE nếu server cho phép
+//     if (function_exists('opcache_reset')) {
+//         opcache_reset();
+//         $opcache = 'OPCACHE RESET';
+//     } else {
+//         $opcache = 'OPCACHE NOT ENABLED';
+//     }
+
+//     return response()->json([
+//         'status' => 'OK',
+//         'message' => 'Đã clear toàn bộ cache Laravel',
+//         'opcache' => $opcache,
+//         'note' => 'Composer dump-autoload cần chạy bằng SSH'
+//     ]);
+// });
+
+// Route::get('/test-model', function () {
+//     return class_exists(\App\Models\KyThuat\WarrantyUploadError::class)
+//         ? 'MODEL OK'
+//         : 'MODEL NOT FOUND';
+// });
+// Route::get('/debug-app-path', function () {
+//     return [
+//         'base_path' => base_path(),
+//         'app_path' => app_path(),
+//         'models_exist' => file_exists(app_path('Models/KyThuat/WarrantyUploadError.php')),
+//     ];
+// });
+
+

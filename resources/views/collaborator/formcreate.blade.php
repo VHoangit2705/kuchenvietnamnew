@@ -53,111 +53,52 @@
                         <textarea id="address" name="address" class="form-control" rows="2" maxlength="1024" required></textarea>
                         <div class="error text-danger small mt-1"></div>
                     </div>
+                    
+                    <hr class="my-3">
+                    <h6 class="mb-3">Thông tin ngân hàng</h6>
+                    
+                    <div class="form-group">
+                        <label for="bank_account" class="form-label mt-1">Chủ tài khoản</label>
+                        <input id="bank_account" name="bank_account" type="text" class="form-control" placeholder="Chủ tài khoản" value="">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="bank_name" class="form-label mt-1">Ngân hàng</label>
+                        <input id="bank_name" name="bank_name" type="text" class="form-control" placeholder="Tên ngân hàng" value="">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sotaikhoan" class="form-label mt-1">Số tài khoản</label>
+                        <input id="sotaikhoan" name="sotaikhoan" type="text" class="form-control" placeholder="Số tài khoản" value="">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="chinhanh" class="form-label mt-1">Chi nhánh</label>
+                        <input id="chinhanh" name="chinhanh" type="text" class="form-control" placeholder="Chi nhánh" value="">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
+                    <hr class="my-3">
+                    <h6 class="mb-3">Thông tin CCCD/CMND</h6>
+                    
+                    <div class="form-group">
+                        <label for="cccd" class="form-label mt-1">Số CCCD/CMND</label>
+                        <input id="cccd" name="cccd" type="text" class="form-control" placeholder="Số CCCD/CMND" value="" maxlength="20">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ngaycap" class="form-label mt-1">Ngày cấp</label>
+                        <input id="ngaycap" name="ngaycap" type="date" class="form-control" placeholder="Ngày cấp" value="">
+                        <div class="error text-danger small mt-1"></div>
+                    </div>
+                    
                     <button id="hoantat" class="mt-1 btn btn-primary w-100">Thêm mới</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    $('#addCollaboratorModal').on('hidden.bs.modal', function() {
-        const $form = $('#formCreateCollaborator');
-        $form.find('input[type="text"], input[type="date"], input[type="number"], textarea').val('');
-        $form.find('select').prop('selectedIndex', 0);
-        $form.find('.error').text('');
-    });
-
-    // Load combobox quận huyện
-    $('#provinceForm').on('change', function() {
-        let provinceId = $(this).val();
-        let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', provinceId);
-        if (provinceId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $district = $('#districtForm');
-                    $district.empty();
-                    $district.append('<option value="" disabled selected>Quận/Huyện</option>');
-                    data.forEach(function(item) {
-                        $district.append('<option value="' + item.district_id + '">' + item.name + '</option>');
-                    });
-                },
-            });
-        }
-    });
-    //load combobox xã phường
-    $('#districtForm').on('change', function() {
-        let districtId = $(this).val();
-        let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', districtId);
-        if (districtId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $ward = $('#wardForm');
-                    $ward.empty();
-                    $ward.append('<option value="" disabled selected>Xã/Phường</option>');
-                    data.forEach(function(item) {
-                        $ward.append('<option value="' + item.wards_id + '">' + item.name + '</option>');
-                    });
-                },
-            });
-        }
-    });
-
-    function validateRequired(form) {
-        let isValid = true;
-        $(form).find('input[required], select[required], textarea[required]').each(function() {
-            if (!$(this).val().trim()) {
-                isValid = false;
-            }
-        });
-        return isValid;
-    }
-
-    $(document).ready(function() {
-        $('#hoantat').on('click', function(e) {
-            e.preventDefault();
-            if (validateRequired('#formCreateCollaborator')) {
-                const data = {
-                    id: $('#id').val(),
-                    full_name: $('#full_nameForm').val().trim(),
-                    // date_of_birth: $('#date_of_birth').val().trim(),
-                    phone: $('#phoneForm').val().trim(),
-                    province_id: $('#provinceForm').val(),
-                    province: $('#provinceForm option:selected').text(),
-                    district_id: $('#districtForm').val(),
-                    district: $('#districtForm option:selected').text(),
-                    ward_id: $('#wardForm').val(),
-                    ward: $('#wardForm option:selected').text(),
-                    address: $('#address').val().trim()
-                };
-                $.ajax({
-                    url: '{{ route("ctv.create") }}',
-                    type: 'POST',
-                    data: data,
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                    },
-                    success: function(response) {
-                        Notification('success', response.message, 1500, false)
-                        $('#addCollaboratorModal').modal('hide');
-                        $.get("{{ route('ctv.getlist') }}", function(html) {
-                            $('#tabContent').html(html);
-                        });
-                    },
-                    error: function(xhr) {
-                        alert('Có lỗi xảy ra khi tạo cộng tác viên.');
-                        console.log(xhr.responseText);
-                    }
-                });
-            } else {
-                $('html, body').animate({
-                    scrollTop: $('#formCreateCollaborator .error:visible:first').offset().top - 100
-                }, 300);
-            }
-        });
-    });
-</script>

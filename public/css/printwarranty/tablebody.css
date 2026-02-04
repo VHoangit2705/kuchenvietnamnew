@@ -1,0 +1,52 @@
+/* CSS cho tablebody.blade.php - Web view only */
+
+.hover-badge:hover {
+    transform: scale(1.05);
+    transition: all 0.3s ease;
+}
+
+.warning-badge-hover:hover {
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-success.hover-badge:hover {
+    box-shadow: 0 4px 8px rgba(25, 135, 84, 0.4);
+}
+
+.badge.bg-secondary.hover-badge:hover {
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.badge.bg-dark.hover-badge:hover {
+    box-shadow: 0 4px 8px rgba(33, 37, 41, 0.4);
+}
+
+.popover {
+    max-width: 300px;
+}
+
+.popover-header {
+    color: white;
+    border-bottom: none;
+}
+
+.popover-header.bg-danger {
+    background-color: #dc3545;
+}
+
+.popover-header.bg-success {
+    background-color: #198754;
+}
+
+.popover-header.bg-secondary {
+    background-color: #6c757d;
+}
+
+.popover-header.bg-dark {
+    background-color: #212529;
+}
+
+.popover-body {
+    padding: 12px;
+}

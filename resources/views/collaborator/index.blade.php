@@ -28,9 +28,11 @@
             <div class="col-md-4 mb-1">
                 <input type="text" id="phone" name="phone" class="form-control" placeholder="Số điện thoại" value="{{ request('phone') }}">
             </div>
-            <div class="col-md-4 mb-1">
-                <button class="btn btn-primary w-100">Tìm kiếm</button>
-            </div>
+            <div class="col-md-4 mb-1 d-flex gap-2">
+                <button id="searchBtn" class="btn btn-primary flex-fill">Tìm kiếm</button>
+                <button type="button" id="resetFilters" class="btn btn-outline-secondary flex-fill">Xóa bộ lọc</button>
+              </div>
+              
         </div>
     </form>
 </div>
@@ -46,107 +48,23 @@
 <!-- Include modal -->
 @include('collaborator.formcreate', ['lstProvince' => $lstProvince])
 <script>
-    $(document).ready(function() {
-        $('#openModalBtn').on('click', function(e) {
-            e.preventDefault();
-            $('#tieude').text("Thêm mới cộng tác viên");
-            $('#hoantat').text('Thêm mới');
-            $('#addCollaboratorModal').modal('show');
-        });
-        setRequset();
+    window.CollaboratorRoutes = {
+        getList: "{{ route('ctv.getlist') }}",
+        getDistrict: "{{ route('ctv.getdistrict', ':province_id') }}",
+        getWard: "{{ route('ctv.getward', ':district_id') }}",
+        create: "{{ route('ctv.create') }}",
+        getById: "{{ route('ctv.getbyid') }}",
+        delete: "{{ route('ctv.delete', ':id') }}"
+    };
 
-    });
-
-    $('#searchCollaborator').on('submit', function(e) {
-        e.preventDefault();
-        let formData = $(this).serialize();
-        let url = "{{ route('ctv.getlist') }}?" + formData;
-
-        $.get(url, function(response) {
-            $('#tabContent').html(response); // chỉ render HTML
-        }).fail(function() {
-            alert("Không thể tải dữ liệu");
-        });
-    });
-
-    function setRequset() {
-        let selectedProvince = "{{ request('province') }}";
-        let selectedDistrict = "{{ request('district') }}";
-        let selectedWard = "{{ request('ward') }}";
-        let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', selectedProvince);
-        if (selectedProvince) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $district = $('#district');
-                    $district.empty();
-                    $district.append('<option value="" disabled>Quận/Huyện</option>');
-                    data.forEach(function(item) {
-                        let selected = item.district_id == selectedDistrict ? 'selected' : '';
-                        $district.append('<option value="' + item.district_id + '" ' + selected + '>' + item.name + '</option>');
-                    });
-
-                    // Gọi tiếp API để load ward nếu district có sẵn
-                    if (selectedDistrict) {
-                        let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', selectedDistrict);
-                        $.ajax({
-                            url: url,
-                            type: 'GET',
-                            success: function(data) {
-                                let $ward = $('#ward');
-                                $ward.empty();
-                                $ward.append('<option value="" disabled>Phường/Xã</option>');
-                                data.forEach(function(item) {
-                                    let selected = item.wards_id == selectedWard ? 'selected' : '';
-                                    $ward.append('<option value="' + item.wards_id + '" ' + selected + '>' + item.name + '</option>');
-                                });
-                            }
-                        });
-                    }
-                }
-            });
-        }
-    }
-
-    $('#province').on('change', function() {
-        let provinceId = $(this).val();
-        $('#district').empty().append('<option value="" selected>Quận/Huyện</option>');
-        $('#ward').empty().append('<option value="" selected>Phường/Xã</option>');
-        let url = '{{ route("ctv.getdistrict", ":province_id") }}'.replace(':province_id', provinceId);
-        if (provinceId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $district = $('#district');
-                    $district.empty();
-                    $district.append('<option value="" disabled selected>Quận/Huyện</option>');
-                    data.forEach(function(item) {
-                        $district.append('<option value="' + item.district_id + '">' + item.name + '</option>');
-                    });
-                },
-            });
-        }
-    });
-
-    $('#district').on('change', function() {
-        let districtId = $(this).val();
-        let url = '{{ route("ctv.getward", ":district_id") }}'.replace(':district_id', districtId);
-        if (districtId) {
-            $.ajax({
-                url: url,
-                type: 'GET',
-                success: function(data) {
-                    let $ward = $('#ward');
-                    $ward.empty();
-                    $ward.append('<option value="" disabled selected>Xã/Phường</option>');
-                    data.forEach(function(item) {
-                        $ward.append('<option value="' + item.wards_id + '">' + item.name + '</option>');
-                    });
-                },
-            });
-        }
-    });
+    window.CollaboratorRequest = {
+        province: "{{ request('province') }}",
+        district: "{{ request('district') }}",
+        ward: "{{ request('ward') }}"
+    };
 </script>
+<script src="{{ asset('public/js/collaborator/shared.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/search.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/form-modal.js') }}"></script>
+<script src="{{ asset('public/js/collaborator/table-actions.js') }}"></script>
 @endsection

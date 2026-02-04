@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Kho\OrderProduct;
 use App\Models\Kho\InstallationOrder;
 use App\Models\KyThuat\WarrantyRequest;
-use App\Enum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -33,7 +32,15 @@ class CollaboratorInstallCountsController extends Controller
         $query = OrderProduct::join('products as p', function($join){
                 $join->on('order_products.product_name', '=', 'p.product_name');
             })
-            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->leftJoin('installation_orders as io', function($join) {
+                $join->on(function($q) {
+                    $q->whereColumn('io.order_code', 'orders.order_code2')
+                      ->orWhereColumn('io.order_code', 'orders.order_code1');
+                })
+                ->whereColumn('io.product', 'order_products.product_name')
+                ->where('io.status_install', '>=', 1);
+            })
             ->where('p.view', $view)
             ->where('order_products.install', 1)
             ->where('orders.order_code2', 'not like', 'KU%')
@@ -41,7 +48,9 @@ class CollaboratorInstallCountsController extends Controller
                 $q->whereNull('orders.status_install')
                     ->orWhere('orders.status_install', 0);
             })
-            ->whereNull('orders.collaborator_id');
+            ->whereNull('orders.collaborator_id')
+            // Loại trừ các đơn đã có trong installation_orders với status_install >= 1 (đã điều phối)
+            ->whereNull('io.id');
 
         return $this->applyCommonFiltersToOrderProduct($query, $request)
             ->count();
@@ -52,7 +61,15 @@ class CollaboratorInstallCountsController extends Controller
         $query = OrderProduct::join('products as p', function($join){
                 $join->on('order_products.product_name', '=', 'p.product_name');
             })
-            ->leftJoin('orders', 'order_products.order_id', '=', 'orders.id')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->leftJoin('installation_orders as io', function($join) {
+                $join->on(function($q) {
+                    $q->whereColumn('io.order_code', 'orders.order_code2')
+                      ->orWhereColumn('io.order_code', 'orders.order_code1');
+                })
+                ->whereColumn('io.product', 'order_products.product_name')
+                ->where('io.status_install', '>=', 1);
+            })
             ->where('p.view', $view)
             ->where('order_products.install', 1)
             ->where(function ($q) {
@@ -64,7 +81,9 @@ class CollaboratorInstallCountsController extends Controller
                 'warehouse_branch',
                 'warehouse_ghtk',
                 'warehouse_viettel'
-            ]);
+            ])
+            // Loại trừ các đơn đã có trong installation_orders với status_install >= 1 (đã điều phối)
+            ->whereNull('io.id');
 
         return $this->applyCommonFiltersToOrderProduct($query, $request)
             ->count();
@@ -72,8 +91,21 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getBaoHanhCount($view, $request)
     {
-        $query = WarrantyRequest::where('type', 'agent_home')
+        $dispatchedWarrantyIds = DB::connection('mysql3')
+            ->table('installation_orders')
+            ->whereNotNull('warranty_requests_id')
+            ->pluck('warranty_requests_id')
+            ->filter()
+            ->unique()
+            ->toArray();
+        
+        $query = WarrantyRequest::whereIn('type', ['agent_component', 'agent_home'])
             ->where('view', $view);
+        
+        // Loại trừ các WarrantyRequest đã có InstallationOrder với warranty_requests_id
+        if (!empty($dispatchedWarrantyIds)) {
+            $query->whereNotIn('id', $dispatchedWarrantyIds);
+        }
 
         return $this->applyCommonFiltersToWarranty($query, $request)
             ->count();
@@ -81,38 +113,49 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getDaDieuPhoiCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
-            ->where('status_install', 1)
-            ->whereNotNull('collaborator_id')
-            ->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
+            ->where('installation_orders.status_install', 1)
+            // Đã điều phối cho CTV: có collaborator_id (nếu có collaborator_id thì là CTV, không phải đại lý)
+            ->whereNotNull('installation_orders.collaborator_id');
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'dispatched_at')
             ->count();
     }
 
     private function getAgencyInstallCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
-            ->where('status_install', 1)
-            ->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
+            ->where('installation_orders.status_install', 1)
+            // Chỉ đếm đơn đã được tích checkbox "Đại lý lắp đặt" khi điều phối
+            // (có agency_name trong installation_orders và KHÔNG có collaborator_id)
+            ->whereNotNull('installation_orders.agency_name')
+            ->where('installation_orders.agency_name', '!=', '')
+            // Loại trừ đơn có CTV (nếu có collaborator_id thì không phải đại lý lắp đặt)
+            ->whereNull('installation_orders.collaborator_id');
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'agency_at')
             ->count();
     }
 
     private function getDaHoanThanhCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
-            ->where('status_install', 2);
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
+            ->where('installation_orders.status_install', 2);
     
         return $this->applyCommonFiltersToInstallation($query, $request)
             ->count();
@@ -120,13 +163,15 @@ class CollaboratorInstallCountsController extends Controller
 
     private function getDaThanhToanCount($view, $request)
     {
-        $query = InstallationOrder::join('products as p', function($join){
+        $query = InstallationOrder::leftJoin('products as p', function($join){
                 $join->on('installation_orders.product', '=', 'p.product_name');
             })
-            ->where('p.view', $view)
-            ->where('status_install', 3);
+            ->where(function($q) use ($view) {
+                $q->where('p.view', $view)->orWhereNull('p.view');
+            })
+            ->where('installation_orders.status_install', 3);
     
-        return $this->applyCommonFiltersToInstallation($query, $request)
+        return $this->applyCommonFiltersToInstallation($query, $request, 'paid_at')
             ->count();
     }
 
@@ -163,9 +208,15 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('orders.collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Đơn do CTV lắp đặt (không có thông tin đại lý)
+                    $q->where(function ($sub) {
+                        $sub->whereNull('orders.agency_name')
+                            ->orWhere('orders.agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('orders.collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Đơn do đại lý lắp đặt (có thông tin đại lý)
+                    $q->whereNotNull('orders.agency_name')
+                      ->where('orders.agency_name', '!=', '');
                 }
             })
             ->when($customer_name, fn($q) => $q->where('orders.customer_name', 'like', "%$customer_name%"))
@@ -189,9 +240,10 @@ class CollaboratorInstallCountsController extends Controller
 
         return $query->when($madon, fn($q) => $q->where('serial_number', 'like', "%$madon%"))
             ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('Ngaytao', '>=', $tungay))
+            // Lọc theo received_date để trùng với "Ngày tạo" hiển thị ở bảng
+            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('received_date', '>=', $tungay))
             ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('Ngaytao', '<=', $denngay);
+                $q->whereDate('received_date', '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
@@ -209,9 +261,15 @@ class CollaboratorInstallCountsController extends Controller
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Ca bảo hành do CTV phụ trách: không có thông tin đại lý
+                    $q->where(function ($sub) {
+                        $sub->whereNull('agency_name')
+                            ->orWhere('agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Ca bảo hành do đại lý phụ trách: có thông tin đại lý
+                    $q->whereNotNull('agency_name')
+                      ->where('agency_name', '!=', '');
                 }
             })
             ->when($customer_name, fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
@@ -220,7 +278,7 @@ class CollaboratorInstallCountsController extends Controller
             ->when($agency_phone, fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
     }
 
-    private function applyCommonFiltersToInstallation($query, $request)
+    private function applyCommonFiltersToInstallation($query, $request, $dateField = 'successed_at')
     {
         $tungay = $request->input('tungay');
         $denngay = $request->input('denngay');
@@ -233,36 +291,49 @@ class CollaboratorInstallCountsController extends Controller
         $agency_phone = $request->input('agency_phone');
         $agency_name = $request->input('agency_name');
 
-        return $query->when($madon, fn($q) => $q->where('order_code', 'like', "%$madon%"))
-            ->when($sanpham, fn($q) => $q->where('product', 'like', "%$sanpham%"))
-            ->when($tungay && !empty($tungay), fn($q) => $q->whereDate('created_at', '>=', $tungay))
-            ->when($denngay && !empty($denngay), function($q) use ($denngay) {
-                $q->whereDate('created_at', '<=', $denngay);
+        // Đảm bảo dateField có prefix installation_orders nếu chưa có
+        if (!str_starts_with($dateField, 'installation_orders.')) {
+            $dateField = 'installation_orders.' . $dateField;
+        }
+
+        return $query->when($madon, fn($q) => $q->where('installation_orders.order_code', 'like', "%$madon%"))
+            ->when($sanpham, fn($q) => $q->where('installation_orders.product', 'like', "%$sanpham%"))
+            ->when($tungay && !empty($tungay), function($q) use ($dateField, $tungay) {
+                $q->whereDate($dateField, '>=', $tungay);
+            })
+            ->when($denngay && !empty($denngay), function($q) use ($dateField, $denngay) {
+                $q->whereDate($dateField, '<=', $denngay);
             })
             ->when($trangthai, function ($q) use ($trangthai) {
                 if ($trangthai === '0') {
                     $q->where(function ($sub) {
-                        $sub->whereNull('status_install')
-                            ->orWhere('status_install', 0);
+                        $sub->whereNull('installation_orders.status_install')
+                            ->orWhere('installation_orders.status_install', 0);
                     });
                 } elseif ($trangthai === '1') {
-                    $q->where('status_install', 1);
+                    $q->where('installation_orders.status_install', 1);
                 } elseif ($trangthai === '2') {
-                    $q->where('status_install', 2);
+                    $q->where('installation_orders.status_install', 2);
                 } elseif ($trangthai === '3') {
-                    $q->where('status_install', 3);
+                    $q->where('installation_orders.status_install', 3);
                 }
             })
             ->when($phanloai, function ($q) use ($phanloai) {
                 if ($phanloai === 'collaborator') {
-                    $q->where('collaborator_id', '!=', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Lắp đặt do CTV phụ trách: không có thông tin đại lý
+                    $q->where(function ($sub) {
+                        $sub->whereNull('installation_orders.agency_name')
+                            ->orWhere('installation_orders.agency_name', '');
+                    });
                 } elseif ($phanloai === 'agency') {
-                    $q->where('collaborator_id', Enum::AGENCY_INSTALL_FLAG_ID);
+                    // Lắp đặt do đại lý phụ trách: có thông tin đại lý
+                    $q->whereNotNull('installation_orders.agency_name')
+                      ->where('installation_orders.agency_name', '!=', '');
                 }
             })
-            ->when($customer_name, fn($q) => $q->where('full_name', 'like', "%$customer_name%"))
-            ->when($customer_phone, fn($q) => $q->where('phone_number', 'like', "%$customer_phone%"))
-            ->when($agency_name, fn($q) => $q->where('agency_name', 'like', "%$agency_name%"))
-            ->when($agency_phone, fn($q) => $q->where('agency_phone', 'like', "%$agency_phone%"));
+            ->when($customer_name, fn($q) => $q->where('installation_orders.full_name', 'like', "%$customer_name%"))
+            ->when($customer_phone, fn($q) => $q->where('installation_orders.phone_number', 'like', "%$customer_phone%"))
+            ->when($agency_name, fn($q) => $q->where('installation_orders.agency_name', 'like', "%$agency_name%"))
+            ->when($agency_phone, fn($q) => $q->where('installation_orders.agency_phone', 'like', "%$agency_phone%"));
     }
 }

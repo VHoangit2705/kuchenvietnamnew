@@ -79,7 +79,7 @@
 <script>
 
     const maxPhotos = 4;
-    const maxPhotoSize = 1024 * 1024;
+    const maxPhotoSize = 5 * 1024 * 1024;
     const maxVideoSize = 10 * 1024 * 1024;
     const maxVideoDuration = 30;
 
@@ -157,7 +157,7 @@
         const files = Array.from(this.files).slice(0, maxPhotos - photoList.querySelectorAll('img').length);
         files.forEach(file => {
             if (!file.type.startsWith('image/') || file.size > maxPhotoSize) {
-                Notification('warning', `Ảnh "${file.name}" không hợp lệ hoặc vượt 1MB.`, 1500, true);
+                Notification('warning', `Ảnh "${file.name}" không hợp lệ hoặc vượt 5MB.`, 1500, true);
                 return;
             }
             const reader = new FileReader();
@@ -298,9 +298,9 @@
         for (let i = 0; i < images.length; i++) {
             const blob = dataURLtoBlob(images[i]);
             if (blob.size > maxPhotoSize) {
-                Swal.fire('Ảnh quá lớn', `Ảnh ${i + 1} vượt quá 1MB.`, 'error');
-                return;
-            }
+             Swal.fire('Ảnh quá lớn', `Ảnh ${i + 1} vượt quá 5MB.`, 'error');
+              return;
+        }
             formData.append(`photos[]`, blob, `photo${i + 1}.jpg`);
         }
 

@@ -142,9 +142,9 @@ class WarrantyRequestController extends Controller
             'initial_fault_condition'       => 'nullable|required_unless:type,agent_component|string',
             'product_fault_condition'       => 'nullable|required_unless:type,agent_component|string',
             'product_quantity_description'  => 'nullable|required_unless:type,agent_component|string',
-            'collaborator_phone'    => 'nullable|required_if:type,agent_component|string',
-            'collaborator_name'     => 'nullable|required_if:type,agent_component|string',
-            'collaborator_address'  => 'nullable|required_if:type,agent_component|string',
+            'collaborator_phone'    => 'nullable|string',
+            'collaborator_name'     => 'nullable|string',
+            'collaborator_address'  => 'nullable|string',
         ]);
         $product = Product::where('product_name', $request->product)->select('month', 'view')->first();
         $data = $validated;

@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -51,6 +52,13 @@ return [
     */
 
     'channels' => [
+
+        'custom' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/custom.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
 
         'stack' => [
             'driver' => 'stack',
@@ -118,6 +126,25 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'email_report' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/email_report.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+            'formatter' => LineFormatter::class,
+            'formatter_with' => [
+                'format' => "[%datetime%] %level_name%: %message% %context%\n",
+                'dateFormat' => 'd/m/Y H:i:s',
+            ],
+        ],
+        
+        'bulk_update_by_excel' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/bulk_update_by_excel.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+        
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,

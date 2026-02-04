@@ -47,7 +47,7 @@
 <script>
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-    function showError() {
+    function showPermissionError() {
         Swal.fire({ icon: 'error', title: 'Bạn không được quyền!' });
     }
 

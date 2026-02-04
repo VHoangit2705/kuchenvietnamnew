@@ -3,15 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- <link rel="stylesheet" href="{{ asset('css/printwarranty/tem.css') }}"> -->
     <style>
         @page {
-            size: A3 portrait;
-            margin: 10mm;
+        size: A3 portrait;
+        margin: 10mm;
         }
 
         @font-face {
             font-family: 'DejaVu Sans';
-            src: url('{{ public_path(' fonts/DejaVuSans.ttf') }}') format('truetype');
+            src: url("../fonts/DejaVuSans.ttf") format('truetype');
             font-weight: normal;
             font-style: normal;
         }

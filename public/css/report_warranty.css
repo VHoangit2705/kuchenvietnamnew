@@ -1,0 +1,105 @@
+.table-container {
+    padding: 0;
+    overflow-y: auto;
+}
+
+.table-container .table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.is-invalid {
+    border-color: red;
+}
+
+.autocomplete-suggestions {
+    position: absolute;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #ccc;
+    width: calc(100% - 20px);
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+    box-sizing: border-box;
+}
+
+/* CSS cho báo cáo */
+.wrapper {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 32px 40px 40px;
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(27, 46, 94, 0.12);
+    border: 1px solid rgba(42, 62, 105, 0.08);
+}
+
+.header {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e3e9f4;
+    margin-bottom: 28px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: 0.02em;
+    color: #1e2b4a;
+}
+
+.content p {
+    line-height: 1.6;
+    margin: 16px 0;
+}
+
+.info {
+    margin: 28px 0;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(39,84,187,0.08), rgba(80,129,242,0.08));
+    border-radius: 14px;
+    border: 1px solid rgba(39, 84, 187, 0.15);
+}
+
+.info p {
+    margin-top: 0;
+    font-weight: 600;
+    color: #274ea9;
+}
+
+.info ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: none;
+}
+
+.info li {
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(39, 84, 187, 0.2);
+}
+
+.info li:last-child {
+    border-bottom: none;
+}
+
+.info strong {
+    color: #1f3d8a;
+}
+
+.footer {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #e3e9f4;
+    text-align: center;
+    color: #6c7896;
+}
+
+.footer p {
+    margin: 6px 0;
+}
+
+.footer strong {
+    color: #1e2b4a;
+}

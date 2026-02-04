@@ -99,13 +99,24 @@ class ImportExcelSyncController extends Controller
             $existingCollaborators = WarrantyCollaborator::pluck('id', 'phone')->toArray();
             $existingAgencies = Agency::pluck('id', 'phone')->toArray();
             $existingProducts = OrderProduct::pluck('id', 'product_name')->toArray();
-
+            $flagName = Enum::AGENCY_INSTALL_CHECKBOX_LABEL;
             // Hàm chuẩn hóa số điện thoại - tối ưu hóa
             $sanitizePhone = function ($value) {
                 if (empty($value)) return '';
                 $digits = preg_replace('/\D+/', '', $value);
                 return mb_strlen($digits) > 11 ? mb_substr($digits, -11) : $digits;
             };
+
+            // Tạo map phone đã chuẩn hóa cho Agency để chống tạo trùng khi định dạng khác nhau
+            $existingAgenciesByNormalizedPhone = [];
+            foreach ($existingAgencies as $phone => $id) {
+                $normalized = null;
+                try { $normalized = preg_replace('/\D+/', '', (string)$phone); } catch (\Throwable $e) { $normalized = (string)$phone; }
+                if ($normalized !== null && $normalized !== '') {
+                    $normalized = mb_strlen($normalized) > 11 ? mb_substr($normalized, -11) : $normalized;
+                    $existingAgenciesByNormalizedPhone[$normalized] = $id;
+                }
+            }
 
             // Hàm chuẩn hóa ngày tháng - cải thiện để xử lý nhiều format
             $parseDate = function ($dateRaw) {
@@ -460,8 +471,11 @@ class ImportExcelSyncController extends Controller
                             // 1. Xử lý Collaborator (CTV) & Đại lý tự lắp
                             $collaboratorId = null; // Default null
 
-                            // Kiểm tra trước: trạng thái mô tả có phải "Đại lý tự lắp/Đại lý lắp đặt" không
+                            // Kiểm tra xem có phải "Đại lý tự lắp/Đại lý lắp đặt" không
+                            // Kiểm tra từ statusRaw, collabName và collabPhone - ƯU TIÊN KIỂM TRA TRƯỚC
                             $isAgencySelfInstall = false;
+                            
+                            // BƯỚC 1: Kiểm tra từ statusRaw (cột L trong Excel)
                             if (!empty($statusRaw)) {
                                 $statusLower = mb_strtolower(trim($statusRaw));
                                 $statusClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $statusLower);
@@ -480,11 +494,30 @@ class ImportExcelSyncController extends Controller
                                     }
                                 }
                             }
-
+                            
+                            // BƯỚC 2: Kiểm tra từ collabName - nếu tên CTV = "Đại lý lắp đặt" thì cũng coi là đại lý tự lắp
+                            if (!$isAgencySelfInstall && !empty($collabName)) {
+                                $collabNameLower = mb_strtolower(trim($collabName));
+                                $collabNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $collabNameLower);
+                                $collabNameClean = preg_replace('/\s+/', ' ', $collabNameClean);
+                                $collabNameClean = trim($collabNameClean);
+                                
+                                $agencyInstallLabel = mb_strtolower(trim(Enum::AGENCY_INSTALL_CHECKBOX_LABEL));
+                                $agencyInstallLabelClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $agencyInstallLabel);
+                                $agencyInstallLabelClean = preg_replace('/\s+/', ' ', $agencyInstallLabelClean);
+                                $agencyInstallLabelClean = trim($agencyInstallLabelClean);
+                                
+                                // Kiểm tra khớp chính xác hoặc chứa từ khóa
+                                if ($collabNameClean === $agencyInstallLabelClean || 
+                                    strpos($collabNameClean, 'đại lý lắp đặt') !== false ||
+                                    strpos($collabNameClean, 'đại lý tự lắp') !== false) {
+                                    $isAgencySelfInstall = true;
+                                }
+                            }
+                            
                             if ($isAgencySelfInstall) {
-                                // Đại lý tự lắp → coi như đã điều phối cho đại lý
-                                $statusInstall = 1;
-                                $collaboratorId = Enum::AGENCY_INSTALL_FLAG_ID;
+                                $statusInstall = $parseStatus($statusRaw); // Vẫn parse status để lấy đúng trạng thái
+                                $collaboratorId = null;
                             } else {
                                 // Không ép trạng thái về 0 khi thiếu CTV; dùng trạng thái từ file Excel
                                 $parsedStatus = $parseStatus($statusRaw);
@@ -493,52 +526,112 @@ class ImportExcelSyncController extends Controller
                                 // Nếu có CTV thật, tạo/tìm CTV và gán id; nếu trống thì để NULL
                                 $isCtvEmpty = empty($collabName) || empty($collabPhone);
                                 if (!$isCtvEmpty) {
-                                    if (!isset($collaboratorCache[$collabPhone])) {
-                                        if (isset($existingCollaborators[$collabPhone])) {
-                                            $collaboratorCache[$collabPhone] = $existingCollaborators[$collabPhone];
+                                    // KIỂM TRA LẠI: Xem có phải là CTV flag không (tránh tạo trùng)
+                                    // Kiểm tra theo tên TRƯỚC - QUAN TRỌNG: không tạo CTV mới nếu tên = "Đại lý lắp đặt"
+                                    $collabNameLower = mb_strtolower(trim($collabName));
+                                    $collabNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $collabNameLower);
+                                    $collabNameClean = preg_replace('/\s+/', ' ', $collabNameClean);
+                                    $collabNameClean = trim($collabNameClean);
+                                    
+                                    $flagNameLower = mb_strtolower(trim($flagName));
+                                    $flagNameClean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $flagNameLower);
+                                    $flagNameClean = preg_replace('/\s+/', ' ', $flagNameClean);
+                                    $flagNameClean = trim($flagNameClean);
+                                    
+                                    $isFlagName = $collabNameClean === $flagNameClean || 
+                                                  strpos($collabNameClean, 'đại lý lắp đặt') !== false ||
+                                                  strpos($collabNameClean, 'đại lý tự lắp') !== false;
+                                    
+                                    if ($isFlagName) {
+                                        $collaboratorId = null;
+                                    } else {
+                                        // Chỉ tạo CTV mới nếu KHÔNG phải là flag
+                                        // Kiểm tra thêm: nếu tên có chứa "đại lý" và "lắp đặt" → cũng không tạo mới
+                                        if (strpos($collabNameClean, 'đại lý') !== false && 
+                                            (strpos($collabNameClean, 'lắp đặt') !== false || strpos($collabNameClean, 'tự lắp') !== false)) {
+                                            $collaboratorId = null;
                                         } else {
-                                            try {
-                                                $collaborator = new WarrantyCollaborator();
-                                                $collaborator->full_name = $collabName;
-                                                $collaborator->phone = $collabPhone;
-                                                $collaborator->sotaikhoan = $collabAccount;
-                                                $collaborator->chinhanh = $bank;
-                                                $collaborator->created_at = now();
-                                                $collaborator->save();
+                                            // CTV thật, có thể tạo mới
+                                            if (!isset($collaboratorCache[$collabPhone])) {
+                                                if (isset($existingCollaborators[$collabPhone])) {
+                                                    $collaboratorCache[$collabPhone] = $existingCollaborators[$collabPhone];
+                                                } else {
+                                                    // Kiểm tra lại trong database để đảm bảo không tạo trùng
+                                                    $existingCollaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                                                    if ($existingCollaborator) {
+                                                        // Đã tồn tại trong database, sử dụng ID hiện có
+                                                        $collaboratorCache[$collabPhone] = $existingCollaborator->id;
+                                                        // Cập nhật vào existingCollaborators để các dòng sau không phải query lại
+                                                        $existingCollaborators[$collabPhone] = $existingCollaborator->id;
+                                                    } else {
+                                                        // Chưa tồn tại, tạo mới CTV thật
+                                                        try {
+                                                            $collaborator = new WarrantyCollaborator();
+                                                            $collaborator->full_name = $collabName;
+                                                            $collaborator->phone = $collabPhone;
+                                                            $collaborator->sotaikhoan = $collabAccount;
+                                                            $collaborator->chinhanh = $bank;
+                                                            $collaborator->bank_account = ''; // Set giá trị mặc định
+                                                            $collaborator->bank_name = ''; // Set giá trị mặc định
+                                                            $collaborator->created_at = now();
+                                                            $collaborator->save();
 
-                                                $collaboratorCache[$collabPhone] = $collaborator->id;
-                                                $stats['collaborators_created']++;
-                                            } catch (\Exception $e) {
-                                                $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
-                                                $collaboratorCache[$collabPhone] = null;
+                                                            $collaboratorCache[$collabPhone] = $collaborator->id;
+                                                            // Cập nhật vào existingCollaborators để các dòng sau không phải query lại
+                                                            $existingCollaborators[$collabPhone] = $collaborator->id;
+                                                            $stats['collaborators_created']++;
+                                                        } catch (\Exception $e) {
+                                                            // Nếu lỗi do duplicate (có thể xảy ra trong trường hợp race condition)
+                                                            // Thử tìm lại trong database
+                                                            $existingCollaborator = WarrantyCollaborator::where('phone', $collabPhone)->first();
+                                                            if ($existingCollaborator) {
+                                                                $collaboratorCache[$collabPhone] = $existingCollaborator->id;
+                                                                $existingCollaborators[$collabPhone] = $existingCollaborator->id;
+                                                            } else {
+                                                                $stats['errors'][] = "Lỗi tạo collaborator: " . $e->getMessage();
+                                                                $collaboratorCache[$collabPhone] = null;
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
+                                            $collaboratorId = $collaboratorCache[$collabPhone];
                                         }
                                     }
-                                    $collaboratorId = $collaboratorCache[$collabPhone];
                                 } else {
                                     $collaboratorId = null;
                                 }
                             }
-
+                            
                             // 2. Xử lý Agency - Tối ưu hóa với pre-loaded data
                             if (!empty($agencyName) && !empty($agencyPhone)) {
                                 if (!isset($agencyCache[$agencyPhone])) {
-                                    // Kiểm tra trong pre-loaded data trước
-                                    if (isset($existingAgencies[$agencyPhone])) {
-                                        $agencyCache[$agencyPhone] = $existingAgencies[$agencyPhone];
+                                    // Kiểm tra trong pre-loaded data trước (theo phone đã chuẩn hóa)
+                                    if (isset($existingAgencies[$agencyPhone]) || isset($existingAgenciesByNormalizedPhone[$agencyPhone])) {
+                                        $agencyId = $existingAgencies[$agencyPhone] ?? $existingAgenciesByNormalizedPhone[$agencyPhone];
+                                        $agencyCache[$agencyPhone] = $agencyId;
                                     } else {
                                         try {
-                                            // Tạo agency mới
-                                            $agency = new Agency();
-                                            $agency->name = $agencyName;
-                                            $agency->phone = $agencyPhone;
-                                            $agency->sotaikhoan = $collabAccount;
-                                            $agency->chinhanh = $bank;
-                                            $agency->created_ad = now();
-                                            $agency->save();
-                                            
-                                            $agencyCache[$agencyPhone] = $agency->id;
-                                            $stats['agencies_created']++;
+                                            // Tránh tạo trùng lần cuối bằng cách kiểm tra DB theo phone chuẩn hóa
+                                            $existing = Agency::where('phone', $agencyPhone)->first();
+                                            if ($existing) {
+                                                $agencyCache[$agencyPhone] = $existing->id;
+                                            } else {
+                                                // Tạo agency mới
+                                                $agency = new Agency();
+                                                $agency->name = $agencyName;
+                                                $agency->phone = $agencyPhone;
+                                                $agency->sotaikhoan = $collabAccount;
+                                                $agency->chinhanh = $bank;
+                                                $agency->created_ad = now();
+                                                $agency->save();
+
+                                                $agencyCache[$agencyPhone] = $agency->id;
+                                                // Cập nhật maps để các dòng sau nhận diện
+                                                $existingAgencies[$agencyPhone] = $agency->id;
+                                                $existingAgenciesByNormalizedPhone[$agencyPhone] = $agency->id;
+                                                $stats['agencies_created']++;
+                                            }
                                         } catch (\Exception $e) {
                                             $stats['errors'][] = "Lỗi tạo agency: " . $e->getMessage();
                                         }
