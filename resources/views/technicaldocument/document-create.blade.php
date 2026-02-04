@@ -72,6 +72,6 @@ window.docCreateRoutes = {
     getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}"
 };
 </script>
-<script src="{{ asset('js/technicaldocument/filter.js') }}"></script>
-<script src="{{ asset('js/technicaldocument/document-create.js') }}"></script>
+<script src="{{ asset('public/js/technicaldocument/filter.js') }}"></script>
+<script src="{{ asset('public/js/technicaldocument/document-create.js') }}"></script>
 @endsection
