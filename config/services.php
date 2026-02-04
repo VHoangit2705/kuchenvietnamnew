@@ -49,4 +49,19 @@ return [
         'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public'),
     ],
 
+    // VietQR public API configuration
+    'vietqr' => [
+        'banks_url' => env('VIETQR_BANKS_URL', 'https://api.vietqr.io/v2/banks'),
+        'account_no' => env('VIETQR_ACCOUNT_NO', '116615609999'),
+        'account_name' => env('VIETQR_ACCOUNT_NAME'),
+        'bank_id' => env('VIETQR_BANK_ID'),
+        'template' => env('VIETQR_TEMPLATE', 'compact'),
+        'bank_name' => env('VIETQR_BANK_NAME', 'VietinBank'),
+    ],
+
+    // Warranty Image Base URL configuration
+    'warranty' => [
+        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public'),
+    ],
+
 ];

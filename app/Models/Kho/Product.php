@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $khoa_tem
  * @property string $Ma_ERP
  * @property int $view
+ * @property int|null $category_id
  * @property int $check_seri
  * @property int|null $reminder_time
  * 
@@ -71,6 +72,7 @@ class Product extends Model
 		'khoa_tem',
 		'Ma_ERP',
 		'view',
+		'category_id',
 		'check_seri',
 		'reminder_time',
 		'install'
@@ -108,6 +110,27 @@ class Product extends Model
 	}
 
 
+	/**
+	 * Relationship với categories qua bảng product_categories
+	 */
+	public function categories()
+	{
+		return $this->belongsToMany(
+			Category::class,
+			'product_categories',
+			'product_id',
+			'category_id'
+		)->where('categories.website_id', 2);
+	}
+
+	/**
+	 * Lấy category đầu tiên của sản phẩm
+	 */
+	public function getCategoryAttribute()
+	{
+		return $this->categories()->first();
+	}
+
 	public static function getListProduct($view)
 	{
 		return self::where('view',  $view) 
@@ -121,5 +144,25 @@ class Product extends Model
 	
 	public static function getViewById($id){
 		return self::where('id', $id)->value('view');
+	}
+
+	/**
+	 * Lấy sản phẩm theo danh mục (ưu tiên category_id, không có thì qua bảng product_categories).
+	 * Trả về collection với id, name (product_name), model.
+	 */
+	public static function getProductsByCategoryId(int $categoryId, int $view = 1)
+	{
+		$base = self::where('view', $view);
+
+		$byCategoryId = (clone $base)->where('category_id', $categoryId)
+			->get(['id', 'product_name as name', 'model']);
+
+		if ($byCategoryId->isNotEmpty()) {
+			return $byCategoryId;
+		}
+
+		return $base->whereHas('categories', function ($q) use ($categoryId) {
+			$q->where('categories.id', $categoryId);
+		})->get(['id', 'product_name as name', 'model']);
 	}
 }

@@ -19,6 +19,9 @@ use App\Http\Controllers\UserAgencyController;
 use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
 use App\Http\Controllers\CollaboratorInstallBulkController;
+use App\Http\Controllers\TechnicalDocumentController;
+use App\Http\Controllers\DocumentShareController;
+use App\Http\Controllers\CommonErrorController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -30,12 +33,18 @@ Route::middleware('auth')->group(function () {
 });
 
 
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
+
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
 });
 
 // Home
-Route::middleware(['auth', \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckCookieLogin::class])->group(function () {
     Route::get('/', [HomeController::class, 'Index'])->name("home");
     Route::get('/baohanh/capnhat', [HomeController::class, 'UpdateWarrantyEnd'])->name('capnhat');
     Route::get('/baohanh/capnhatactiv', [HomeController::class, 'UpdateWarrantyActive'])->name('capnhatkichhoatbaohanh');
@@ -44,7 +53,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckCookieLogin::class])->group
 });
 
 // Warranty
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/thongbao', [WarrantyController::class, 'ThongBaoBaoHanh'])->name("warranty.thongbao");
     Route::get('/baohanh/kuchen/timkiem', [WarrantyController::class, 'Search'])->name("warranty.search");
     Route::post('/baohanh/kuchen', [WarrantyController::class, 'UpdateStatus'])->name("warranty.updatestatus");
@@ -85,7 +94,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 });
 
 // Collaborator
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/congtacvien', [CollaboratorController::class, 'Index'])->name('ctv.getlist');
     Route::post('/getbyid', [CollaboratorController::class, 'getByID'])->name('ctv.getbyid');
     Route::get('/getdistrict/{province_id}', [CollaboratorController::class, 'GetDistrictByProvinveId'])->name('ctv.getdistrict');
@@ -116,7 +125,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 });
 
 // Report
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/baohanh/baocao', [ReportController::class, "Index"])->name('baocao');
     Route::get('/sanpham', [ReportController::class, 'RecommentProduct'])->name('baocao.sanpham');
     Route::get('/linhkien', [ReportController::class, 'RecommentProductPart'])->name('baocao.linhkien');
@@ -130,7 +139,7 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
 Route::get('/reports/view/{filename}', [ReportController::class, 'viewReportPdf']);
 
 //Code Warranty
-Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\Http\Middleware\CheckCookieLogin::class])->group(function () {
+Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->group(function () {
     Route::get('/baohanh/inphieubaohanh', [PrintWarrantyController::class, "Index"])->name('warrantycard');
     Route::get('/baohanh/inphieubaohanh/loc', [PrintWarrantyController::class, "Search"])->name('warrantycard.search');
     Route::post('/baohanh/inphieubaohanh/taomoi', [PrintWarrantyController::class, "Create"])->name('warrantycard.create');
@@ -141,6 +150,98 @@ Route::middleware(['auth', \App\Http\Middleware\CheckBrandSession::class, \App\H
     Route::get('/baohanh/inphieubaohanh/tem/{id}', [PrintWarrantyController::class, 'TemView'])->name('warrantycard.tem');
     Route::get('/baohanh/inphieubaohanh/dowloadtem/{id}', [PrintWarrantyController::class, 'TemDowload'])->name('warrantycard.temdowload');
     Route::get('/baocaokichhoatbaohanh', [PrintWarrantyController::class, 'ExportActiveWarranty'])->name('baocaokichhoatbaohanh');
+    Route::get('/baohanh/tailieukithuat', [TechnicalDocumentController::class, 'Index'])->name('warranty.document')->middleware('role:admin,kythuatvien');
+    Route::get('/baohanh/tailieukithuat/create', [TechnicalDocumentController::class, 'Create'])->name('warranty.document.create')->middleware('role:admin,kythuatvien');
+    Route::prefix('baohanh/tailieukithuat')->group(function () {
+
+    Route::get('/get-products-by-category',
+        [TechnicalDocumentController::class, 'getProductsByCategory']
+    )->name('warranty.document.getProductsByCategory');
+
+    Route::get('/get-origins-by-product',
+        [TechnicalDocumentController::class, 'getOriginsByProduct']
+    )->name('warranty.document.getOriginsByProduct');
+
+    Route::get('/get-models-by-origin',
+        [TechnicalDocumentController::class, 'getModelsByOrigin']
+    )->name('warranty.document.getModelsByOrigin');
+
+    Route::get('/get-errors-by-model',
+        [TechnicalDocumentController::class, 'getErrorsByModel']
+    )->name('warranty.document.getErrorsByModel');
+
+    Route::get('/get-error-detail',
+        [TechnicalDocumentController::class, 'getErrorDetail']
+    )->name('warranty.document.getErrorDetail');
+
+    Route::get('/download-all-documents',
+        [TechnicalDocumentController::class, 'downloadAllDocuments']
+    )->name('warranty.document.downloadAllDocuments');
+
+    Route::post('/store-origin',
+        [TechnicalDocumentController::class, 'storeOrigin']
+    )->name('warranty.document.storeOrigin')->middleware('role:admin,kythuatvien');
+
+    Route::post('/store-error',
+        [TechnicalDocumentController::class, 'storeError']
+    )->name('warranty.document.storeError')->middleware('role:admin,kythuatvien');
+
+    Route::post('/store-repair-guide',
+        [TechnicalDocumentController::class, 'storeRepairGuide']
+    )->name('warranty.document.storeRepairGuide')->middleware('role:admin,kythuatvien');
+
+    // Common errors CRUD (update, destroy; create/store đã có)
+    Route::get('/common-errors/{id}', [TechnicalDocumentController::class, 'getErrorById'])->name('warranty.document.commonError.show');
+    Route::put('/common-errors/{id}', [TechnicalDocumentController::class, 'updateError'])->name('warranty.document.commonError.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/common-errors/{id}', [TechnicalDocumentController::class, 'destroyError'])->name('warranty.document.commonError.destroy')->middleware('role:admin,kythuatvien');
+
+    // Repair guides CRUD (edit, update, destroy; create/store đã có)
+    Route::get('/repair-guides-by-error', [TechnicalDocumentController::class, 'getRepairGuidesByError'])->name('warranty.document.repairGuides.byError');
+    Route::get('/repair-guides/edit/{id}', [TechnicalDocumentController::class, 'editRepairGuide'])->name('warranty.document.repairGuide.edit')->middleware('role:admin,kythuatvien');
+    Route::put('/repair-guides/{id}', [TechnicalDocumentController::class, 'updateRepairGuide'])->name('warranty.document.repairGuide.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/repair-guides/{id}', [TechnicalDocumentController::class, 'destroyRepairGuide'])->name('warranty.document.repairGuide.destroy')->middleware('role:admin,kythuatvien');
+    Route::post('/repair-guides/{id}/attach-documents', [TechnicalDocumentController::class, 'attachDocumentsToRepairGuide'])->name('warranty.document.repairGuide.attachDocuments')->middleware('role:admin,kythuatvien');
+    Route::delete('/repair-guides/{id}/documents/{documentId}', [TechnicalDocumentController::class, 'detachDocumentFromRepairGuide'])->name('warranty.document.repairGuide.detachDocument')->middleware('role:admin,kythuatvien');
+
+    // Technical documents CRUD
+    Route::get('/documents', [TechnicalDocumentController::class, 'indexDocuments'])->name('warranty.document.documents.index')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/create', [TechnicalDocumentController::class, 'createDocument'])->name('warranty.document.documents.create')->middleware('role:admin,kythuatvien');
+    Route::post('/documents', [TechnicalDocumentController::class, 'storeDocument'])->name('warranty.document.documents.store')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/edit/{id}', [TechnicalDocumentController::class, 'editDocument'])->name('warranty.document.documents.edit')->middleware('role:admin,kythuatvien');
+    Route::get('/documents/{id}', [TechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show')->middleware('role:admin,kythuatvien');
+    Route::put('/documents/{id}', [TechnicalDocumentController::class, 'updateDocument'])->name('warranty.document.documents.update')->middleware('role:admin,kythuatvien');
+    Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy')->middleware('role:admin,kythuatvien');
+    Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+
+    // ... (Existing Technical Document Routes)
+    Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+
+    // --- Document Sharing Routes (Admin) ---
+    Route::prefix('share')->group(function () {
+        Route::post('/create', [DocumentShareController::class, 'store'])->name('warranty.document.share.store');
+        Route::get('/list/{document_version_id}', [DocumentShareController::class, 'index'])->name('warranty.document.share.index');
+        Route::post('/revoke/{id}', [DocumentShareController::class, 'revoke'])->name('warranty.document.share.revoke');
+    });
+
+    // --- Common Error Management Routes ---
+    Route::prefix('errors')->group(function () {
+        Route::get('/', [CommonErrorController::class, 'index'])->name('warranty.document.errors.index');
+        Route::get('/create', [CommonErrorController::class, 'create'])->name('warranty.document.errors.create');
+        Route::post('/', [CommonErrorController::class, 'store'])->name('warranty.document.errors.store');
+        Route::get('/{id}/edit', [CommonErrorController::class, 'edit'])->name('warranty.document.errors.edit');
+        Route::put('/{id}', [CommonErrorController::class, 'update'])->name('warranty.document.errors.update');
+        Route::delete('/{id}', [CommonErrorController::class, 'destroy'])->name('warranty.document.errors.destroy');
+    });
+
+});
+
+}); // End Middleware group
+
+// --- Public Document Share Routes (No Auth Required) ---
+Route::prefix('shared-docs')->group(function () {
+    Route::get('/{token}', [DocumentShareController::class, 'publicShow'])->name('document.share.public_show');
+    Route::post('/{token}/auth', [DocumentShareController::class, 'publicAuth'])->name('document.share.public_auth');
+    Route::get('/{token}/download', [DocumentShareController::class, 'download'])->name('document.share.download');
 });
 
 //Permissions
@@ -163,7 +264,6 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
     Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
     Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
-
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
     Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');

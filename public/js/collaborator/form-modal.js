@@ -90,7 +90,6 @@
     hideFormError(i);
 }
 
-
     function validateSelectFields() {
         $('#formCreateCollaborator select[required]').each(function () {
             const $field = $(this);

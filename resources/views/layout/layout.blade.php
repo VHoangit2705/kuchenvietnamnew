@@ -84,6 +84,9 @@
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
                 @endif
+                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
+                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
+                @endif
                 @endif
             </nav>
             <!-- Account Section -->
@@ -143,6 +146,9 @@
                 @endif
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                @endif
+                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
+                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
                 @endif
                 @endif
             </nav>
@@ -232,7 +238,6 @@
                 showConfirmButton: confirm
             });
         }
-
         function validateEmail(email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             return emailRegex.test(email);
@@ -281,7 +286,6 @@
                 const username = $username.val().trim();
                 $username.removeClass('is-invalid');
                 $username.next('.invalid-feedback').text('');
-
                 if (username) {
                     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
                     if (!usernameRegex.test(username)) {
@@ -297,7 +301,6 @@
                 const email = $email.val().trim();
                 $email.removeClass('is-invalid');
                 $email.next('.invalid-feedback').text('');
-
                 if (email) {
                     if (!validateEmail(email)) {
                         $email.addClass('is-invalid');
@@ -378,7 +381,6 @@
                     // Kiểm tra mật khẩu có chữ cái và số
                     const hasLetter = /[A-Za-z]/.test(newPassword);
                     const hasNumber = /\d/.test(newPassword);
-
                     if (!hasLetter || !hasNumber) {
                         $('#newPassword').addClass('is-invalid');
                         $('#newPassword').next('.invalid-feedback').text('Mật khẩu phải có ít nhất 8 ký tự, bao gồm cả chữ cái và số.');
@@ -413,7 +415,6 @@
                                 showConfirmButton: false
                             }).then(() => {
                                 $('#changePasswordModal').modal('hide');
-
                                 // Nếu đổi mật khẩu thì logout và redirect về login
                                 if (response.logout_required) {
                                     // Xóa cookie thiết bị và remember_token trước khi redirect
@@ -496,7 +497,6 @@
         function checkAndOpenPasswordModal() {
             $('#username').val('{{ Auth::user()->username ?? "" }}');
             $('#email').val('{{ Auth::user()->email ?? "" }}');
-
             // Kiểm tra xem mật khẩu có quá hạn không
             $.ajax({
                 url: "{{ route('password.check-expiry') }}",
@@ -523,7 +523,6 @@
             const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
             const cancelBtn = $('#cancelBtn');
             const closeBtn = $('#modalCloseBtn');
-
             if (isExpired) {
                 // Mật khẩu quá hạn: disable nút Hủy và nút đóng
                 cancelBtn.prop('disabled', true).addClass('d-none');
