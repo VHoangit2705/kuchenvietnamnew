@@ -34,7 +34,7 @@
     <table class="table table-bordered table-striped">
         <thead class="table-dark text-center">
             <tr>
-                <th class="text-center" style="width: 40px;">
+                 <th class="text-center" style="width: 40px;">
                     <input type="checkbox" id="checkAll" class="form-check-input">
                 </th>
                 <th>STT</th>

@@ -20,4 +20,5 @@ enum Enum
             self::AGENCY_INSTALL_CHECKBOX_LABEL => self::AGENCY_INSTALL_CHECKBOX_LABEL,
         ];
     }
+
 }

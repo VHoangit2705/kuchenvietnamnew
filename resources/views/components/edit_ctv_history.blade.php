@@ -35,4 +35,4 @@
     window.editCtvHistoryOrderCode = "{{ $code ?? '' }}";
     window.editCtvHistoryUrl = "{{ route('ctv.order.history', ':order_code') }}";
 </script>
-<script src="{{ asset('js/components/edit_ctv_history.js') }}"></script>
+<script src="{{ asset('public/js/components/edit_ctv_history.js') }}"></script>

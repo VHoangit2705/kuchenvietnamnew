@@ -502,4 +502,3 @@ class ReportHelper
         return $model;
     }
 }
-

@@ -84,7 +84,7 @@
           r = /^[a-zA-Z0-9À-ỹ\s,]+$/;
 
     if (!v)            return showFormError(i, 'Trường này là bắt buộc.');
-    if (v.length > 80) return showFormError(i, 'Địa chỉ không được vượt quá 80 ký tự.');
+    if (v.length > 120) return showFormError(i, 'Địa chỉ không được vượt quá 120 ký tự.');
     if (!r.test(v))    return showFormError(i, 'Chỉ cho phép chữ, số, khoảng trắng và dấu phẩy (,).');
 
     hideFormError(i);

@@ -124,5 +124,3 @@ class ReportCommandController extends Controller
         return in_array($type, ['weekly', 'monthly'], true) ? $type : 'weekly';
     }
 }
-
-

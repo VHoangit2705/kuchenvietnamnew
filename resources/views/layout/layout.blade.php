@@ -5,9 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @if(session()->has('brand') && session('brand') == 'kuchen')
-        <link rel="shortcut icon" href="{{ asset('imgs/logokuchen.png') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ asset('imgs/logokuchen.png') }}" type="image/x-icon">
     @elseif(session()->has('brand') && session('brand') == 'hurom')
-        <link rel="shortcut icon" href="{{ asset('imgs/logohurom.png') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ asset('imgs/logohurom.png') }}" type="image/x-icon">
     @endif
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Bảo hành {{ strtoupper(session('brand')) }}</title>
@@ -33,7 +33,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="{{ asset('css/menu.css') }}">
+    <link rel="stylesheet" href="{{ asset('public/css/menu.css') }}">
 </head>
 
 <body class="bg-gray text-gray-800">
@@ -43,9 +43,9 @@
             <div class="header-logo d-flex align-items-center d-none d-lg-flex" style="flex-shrink: 0;">
                 <a href="{{ route('home') }}">
                     @if (session()->has('brand') && session('brand') == 'kuchen')
-                        <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
+                    <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
                     @elseif(session()->has('brand') && session('brand') == 'hurom')
-                        <img src="{{ asset('imgs/hurom.webp') }}" alt="Logo" style="height: 30px;">
+                    <img src="{{ asset('imgs/hurom.webp') }}" alt="Logo" style="height: 30px;">
                     @endif
                 </a>
             </div>
@@ -57,7 +57,7 @@
                 @if (session()->has('brand'))
                 <img src="{{ asset('icons/menu.png') }}" alt="Menu"
                     style="height: 25px; filter: invert(100%) sepia(100%) saturate(2) hue-rotate(180deg);">
-                    @endif
+                @endif
             </button>
 
             <!-- Full Menu (Hidden on small screens) -->
@@ -102,7 +102,9 @@
                                 <i class="bi bi-person-gear me-2"></i>Cập nhật thông tin
                             </a>
                         </li>
-                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
                         <li>
                             <a class="dropdown-item text-danger" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                 <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
@@ -212,6 +214,7 @@
     </div>
     <!-- <footer class="bg-dark py-2 position-relative" style="height: 60px; flex-shrink: 0;" >
     </footer> -->
+
     <script>
         function goBackOrReload() {
             if (document.referrer) {
@@ -219,8 +222,13 @@
             }
         }
 
-        function OpenWaitBox(){$('#loadingOverlay').removeClass('d-none');}
-        function CloseWaitBox(){$('#loadingOverlay').addClass('d-none');}
+        function OpenWaitBox() {
+            $('#loadingOverlay').removeClass('d-none');
+        }
+
+        function CloseWaitBox() {
+            $('#loadingOverlay').addClass('d-none');
+        }
 
         function Notification(icon, title, timeout, confirm) {
             Swal.fire({
@@ -238,10 +246,10 @@
         $(document).ready(function() {
             ThongBao();
             CheckPasswordExpiry();
-            
+            NewYear2026Notice();
             // Set active menu item based on current URL
             setActiveMenuItem();
-            
+
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
@@ -257,13 +265,13 @@
                         title: 'Thông báo',
                         text: xhr.responseJSON?.message || 'Phiên đăng nhập đã hết hạn.',
                     }).then(() => {
-                        window.location.href = "{{ route('login') }}"; 
+                        window.location.href = "{{ route('login') }}";
                     });
                 }
             });
 
             // Reset form khi đóng modal
-            $('#changePasswordModal').on('hidden.bs.modal', function () {
+            $('#changePasswordModal').on('hidden.bs.modal', function() {
                 $('#changePasswordForm')[0].reset();
                 $('#changePasswordForm').find('.is-invalid').removeClass('is-invalid');
                 $('#changePasswordForm').find('.invalid-feedback').text('');
@@ -278,7 +286,6 @@
                 const username = $username.val().trim();
                 $username.removeClass('is-invalid');
                 $username.next('.invalid-feedback').text('');
-                
                 if (username) {
                     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
                     if (!usernameRegex.test(username)) {
@@ -294,7 +301,6 @@
                 const email = $email.val().trim();
                 $email.removeClass('is-invalid');
                 $email.next('.invalid-feedback').text('');
-                
                 if (email) {
                     if (!validateEmail(email)) {
                         $email.addClass('is-invalid');
@@ -375,7 +381,6 @@
                     // Kiểm tra mật khẩu có chữ cái và số
                     const hasLetter = /[A-Za-z]/.test(newPassword);
                     const hasNumber = /\d/.test(newPassword);
-                    
                     if (!hasLetter || !hasNumber) {
                         $('#newPassword').addClass('is-invalid');
                         $('#newPassword').next('.invalid-feedback').text('Mật khẩu phải có ít nhất 8 ký tự, bao gồm cả chữ cái và số.');
@@ -410,7 +415,6 @@
                                 showConfirmButton: false
                             }).then(() => {
                                 $('#changePasswordModal').modal('hide');
-                                
                                 // Nếu đổi mật khẩu thì logout và redirect về login
                                 if (response.logout_required) {
                                     // Xóa cookie thiết bị và remember_token trước khi redirect
@@ -462,10 +466,10 @@
                         const daysRemaining = response.days_remaining || 0;
                         const daysSinceChange = response.days_since_change || 0;
                         const isExpired = daysSinceChange >= 30 || daysRemaining <= 0;
-                        const message = daysRemaining > 0 
-                            ? `Mật khẩu của bạn sẽ hết hạn sau ${daysRemaining} ngày. Vui lòng đổi mật khẩu để bảo mật tài khoản.`
-                            : 'Mật khẩu của bạn đã quá 30 ngày. Vui lòng đổi mật khẩu ngay!';
-                        
+                        const message = daysRemaining > 0 ?
+                            `Mật khẩu của bạn sẽ hết hạn sau ${daysRemaining} ngày. Vui lòng đổi mật khẩu để bảo mật tài khoản.` :
+                            'Mật khẩu của bạn đã quá 30 ngày. Vui lòng đổi mật khẩu ngay!';
+
                         Swal.fire({
                             icon: 'warning',
                             title: 'Cảnh báo đổi mật khẩu',
@@ -493,7 +497,6 @@
         function checkAndOpenPasswordModal() {
             $('#username').val('{{ Auth::user()->username ?? "" }}');
             $('#email').val('{{ Auth::user()->email ?? "" }}');
-            
             // Kiểm tra xem mật khẩu có quá hạn không
             $.ajax({
                 url: "{{ route('password.check-expiry') }}",
@@ -520,7 +523,6 @@
             const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
             const cancelBtn = $('#cancelBtn');
             const closeBtn = $('#modalCloseBtn');
-            
             if (isExpired) {
                 // Mật khẩu quá hạn: disable nút Hủy và nút đóng
                 cancelBtn.prop('disabled', true).addClass('d-none');
@@ -568,7 +570,7 @@
         }
 
         // Reset modal khi đóng
-        $('#changePasswordModal').on('hidden.bs.modal', function () {
+        $('#changePasswordModal').on('hidden.bs.modal', function() {
             $('#cancelBtn').prop('disabled', false).removeClass('d-none');
             $('#modalCloseBtn').prop('disabled', false).removeClass('d-none');
             $(this).attr('data-bs-backdrop', 'true');
@@ -611,7 +613,7 @@
                                 if (brand === 'hurom') {
                                     baseUrl = "{{ route('warranty.hurom') }}";
                                 }
-                                window.location.href = baseUrl + "?tab=" + tab + "&kythuatvien=" + encodeURIComponent( response.nhanvien);
+                                window.location.href = baseUrl + "?tab=" + tab + "&kythuatvien=" + encodeURIComponent(response.nhanvien);
                             }
                         });
                         localStorage.setItem('lastThongBaoTime', now);
@@ -637,10 +639,10 @@
         function setActiveMenuItem() {
             const currentUrl = window.location.href;
             const currentPath = window.location.pathname;
-            
+
             // Remove active class from all menu items
             $('.nav-link').removeClass('active');
-            
+
             // Check each menu link
             $('.nav-link').each(function() {
                 const linkHref = $(this).attr('href');
@@ -657,7 +659,9 @@
         setInterval(() => {
             if (document.visibilityState === 'visible') {
                 fetch('/keep-alive', {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
             }
         }, 5 * 60 * 1000);

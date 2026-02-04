@@ -102,7 +102,6 @@
         </div>
     </div>
 </div>
-<<<<<<< HEAD
 
 <script>
     // Biến toàn cục để theo dõi trạng thái lỗi của form
@@ -322,5 +321,3 @@
         });
     });
 </script>
-=======
->>>>>>> 53d2d648d53ecb44cbe48ca3ba5638ef91e09fe6

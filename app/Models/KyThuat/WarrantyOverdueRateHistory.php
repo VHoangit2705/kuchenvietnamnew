@@ -37,4 +37,3 @@ class WarrantyOverdueRateHistory extends Model
         'da_hoan_tat' => 'integer',
     ];
 }
-
