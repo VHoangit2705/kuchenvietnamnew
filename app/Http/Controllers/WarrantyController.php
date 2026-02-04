@@ -1170,7 +1170,7 @@ class WarrantyController extends Controller
             }
 
             $path = $photo->store('photos', 'public');
-            $photos[] = $path;
+            $photos[] = 'storage/' . $path;
         }
 
         if (!empty($photos)) {
