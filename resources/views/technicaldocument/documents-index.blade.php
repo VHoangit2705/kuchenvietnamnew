@@ -97,128 +97,7 @@
                 $productModel->version . ')' : '' }}</h5>
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        {{-- Header: Nền đậm, chữ trắng, viết hoa để tạo độ tương phản cao --}}
-                        <thead class="bg-primary text-white">
-                            <tr>
-                                <th class="py-3 ps-4" style="width: 60px;">#</th>
-                                <th class="py-3 text-nowrap">Phân loại</th>
-                                <th class="py-3" style="min-width: 250px;">Tiêu đề tài liệu</th> {{-- Min-width giúp
-                                không bị co chữ --}}
-                                <th class="py-3 text-center text-nowrap">Phiên bản</th>
-                                <th class="py-3 text-center text-nowrap">Trạng thái</th>
-                                <th class="py-3 text-end pe-4" style="min-width: 180px;">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white">
-                            @forelse($documents as $doc)
-                            <tr>
-                                {{-- ID: Đậm, màu xám --}}
-                                <td class="ps-4 fw-bold text-secondary">{{ $doc->id }}</td>
-
-                                {{-- Loại: Badge kiểu Pill, màu sắc rõ ràng --}}
-                                <td>
-                                    <span
-                                        class="badge rounded-pill bg-light text-dark border border-secondary border-opacity-25 px-3 py-2">
-                                        {{ $doc->doc_type }}
-                                    </span>
-                                </td>
-
-                                {{-- Tiêu đề: Quan trọng nhất -> Chữ to hơn, đậm màu --}}
-                                <td>
-                                    <div class="d-flex flex-column">
-                                        <a href="{{ route('warranty.document.documents.show', $doc->id) }}"
-                                            class="text-dark text-decoration-none fw-bold hover-primary">
-                                            {{ $doc->title }}
-                                        </a>
-                                        <small class="text-muted d-block d-md-none mt-1">
-                                            <i class="bi bi-clock me-1"></i>{{ $doc->created_at->format('d/m/Y') }}
-                                        </small>
-                                    </div>
-                                </td>
-
-                                {{-- Phiên bản: Font Monospace cho số liệu --}}
-                                <td class="text-center">
-                                    <span
-                                        class="badge bg-secondary text-white bg-opacity-10 text-secondary font-monospace fs-6">
-                                        v{{ $doc->document_versions_count ?? 0 }}
-                                    </span>
-                                </td>
-
-                                {{-- Trạng thái: Màu sắc tương phản mạnh (Success/Warning) --}}
-                                <td class="text-center">
-                                    @if($doc->status === 'active')
-                                    <span
-                                        class="badge text-white bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3">
-                                        <i class="bi bi-check-circle-fill me-1"></i>Hoạt động
-                                    </span>
-                                    @elseif($doc->status === 'deprecated')
-                                    <span
-                                        class="badge text-white bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3">
-                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Lỗi thời
-                                    </span>
-                                    @else
-                                    <span
-                                        class="badge text-white bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">
-                                        {{ $doc->status }}
-                                    </span>
-                                    @endif
-                                </td>
-
-                                {{-- Thao tác: Dùng Icon Button to, dễ bấm --}}
-                                <td class="text-end pe-4">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        {{-- 1. Nút Xem (Màu xám) --}}
-                                        <a href="{{ route('warranty.document.documents.show', $doc->id) }}"
-                                            class="btn btn-outline-secondary rounded-circle d-flex justify-content-center align-items-center"
-                                            style="width: 32px; height: 32px;" title="Xem chi tiết"
-                                            data-bs-toggle="tooltip">
-                                            <i class="bi bi-eye-fill"></i>
-                                        </a>
-
-                                        {{-- 2. Nút Sửa (Màu xanh dương) --}}
-                                        <a href="{{ route('warranty.document.documents.edit', $doc->id) }}"
-                                            class="btn btn-outline-primary rounded-circle d-flex justify-content-center align-items-center"
-                                            style="width: 32px; height: 32px;" title="Chỉnh sửa"
-                                            data-bs-toggle="tooltip">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </a>
-
-                                        {{-- 3. Nút Chia sẻ (Màu xanh ngọc - Cyan) --}}
-                                        @if($doc->documentVersions->isNotEmpty())
-                                        <button type="button"
-                                            class="btn btn-outline-info rounded-circle d-flex justify-content-center align-items-center btn-share-doc"
-                                            style="width: 32px; height: 32px;"
-                                            data-version-id="{{ $doc->documentVersions->sortByDesc('id')->first()->id }}"
-                                            data-doc-title="{{ $doc->title }}" title="Chia sẻ" data-bs-toggle="tooltip">
-                                            <i class="bi bi-share-fill"></i>
-                                        </button>
-                                        @endif
-
-                                        {{-- 4. Nút Xóa (Màu đỏ) --}}
-                                        <button type="button"
-                                            class="btn btn-outline-danger rounded-circle d-flex justify-content-center align-items-center btn-delete-doc"
-                                            style="width: 32px; height: 32px;" data-id="{{ $doc->id }}"
-                                            data-title="{{ e($doc->title) }}" title="Xóa tài liệu"
-                                            data-bs-toggle="tooltip">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <div class="d-flex flex-column align-items-center text-muted">
-                                        <i class="bi bi-folder-x fs-1 opacity-50 mb-2"></i>
-                                        <p class="mb-0 fw-bold">Chưa có dữ liệu nào</p>
-                                        <small>Vui lòng chọn model và bấm "Thêm tài liệu" để bắt đầu.</small>
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                    <x-technicaldocument.documents-list-table :documents="$documents" />
                 </div>
             </div>
             @else
@@ -274,21 +153,7 @@
                 <!-- Danh sách link đã tạo -->
                 <h6 class="fw-bold mb-2">Danh sách liên kết đang hoạt động</h6>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Link Chia Sẻ</th>
-                                <th>Quyền</th>
-                                <th>Bảo mật</th>
-                                <th>Hết hạn</th>
-                                <th>Lượt xem</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="shareListBody">
-                            <!-- Dữ liệu sẽ được load bằng JS -->
-                        </tbody>
-                    </table>
+                    <x-technicaldocument.share-links-table />
                 </div>
             </div>
         </div>
@@ -296,172 +161,23 @@
 </div>
 
 <script>
-    (function () {
-    var routes = {
-        getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
-        getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
-        getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
-        destroyDocument: "{{ url('baohanh/tailieukithuat/documents') }}",
-        shareStore: "{{ route('warranty.document.share.store') }}",
-        shareList: "{{ url('baohanh/tailieukithuat/share/list') }}",
-        shareRevoke: "{{ url('baohanh/tailieukithuat/share/revoke') }}"
-    };
-    var csrf = '{{ csrf_token() }}';
-    var currentModelId = "{{ request('model_id') }}";
-    var filter = @json(isset($filter) ? $filter : ['category_id' => '', 'product_id' => '', 'xuat_xu' => '']);
+// Configuration for modules
+window.docIndexRoutes = {
+    getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
+    getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
+    getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
+    destroyDocument: "{{ url('baohanh/tailieukithuat/documents') }}",
+    shareStore: "{{ route('warranty.document.share.store') }}",
+    shareList: "{{ url('baohanh/tailieukithuat/share/list') }}",
+    shareRevoke: "{{ url('baohanh/tailieukithuat/share/revoke') }}"
+};
 
-    // --- Filter Logic ---
-    function loadProducts(categoryId, selectProductId) {
-        if (!categoryId) { jQuery('#filterProduct').html('<option value="">Chọn sản phẩm</option>').prop('disabled', true); jQuery('#filterOrigin, #filterModel').html('<option value="">...</option>').prop('disabled', true); return; }
-        jQuery.get(routes.getProductsByCategory, { category_id: categoryId }, function (res) {
-            var opts = '<option value="">Chọn sản phẩm</option>';
-            (res || []).forEach(function (p) {
-                var sel = (selectProductId && p.id == selectProductId) ? ' selected' : '';
-                opts += '<option value="' + p.id + '"' + sel + '>' + (p.name || p.product_name || '') + '</option>';
-            });
-            jQuery('#filterProduct').html(opts).prop('disabled', false);
-            jQuery('#filterOrigin').html('<option value="">Xuất xứ</option>').prop('disabled', true);
-            jQuery('#filterModel').html('<option value="">Chọn model</option>').prop('disabled', true);
-            if (selectProductId) loadOrigins(selectProductId, filter.xuat_xu);
-        });
-    }
-    function loadOrigins(productId, selectOrigin) {
-        if (!productId) { jQuery('#filterOrigin').html('<option value="">Xuất xứ</option>').prop('disabled', true); jQuery('#filterModel').html('<option value="">Chọn model</option>').prop('disabled', true); return; }
-        jQuery.get(routes.getOriginsByProduct, { product_id: productId }, function (res) {
-            var opts = '<option value="">Xuất xứ</option>';
-            (res || []).forEach(function (o) {
-                var x = o.xuat_xu || '';
-                var sel = (selectOrigin && x === selectOrigin) ? ' selected' : '';
-                opts += '<option value="' + x + '"' + sel + '>' + x + '</option>';
-            });
-            jQuery('#filterOrigin').html(opts).prop('disabled', false);
-            jQuery('#filterModel').html('<option value="">Chọn model</option>').prop('disabled', true);
-            if (selectOrigin) loadModels(productId, selectOrigin);
-        });
-    }
-    function loadModels(productId, origin) {
-        if (!productId || !origin) { jQuery('#filterModel').html('<option value="">Chọn model</option>').prop('disabled', true); return; }
-        jQuery.get(routes.getModelsByOrigin, { product_id: productId, xuat_xu: origin }, function (res) {
-            var opts = '<option value="">Chọn model</option>';
-            (res || []).forEach(function (m) {
-                var sel = (currentModelId && m.id == currentModelId) ? ' selected' : '';
-                opts += '<option value="' + m.id + '"' + sel + '>' + (m.model_code || '') + (m.version ? ' (' + m.version + ')' : '') + '</option>';
-            });
-            jQuery('#filterModel').html(opts).prop('disabled', false);
-        });
-    }
-
-    jQuery('#filterCategory').on('change', function () { loadProducts(jQuery(this).val()); });
-    jQuery('#filterProduct').on('change', function () { loadOrigins(jQuery(this).val()); });
-    jQuery('#filterOrigin').on('change', function () { loadModels(jQuery('#filterProduct').val(), jQuery(this).val()); });
-
-    (function initFilter() {
-        var cat = jQuery('#filterCategory').val();
-        if (cat) {
-            if (filter.product_id) {
-                loadProducts(cat, filter.product_id);
-            } else {
-                loadProducts(cat);
-            }
-        }
-    })();
-
-    // --- Delete Document Logic ---
-    jQuery(document).on('click', '.btn-delete-doc', function () {
-        var id = jQuery(this).data('id');
-        var title = jQuery(this).data('title') || '';
-        if (!confirm('Bạn có chắc muốn xóa tài liệu "' + title + '"?')) return;
-        jQuery.ajax({
-            url: routes.destroyDocument + '/' + id,
-            type: 'DELETE',
-            data: { _token: csrf },
-            success: function () { location.reload(); },
-            error: function (xhr) { alert(xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Có lỗi xảy ra.'); }
-        });
-    });
-
-    // --- Share Document Logic ---
-    var shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
-    
-    // Open Modal
-    jQuery(document).on('click', '.btn-share-doc', function() {
-        var versionId = jQuery(this).data('version-id');
-        var title = jQuery(this).data('doc-title');
-        
-        jQuery('#shareDocTitle').text(title);
-        jQuery('#shareVersionId').val(versionId);
-        
-        loadShareList(versionId);
-        shareModal.show();
-    });
-
-    // Load Share List
-    function loadShareList(versionId) {
-        jQuery('#shareListBody').html('<tr><td colspan="6" class="text-center text-muted">Đang tải...</td></tr>');
-        jQuery.get(routes.shareList + '/' + versionId, function(data) {
-            var html = '';
-            if(data.length === 0) {
-                html = '<tr><td colspan="6" class="text-center text-muted">Chưa có liên kết chia sẻ nào.</td></tr>';
-            } else {
-                data.forEach(function(item) {
-                    var statusBadge = item.status === 'active' 
-                        ? (item.is_expired ? '<span class="badge bg-warning text-dark">Hết hạn</span>' : '<span class="badge bg-success">Hoạt động</span>')
-                        : '<span class="badge bg-secondary">Đã hủy</span>';
-                    
-                    html += `<tr>
-                        <td>
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" value="${item.full_url}" readonly>
-                                <button class="btn btn-outline-secondary btn-copy" type="button" data-url="${item.full_url}"><i class="bi bi-clipboard"></i></button>
-                            </div>
-                        </td>
-                        <td>${item.permission === 'download' ? '<span class="badge bg-primary">Tải về</span>' : '<span class="badge bg-info text-dark">Xem</span>'}</td>
-                        <td>${item.has_password ? '<i class="bi bi-lock-fill text-warning" title="Có mật khẩu"></i>' : '<i class="bi bi-globe text-success" title="Công khai"></i>'}</td>
-                        <td class="small">${item.expires_at}</td>
-                        <td class="text-center">${item.access_count}</td>
-                        <td class="text-center">
-                            ${item.status === 'active' ? `<button class="btn btn-sm btn-outline-danger btn-revoke" data-id="${item.id}">Thu hồi</button>` : '-'}
-                        </td>
-                    </tr>`;
-                });
-            }
-            jQuery('#shareListBody').html(html);
-        });
-    }
-
-    // Create Share Link
-    jQuery('#createShareForm').on('submit', function(e) {
-        e.preventDefault();
-        var formData = jQuery(this).serializeArray();
-        formData.push({name: '_token', value: csrf});
-        
-        jQuery.post(routes.shareStore, formData, function(res) {
-            alert(res.message);
-            jQuery('#createShareForm')[0].reset();
-            jQuery('#shareVersionId').val(formData.find(x => x.name === 'document_version_id').value); // Restore ID
-            loadShareList(jQuery('#shareVersionId').val());
-        }).fail(function(xhr) {
-            alert(xhr.responseJSON?.message || 'Lỗi khi tạo link.');
-        });
-    });
-
-    // Revoke Link
-    jQuery(document).on('click', '.btn-revoke', function() {
-        if(!confirm('Bạn có chắc chắn muốn thu hồi liên kết này không? Người dùng sẽ không thể truy cập nữa.')) return;
-        var id = jQuery(this).data('id');
-        jQuery.post(routes.shareRevoke + '/' + id, {_token: csrf}, function(res) {
-            loadShareList(jQuery('#shareVersionId').val());
-        });
-    });
-
-    // Copy to Clipboard
-    jQuery(document).on('click', '.btn-copy', function() {
-        var url = jQuery(this).data('url');
-        navigator.clipboard.writeText(url).then(function() {
-            alert('Đã sao chép liên kết!');
-        });
-    });
-
-})();
+window.docIndexData = {
+    csrf: '{{ csrf_token() }}',
+    currentModelId: "{{ request('model_id') }}",
+    filter: @json(isset($filter) ? $filter : ['category_id' => '', 'product_id' => '', 'xuat_xu' => ''])
+};
 </script>
+<script src="{{ asset('js/technicaldocument/filter.js') }}"></script>
+<script src="{{ asset('js/technicaldocument/documents-index.js') }}"></script>
 @endsection

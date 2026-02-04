@@ -27,48 +27,12 @@
             <h6 class="fw-bold mb-0 text-uppercase ls-1"><i class="bi bi-crosshair me-2"></i>Bước 1: Xác định thiết bị</h6>
         </div>
         <div class="card-body p-4 bg-white">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <select class="form-select border-0 bg-light fw-bold text-primary" id="createCategory">
-                            <option value="">Chọn danh mục</option>
-                            @foreach($categories as $c)
-                            <option value="{{ $c->id }}">{{ $c->name_vi }}</option>
-                            @endforeach
-                        </select>
-                        <label for="createCategory">Danh mục sản phẩm <span class="text-danger">*</span></label>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <select class="form-select border-0 bg-light" id="createProduct" disabled>
-                            <option value="">Chọn sản phẩm</option>
-                        </select>
-                        <label for="createProduct">Sản phẩm <span class="text-danger">*</span></label>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="input-group has-validation">
-                        <div class="form-floating flex-grow-1">
-                            <select class="form-select border-0 bg-light" id="createOrigin" disabled>
-                                <option value="">Chọn xuất xứ</option>
-                            </select>
-                            <label for="createOrigin">Xuất xứ <span class="text-danger">*</span></label>
-                        </div>
-                        <button class="btn btn-light border-0 text-primary" type="button" id="btnAddOrigin" data-bs-toggle="modal" data-bs-target="#modalAddOrigin" disabled title="Thêm mới">
-                            <i class="bi bi-plus-circle-fill fs-5"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <select class="form-select border-0 bg-light fw-bold" id="createModelId" disabled>
-                            <option value="">Chọn Model</option>
-                        </select>
-                        <label for="createModelId">Mã Model <span class="text-danger">*</span></label>
-                    </div>
-                </div>
-            </div>
+            <x-technicaldocument.product-filter 
+                :categories="$categories" 
+                variant="desktop-floating" 
+                idPrefix="create" 
+                :showAddOriginButton="true"
+            />
             <div class="mt-3 d-flex align-items-center text-muted small">
                 <i class="bi bi-info-circle me-2"></i>
                 <span>Vui lòng chọn đầy đủ thông tin từ trái sang phải để mở khóa các bước tiếp theo.</span>

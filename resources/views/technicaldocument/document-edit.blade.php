@@ -46,7 +46,7 @@
                                 <option value="repair" {{ old('doc_type', $document->doc_type) === 'repair' ? 'selected' : '' }}>Sửa chữa</option>
                                 <option value="image" {{ old('doc_type', $document->doc_type) === 'image' ? 'selected' : '' }}>Hình ảnh</option>
                                 <option value="video" {{ old('doc_type', $document->doc_type) === 'video' ? 'selected' : '' }}>Video</option>
-                                <option value="bulletin" {{ old('doc_type', $document->doc_type) === 'bulletin' ? 'selected' : '' }}>Bulletin</option>
+                                {{-- <option value="bulletin" {{ old('doc_type', $document->doc_type) === 'bulletin' ? 'selected' : '' }}>Bulletin</option> --}}
                             </select>
                         </div>
                         <div class="mb-3">

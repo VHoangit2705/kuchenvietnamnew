@@ -99,35 +99,14 @@
     @csrf
     @method('DELETE')
 </form>
+
 <script>
-(function () {
-    var csrf = '{{ csrf_token() }}';
-    var guideId = {{ $guide->id }};
-    var detachUrl = '{{ url('baohanh/tailieukithuat/repair-guides') }}/' + guideId + '/documents/';
-
-    document.getElementById('btnDeleteGuide').addEventListener('click', function () {
-        if (!confirm('Bạn có chắc muốn xóa hướng dẫn sửa này?')) return;
-        document.getElementById('formDeleteGuide').submit();
-    });
-
-    document.querySelectorAll('.btn-detach-doc').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var docId = this.getAttribute('data-document-id');
-            if (!confirm('Gỡ tài liệu này khỏi hướng dẫn?')) return;
-            var xhr = new XMLHttpRequest();
-            xhr.open('DELETE', detachUrl + docId);
-            xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.onload = function () {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    btn.closest('li').remove();
-                } else {
-                    alert('Không thể gỡ tài liệu.');
-                }
-            };
-            xhr.send();
-        });
-    });
-})();
+// Configuration for repair guide edit
+window.repairGuideData = {
+    csrf: '{{ csrf_token() }}',
+    guideId: {{ $guide->id }},
+    detachUrl: '{{ url('baohanh/tailieukithuat/repair-guides') }}/{{ $guide->id }}/documents/'
+};
 </script>
+<script src="{{ asset('js/technicaldocument/repair-guide-edit.js') }}"></script>
 @endsection

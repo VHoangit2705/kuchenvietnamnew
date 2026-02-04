@@ -11,63 +11,37 @@
 
     <div class="row justify-content-center mb-5">
         <div class="col-xl-10">
-            <div class="card border-0 shadow-lg rounded-pill overflow-hidden d-none d-lg-block">
-                <div class="card-body p-1">
-                    <div class="row g-0 align-items-center">
-                        <div class="col-3 border-end">
-                            <select class="form-select border-0 py-3 ps-4 fw-semibold" id="categorySelect" style="border-radius: 30px 0 0 30px;">
-                                <option selected disabled>Danh mục sản phẩm</option>
-                                @foreach($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->name_vi }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-3 border-end">
-                            <select class="form-select border-0 py-3 ps-3" id="productNameSelect" disabled>
-                                <option selected disabled>Chọn sản phẩm...</option>
-                            </select>
-                        </div>
-                        <div class="col-2 border-end">
-                            <select class="form-select border-0 py-3 ps-3" id="originSelect" disabled>
-                                <option selected disabled>Xuất xứ...</option>
-                            </select>
-                        </div>
-                        <div class="col-3">
-                            <select class="form-select border-0 py-3 ps-3 fw-bold text-primary" id="productCodeSelect" disabled>
-                                <option selected disabled>Mã Model...</option>
-                            </select>
-                        </div>
-                        <div class="col-1 pe-1">
-                            <button class="btn btn-primary w-100 rounded-pill py-3 h-100" type="button" id="btnSearch" disabled>
-                                <i class="bi bi-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {{-- Desktop View: Horizontal search bar --}}
+            <div class="d-none d-lg-block">
+                <x-technicaldocument.product-filter 
+                    :categories="$categories" 
+                    variant="desktop-pill" 
+                    idPrefix="" 
+                />
             </div>
             
-            <div class="card border-0 shadow rounded-4 d-lg-none">
-                <div class="card-body p-3">
-                    <div class="d-grid gap-3">
-                        <select class="form-select" id="categorySelect_m"><option>Danh mục...</option></select>
-                        <div class="alert alert-info small mb-0"><i class="bi bi-pc-display me-1"></i> Vui lòng sử dụng máy tính để có trải nghiệm tra cứu tốt nhất.</div>
-                    </div>
-                </div>
+            {{-- Mobile/Tablet View: Stacked search bar --}}
+            <div class="d-lg-none">
+                <x-technicaldocument.product-filter 
+                    :categories="$categories" 
+                    variant="mobile" 
+                    idPrefix="categorySelect_m" 
+                />
             </div>
             
-            <div class="d-flex justify-content-center gap-3 mt-4">
+            <div class="d-flex flex-wrap justify-content-center gap-2 gap-md-3 mt-4">
                 {{-- Style xanh lá nhạt cho hành động thêm --}}
                 <a href="{{ route('warranty.document.create') }}" 
                    class="btn border-0 text-success fw-bold px-3 py-2"
                    style="background-color: #d1e7dd;">
-                    <i class="bi bi-plus-square-fill me-2"></i>Thêm dữ liệu
+                    <i class="bi bi-plus-square-fill me-2"></i><span class="d-none d-sm-inline">Thêm dữ liệu</span><span class="d-sm-none">Thêm</span>
                 </a>
             
                 {{-- Style xanh dương nhạt cho tài liệu --}}
                 <a href="{{ route('warranty.document.documents.index') }}" 
                    class="btn border-0 text-primary fw-bold px-3 py-2"
                    style="background-color: #cfe2ff;">
-                    <i class="bi bi-folder-fill me-2"></i>Quản lý tài liệu
+                    <i class="bi bi-folder-fill me-2"></i><span class="d-none d-sm-inline">Quản lý tài liệu</span><span class="d-sm-none">Quản lý</span>
                 </a>
             
                 {{-- Style xám cho reset --}}
@@ -87,28 +61,7 @@
 
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden" id="errorTableCard">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="errorTable">
-                    <thead class="bg-light text-uppercase text-secondary small">
-                        <tr>
-                            <th class="py-3 ps-4" style="width: 50px;">#</th>
-                            <th class="py-3" style="min-width: 100px;">Mã lỗi</th>
-                            <th class="py-3">Hiện tượng / Tên lỗi</th>
-                            <th class="py-3" style="width: 120px;">Mức độ</th>
-                            <th class="py-3">Mô tả sơ bộ</th>
-                            <th class="py-3 text-center" style="width: 100px;">Chi tiết</th>
-                        </tr>
-                    </thead>
-                    <tbody id="errorTableBody" class="bg-white">
-                        <tr id="placeholderRow">
-                            <td colspan="6" class="text-center py-5">
-                                <div class="py-4">
-                                    <img src="https://cdn-icons-png.flaticon.com/512/6104/6104865.png" alt="Search" width="80" class="opacity-25 mb-3">
-                                    <h6 class="text-muted fw-normal">Vui lòng chọn đầy đủ thông tin ở thanh tìm kiếm phía trên</h6>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <x-technicaldocument.error-search-table />
             </div>
         </div>
 

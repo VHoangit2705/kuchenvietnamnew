@@ -15,58 +15,68 @@
     }
 
     function init() {
-        // 1. Chọn danh mục → load sản phẩm
-        jQuery('#categorySelect').on('change', function () {
-            var categoryId = jQuery(this).val();
+        // Helper function to sync mobile and desktop selects
+        function syncSelects(sourceId, targetId) {
+            var value = jQuery(sourceId).val();
+            jQuery(targetId).val(value).trigger('change');
+        }
 
-            resetSelect('#productNameSelect', '-- Chọn sản phẩm --', true);
-            resetSelect('#originSelect', '-- Chọn xuất xứ --', true);
-            resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-            jQuery('#btnSearch').prop('disabled', true);
+        // 1. Chọn danh mục → load sản phẩm (Desktop + Mobile)
+        jQuery('#categorySelect, #categorySelect_m').on('change', function () {
+            var categoryId = jQuery(this).val();
+            var isMobile = jQuery(this).attr('id').includes('_m');
+
+            // Reset both desktop and mobile
+            resetSelect('#productNameSelect, #productNameSelect_m', '-- Chọn sản phẩm --', true);
+            resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', true);
+            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
+            jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
 
             if (!categoryId) return;
 
             jQuery.get(routes.getProductsByCategory || '', { category_id: categoryId }, function (res) {
-                resetSelect('#productNameSelect', '-- Chọn sản phẩm --', false);
+                resetSelect('#productNameSelect, #productNameSelect_m', '-- Chọn sản phẩm --', false);
                 (res || []).forEach(function (p) {
-                    jQuery('#productNameSelect').append(
+                    jQuery('#productNameSelect, #productNameSelect_m').append(
                         '<option value="' + p.id + '">' + (p.name || p.product_name || '') + (p.model ? ' (' + p.model + ')' : '') + '</option>'
                     );
                 });
             }).fail(function () {
-                resetSelect('#productNameSelect', '-- Chọn sản phẩm --', false);
+                resetSelect('#productNameSelect, #productNameSelect_m', '-- Chọn sản phẩm --', false);
             });
         });
 
-        // 2. Chọn sản phẩm → load xuất xứ
-        jQuery('#productNameSelect').on('change', function () {
+        // 2. Chọn sản phẩm → load xuất xứ (Desktop + Mobile)
+        jQuery('#productNameSelect, #productNameSelect_m').on('change', function () {
             var productId = jQuery(this).val();
 
-            resetSelect('#originSelect', '-- Chọn xuất xứ --', true);
-            resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-            jQuery('#btnSearch').prop('disabled', true);
+            resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', true);
+            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
+            jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
 
             if (!productId) return;
 
             jQuery.get(routes.getOriginsByProduct || '', { product_id: productId }, function (res) {
-                resetSelect('#originSelect', '-- Chọn xuất xứ --', false);
+                resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', false);
                 (res || []).forEach(function (o) {
-                    jQuery('#originSelect').append(
+                    jQuery('#originSelect, #originSelect_m').append(
                         '<option value="' + (o.xuat_xu || '') + '">' + (o.xuat_xu || '') + '</option>'
                     );
                 });
             }).fail(function () {
-                resetSelect('#originSelect', '-- Chọn xuất xứ --', false);
+                resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', false);
             });
         });
 
-        // 3. Chọn xuất xứ → load mã sản phẩm (model)
-        jQuery('#originSelect').on('change', function () {
-            var productId = jQuery('#productNameSelect').val();
+        // 3. Chọn xuất xứ → load mã sản phẩm (model) (Desktop + Mobile)
+        jQuery('#originSelect, #originSelect_m').on('change', function () {
+            var productId = jQuery('#productNameSelect, #productNameSelect_m').filter(function() {
+                return jQuery(this).val();
+            }).first().val();
             var origin = jQuery(this).val();
 
-            resetSelect('#productCodeSelect', '-- Chọn mã SP --', true);
-            jQuery('#btnSearch').prop('disabled', true);
+            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
+            jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
 
             if (!origin) return;
 
@@ -74,25 +84,29 @@
                 product_id: productId,
                 xuat_xu: origin
             }, function (res) {
-                resetSelect('#productCodeSelect', '-- Chọn mã SP --', false);
+                resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', false);
                 (res || []).forEach(function (m) {
-                    jQuery('#productCodeSelect').append(
+                    jQuery('#productCodeSelect, #productCodeSelect_m').append(
                         '<option value="' + m.id + '">' + (m.model_code || '') + (m.version ? ' (' + m.version + ')' : '') + '</option>'
                     );
                 });
             }).fail(function () {
-                resetSelect('#productCodeSelect', '-- Chọn mã SP --', false);
+                resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', false);
             });
         });
 
-        // 4. Chọn mã SP → enable tìm kiếm
-        jQuery('#productCodeSelect').on('change', function () {
-            jQuery('#btnSearch').prop('disabled', !jQuery(this).val());
+        // 4. Chọn mã SP → enable tìm kiếm (Desktop + Mobile)
+        jQuery('#productCodeSelect, #productCodeSelect_m').on('change', function () {
+            var hasValue = !!jQuery(this).val();
+            jQuery('#btnSearch, #btnSearch_m').prop('disabled', !hasValue);
         });
 
-        // 5. Bấm Tìm kiếm → load mã lỗi theo model, hiển thị bảng
-        jQuery('#btnSearch').on('click', function () {
-            var modelId = jQuery('#productCodeSelect').val();
+        // 5. Bấm Tìm kiếm → load mã lỗi theo model, hiển thị bảng (Desktop + Mobile)
+        jQuery('#btnSearch, #btnSearch_m').on('click', function () {
+            var modelId = jQuery('#productCodeSelect, #productCodeSelect_m').filter(function() {
+                return jQuery(this).val();
+            }).first().val();
+            
             if (!modelId) {
                 alert('Vui lòng chọn Mã sản phẩm trước khi tìm kiếm.');
                 return;
