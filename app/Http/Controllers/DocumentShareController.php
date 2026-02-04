@@ -30,7 +30,7 @@ class DocumentShareController extends Controller
             return [
                 'id'            => $share->id,
                 'share_token'   => $share->share_token,
-                'full_url'      => route('document.share.public_show', $share->share_token),
+                'full_url' => route('docs.share.show', $share->share_token),
                 'permission'    => $share->permission,
                 'has_password'  => !empty($share->password_hash),
                 'expires_at'    => $share->expires_at ? $share->expires_at->format('Y-m-d H:i') : 'Vĩnh viễn',
