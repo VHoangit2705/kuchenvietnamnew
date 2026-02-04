@@ -182,11 +182,11 @@
     window.reportParams = @json(request()->all());
     window.productSuggestRoute = '{{ route('baocao.sanpham') }}';
 </script>
-<script src="{{ asset('public/js/report/validation.js') }}"></script>
-<script src="{{ asset('public/js/report/ui.js') }}"></script>
-<script src="{{ asset('public/js/report/product_suggest.js') }}"></script>
-<script src="{{ asset('public/js/report/replacement_suggest.js') }}"></script>
-<script src="{{ asset('public/js/report/export.js') }}"></script>
-<script src="{{ asset('public/js/report/reset.js') }}"></script>
-<script src="{{ asset('public/js/report/index.js') }}"></script>
+<script src="{{ asset('js/report/validation.js') }}"></script>
+<script src="{{ asset('js/report/ui.js') }}"></script>
+<script src="{{ asset('js/report/product_suggest.js') }}"></script>
+<script src="{{ asset('js/report/replacement_suggest.js') }}"></script>
+<script src="{{ asset('js/report/export.js') }}"></script>
+<script src="{{ asset('js/report/reset.js') }}"></script>
+<script src="{{ asset('js/report/index.js') }}"></script>
 @endsection
