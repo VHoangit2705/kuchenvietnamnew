@@ -205,8 +205,25 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy')->middleware('role:admin,kythuatvien');
     Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
 
+    // ... (Existing Technical Document Routes)
+    Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+
+    // --- Document Sharing Routes (Admin) ---
+    Route::prefix('share')->group(function () {
+        Route::post('/create', [\App\Http\Controllers\DocumentShareController::class, 'store'])->name('warranty.document.share.store');
+        Route::get('/list/{document_version_id}', [\App\Http\Controllers\DocumentShareController::class, 'index'])->name('warranty.document.share.index');
+        Route::post('/revoke/{id}', [\App\Http\Controllers\DocumentShareController::class, 'revoke'])->name('warranty.document.share.revoke');
+    });
+
 });
 
+}); // End Middleware group
+
+// --- Public Document Share Routes (No Auth Required) ---
+Route::prefix('shared-docs')->group(function () {
+    Route::get('/{token}', [\App\Http\Controllers\DocumentShareController::class, 'publicShow'])->name('document.share.public_show');
+    Route::post('/{token}/auth', [\App\Http\Controllers\DocumentShareController::class, 'publicAuth'])->name('document.share.public_auth');
+    Route::get('/{token}/download', [\App\Http\Controllers\DocumentShareController::class, 'download'])->name('document.share.download');
 });
 
 //Permissions
