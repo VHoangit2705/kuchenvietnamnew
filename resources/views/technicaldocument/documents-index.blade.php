@@ -4,21 +4,43 @@
 <div class="container-fluid py-5 bg-light min-vh-100">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm">
-                <div>
-                    <h2 class="fw-bold text-primary mb-1"><i class="bi bi-folder2-open me-2"></i>Quản Lý Tài Liệu Kỹ Thuật</h2>
-                    <p class="text-muted mb-0 small">Danh sách tài liệu theo model sản phẩm</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ route('warranty.document') }}" class="btn btn-outline-secondary rounded-pill px-4">
-                        <i class="bi bi-search me-1"></i>Tra cứu lỗi
-                    </a>
-                    <a href="{{ route('warranty.document.create') }}" class="btn btn-outline-primary rounded-pill px-4">
-                        <i class="bi bi-plus-lg me-1"></i>Thêm mã lỗi / Hướng dẫn
-                    </a>
-                    <a href="{{ route('warranty.document.documents.create') }}" class="btn btn-primary rounded-pill px-4">
-                        <i class="bi bi-upload me-1"></i>Thêm tài liệu
-                    </a>
+            <div class="bg-white p-4 rounded-4 shadow-sm border-start border-5 border-primary">
+                <div class="d-flex flex-column flex-xl-row justify-content-between align-items-center">
+
+                    <div class="mb-3 mb-xl-0 w-100">
+                        <h3 class="fw-bold text-uppercase text-primary mb-1">
+                            <i class="bi bi-folder-check me-2"></i>Tài Liệu Kỹ Thuật
+                        </h3>
+                        <span class="badge bg-light text-secondary border rounded-pill px-3">
+                            Quản lý Model & Mã lỗi
+                        </span>
+                    </div>
+
+                    <div class="d-flex flex-wrap flex-md-nowrap gap-2 w-100 justify-content-xl-end">
+                        {{-- Nút Tra cứu --}}
+                        <a href="{{ route('warranty.document') }}"
+                            class="btn btn-white border px-3 py-2 fw-bold text-secondary flex-fill">
+                            <i class="bi bi-search"></i> Tra cứu
+                        </a>
+
+                        {{-- Nút Quản lý Mã lỗi (Màu vàng cảnh báo/Info) --}}
+                        <a href="{{ route('warranty.document.errors.index') }}"
+                            class="btn btn-warning text-dark px-3 py-2 fw-bold bg-opacity-25 border-warning flex-fill">
+                            <i class="bi bi-gear-wide-connected"></i> QL Mã lỗi
+                        </a>
+
+                        {{-- Nút Thêm Mã lỗi (Màu xanh lá) --}}
+                        <a href="{{ route('warranty.document.create') }}"
+                            class="btn btn-success px-3 py-2 fw-bold text-white flex-fill shadow-sm">
+                            <i class="bi bi-plus-circle"></i> Tạo Mã lỗi
+                        </a>
+
+                        {{-- Nút Thêm Tài liệu (Màu chủ đạo - Lớn nhất) --}}
+                        <a href="{{ route('warranty.document.documents.create') }}"
+                            class="btn btn-primary px-4 py-2 fw-bold text-white flex-fill shadow">
+                            <i class="bi bi-file-earmark-arrow-up-fill"></i> Tải lên TL
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -26,13 +48,15 @@
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="card-body p-4">
-            <form method="get" action="{{ route('warranty.document.documents.index') }}" class="row g-3 mb-4" id="formFilter">
+            <form method="get" action="{{ route('warranty.document.documents.index') }}" class="row g-3 mb-4"
+                id="formFilter">
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold text-secondary">Danh mục</label>
                     <select class="form-select" id="filterCategory" name="category_id">
                         <option value="">Chọn danh mục</option>
                         @foreach($categories as $c)
-                            <option value="{{ $c->id }}" {{ (isset($filter['category_id']) && $filter['category_id'] == $c->id) ? 'selected' : '' }}>{{ $c->name_vi }}</option>
+                        <option value="{{ $c->id }}" {{ (isset($filter['category_id']) && $filter['category_id']==$c->
+                            id) ? 'selected' : '' }}>{{ $c->name_vi }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -53,9 +77,9 @@
                     <select class="form-select" id="filterModel" name="model_id">
                         <option value="">Chọn model</option>
                         @if($productModel)
-                            @foreach($productModel ? [] : [] as $m)
-                                <option value="{{ $m->id }}">{{ $m->model_code }}</option>
-                            @endforeach
+                        @foreach($productModel ? [] : [] as $m)
+                        <option value="{{ $m->id }}">{{ $m->model_code }}</option>
+                        @endforeach
                         @endif
                     </select>
                 </div>
@@ -65,52 +89,141 @@
             </form>
 
             @if(session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
             @if($productModel)
-                <h5 class="fw-bold mb-3">Model: {{ $productModel->model_code }}{{ $productModel->version ? ' (' . $productModel->version . ')' : '' }}</h5>
+            <h5 class="fw-bold mb-3">Model: {{ $productModel->model_code }}{{ $productModel->version ? ' (' .
+                $productModel->version . ')' : '' }}</h5>
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
+                    <table class="table table-hover align-middle mb-0">
+                        {{-- Header: Nền đậm, chữ trắng, viết hoa để tạo độ tương phản cao --}}
+                        <thead class="bg-primary text-white">
                             <tr>
-                                <th>#</th>
-                                <th>Loại</th>
-                                <th>Tiêu đề</th>
-                                <th>Phiên bản</th>
-                                <th>Trạng thái</th>
-                                <th style="width: 200px;">Thao tác</th>
+                                <th class="py-3 ps-4" style="width: 60px;">#</th>
+                                <th class="py-3 text-nowrap">Phân loại</th>
+                                <th class="py-3" style="min-width: 250px;">Tiêu đề tài liệu</th> {{-- Min-width giúp
+                                không bị co chữ --}}
+                                <th class="py-3 text-center text-nowrap">Phiên bản</th>
+                                <th class="py-3 text-center text-nowrap">Trạng thái</th>
+                                <th class="py-3 text-end pe-4" style="min-width: 180px;">Hành động</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="bg-white">
                             @forelse($documents as $doc)
-                                <tr>
-                                    <td>{{ $doc->id }}</td>
-                                    <td><span class="badge bg-secondary">{{ $doc->doc_type }}</span></td>
-                                    <td>{{ $doc->title }}</td>
-                                    <td>{{ $doc->document_versions_count ?? 0 }}</td>
-                                    <td><span class="badge {{ $doc->status === 'active' ? 'bg-success' : ($doc->status === 'deprecated' ? 'bg-warning' : 'bg-secondary') }}">{{ $doc->status }}</span></td>
-                                    <td>
-                                        <a href="{{ route('warranty.document.documents.show', $doc->id) }}" class="btn btn-sm btn-outline-secondary me-1">Xem chi tiết</a>
-                                        <a href="{{ route('warranty.document.documents.edit', $doc->id) }}" class="btn btn-sm btn-outline-primary me-1">Sửa</a>
+                            <tr>
+                                {{-- ID: Đậm, màu xám --}}
+                                <td class="ps-4 fw-bold text-secondary">{{ $doc->id }}</td>
+
+                                {{-- Loại: Badge kiểu Pill, màu sắc rõ ràng --}}
+                                <td>
+                                    <span
+                                        class="badge rounded-pill bg-light text-dark border border-secondary border-opacity-25 px-3 py-2">
+                                        {{ $doc->doc_type }}
+                                    </span>
+                                </td>
+
+                                {{-- Tiêu đề: Quan trọng nhất -> Chữ to hơn, đậm màu --}}
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <a href="{{ route('warranty.document.documents.show', $doc->id) }}"
+                                            class="text-dark text-decoration-none fw-bold hover-primary">
+                                            {{ $doc->title }}
+                                        </a>
+                                        <small class="text-muted d-block d-md-none mt-1">
+                                            <i class="bi bi-clock me-1"></i>{{ $doc->created_at->format('d/m/Y') }}
+                                        </small>
+                                    </div>
+                                </td>
+
+                                {{-- Phiên bản: Font Monospace cho số liệu --}}
+                                <td class="text-center">
+                                    <span
+                                        class="badge bg-secondary text-white bg-opacity-10 text-secondary font-monospace fs-6">
+                                        v{{ $doc->document_versions_count ?? 0 }}
+                                    </span>
+                                </td>
+
+                                {{-- Trạng thái: Màu sắc tương phản mạnh (Success/Warning) --}}
+                                <td class="text-center">
+                                    @if($doc->status === 'active')
+                                    <span
+                                        class="badge text-white bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Hoạt động
+                                    </span>
+                                    @elseif($doc->status === 'deprecated')
+                                    <span
+                                        class="badge text-white bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Lỗi thời
+                                    </span>
+                                    @else
+                                    <span
+                                        class="badge text-white bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">
+                                        {{ $doc->status }}
+                                    </span>
+                                    @endif
+                                </td>
+
+                                {{-- Thao tác: Dùng Icon Button to, dễ bấm --}}
+                                <td class="text-end pe-4">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        {{-- 1. Nút Xem (Màu xám) --}}
+                                        <a href="{{ route('warranty.document.documents.show', $doc->id) }}"
+                                            class="btn btn-outline-secondary rounded-circle d-flex justify-content-center align-items-center"
+                                            style="width: 32px; height: 32px;" title="Xem chi tiết"
+                                            data-bs-toggle="tooltip">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </a>
+
+                                        {{-- 2. Nút Sửa (Màu xanh dương) --}}
+                                        <a href="{{ route('warranty.document.documents.edit', $doc->id) }}"
+                                            class="btn btn-outline-primary rounded-circle d-flex justify-content-center align-items-center"
+                                            style="width: 32px; height: 32px;" title="Chỉnh sửa"
+                                            data-bs-toggle="tooltip">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </a>
+
+                                        {{-- 3. Nút Chia sẻ (Màu xanh ngọc - Cyan) --}}
                                         @if($doc->documentVersions->isNotEmpty())
-                                            <button type="button" class="btn btn-sm btn-info me-1 text-white btn-share-doc" 
-                                                data-version-id="{{ $doc->documentVersions->sortByDesc('id')->first()->id }}"
-                                                data-doc-title="{{ $doc->title }}">
-                                                <i class="bi bi-share me-1"></i>Chia sẻ
-                                            </button>
+                                        <button type="button"
+                                            class="btn btn-outline-info rounded-circle d-flex justify-content-center align-items-center btn-share-doc"
+                                            style="width: 32px; height: 32px;"
+                                            data-version-id="{{ $doc->documentVersions->sortByDesc('id')->first()->id }}"
+                                            data-doc-title="{{ $doc->title }}" title="Chia sẻ" data-bs-toggle="tooltip">
+                                            <i class="bi bi-share-fill"></i>
+                                        </button>
                                         @endif
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-doc" data-id="{{ $doc->id }}" data-title="{{ e($doc->title) }}">Xóa</button>
-                                    </td>
-                                </tr>
+
+                                        {{-- 4. Nút Xóa (Màu đỏ) --}}
+                                        <button type="button"
+                                            class="btn btn-outline-danger rounded-circle d-flex justify-content-center align-items-center btn-delete-doc"
+                                            style="width: 32px; height: 32px;" data-id="{{ $doc->id }}"
+                                            data-title="{{ e($doc->title) }}" title="Xóa tài liệu"
+                                            data-bs-toggle="tooltip">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
                             @empty
-                                <tr><td colspan="6" class="text-center text-muted py-4">Chưa có tài liệu nào. Chọn model và bấm "Thêm tài liệu".</td></tr>
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="d-flex flex-column align-items-center text-muted">
+                                        <i class="bi bi-folder-x fs-1 opacity-50 mb-2"></i>
+                                        <p class="mb-0 fw-bold">Chưa có dữ liệu nào</p>
+                                        <small>Vui lòng chọn model và bấm "Thêm tài liệu" để bắt đầu.</small>
+                                    </div>
+                                </td>
+                            </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
+            </div>
             @else
-                <p class="text-muted mb-0">Chọn danh mục → Sản phẩm → Xuất xứ → Model rồi bấm "Xem danh sách" để xem tài liệu.</p>
+            <p class="text-muted mb-0">Chọn danh mục → Sản phẩm → Xuất xứ → Model rồi bấm "Xem danh sách" để xem tài
+                liệu.</p>
             @endif
         </div>
     </div>
@@ -121,7 +234,8 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-share me-2"></i>Chia sẻ tài liệu: <span id="shareDocTitle" class="text-primary"></span></h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-share me-2"></i>Chia sẻ tài liệu: <span
+                        id="shareDocTitle" class="text-primary"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -141,14 +255,16 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Mật khẩu (Tùy chọn)</label>
-                                    <input type="text" class="form-control form-control-sm" name="password" placeholder="Để trống nếu công khai">
+                                    <input type="text" class="form-control form-control-sm" name="password"
+                                        placeholder="Để trống nếu công khai">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Hết hạn (Tùy chọn)</label>
                                     <input type="datetime-local" class="form-control form-control-sm" name="expires_at">
                                 </div>
                                 <div class="col-md-3">
-                                    <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-link-45deg me-1"></i>Tạo Link</button>
+                                    <button type="submit" class="btn btn-primary btn-sm w-100"><i
+                                            class="bi bi-link-45deg me-1"></i>Tạo Link</button>
                                 </div>
                             </div>
                         </form>
@@ -180,7 +296,7 @@
 </div>
 
 <script>
-(function () {
+    (function () {
     var routes = {
         getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
         getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",

@@ -20,6 +20,8 @@ use App\Http\Middleware\CheckBrandSession;
 use App\Http\Middleware\CheckCookieLogin;
 use App\Http\Controllers\CollaboratorInstallBulkController;
 use App\Http\Controllers\TechnicalDocumentController;
+use App\Http\Controllers\DocumentShareController;
+use App\Http\Controllers\CommonErrorController;
 
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -210,9 +212,19 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
 
     // --- Document Sharing Routes (Admin) ---
     Route::prefix('share')->group(function () {
-        Route::post('/create', [\App\Http\Controllers\DocumentShareController::class, 'store'])->name('warranty.document.share.store');
-        Route::get('/list/{document_version_id}', [\App\Http\Controllers\DocumentShareController::class, 'index'])->name('warranty.document.share.index');
-        Route::post('/revoke/{id}', [\App\Http\Controllers\DocumentShareController::class, 'revoke'])->name('warranty.document.share.revoke');
+        Route::post('/create', [DocumentShareController::class, 'store'])->name('warranty.document.share.store');
+        Route::get('/list/{document_version_id}', [DocumentShareController::class, 'index'])->name('warranty.document.share.index');
+        Route::post('/revoke/{id}', [DocumentShareController::class, 'revoke'])->name('warranty.document.share.revoke');
+    });
+
+    // --- Common Error Management Routes ---
+    Route::prefix('errors')->group(function () {
+        Route::get('/', [CommonErrorController::class, 'index'])->name('warranty.document.errors.index');
+        Route::get('/create', [CommonErrorController::class, 'create'])->name('warranty.document.errors.create');
+        Route::post('/', [CommonErrorController::class, 'store'])->name('warranty.document.errors.store');
+        Route::get('/{id}/edit', [CommonErrorController::class, 'edit'])->name('warranty.document.errors.edit');
+        Route::put('/{id}', [CommonErrorController::class, 'update'])->name('warranty.document.errors.update');
+        Route::delete('/{id}', [CommonErrorController::class, 'destroy'])->name('warranty.document.errors.destroy');
     });
 
 });
@@ -221,9 +233,9 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
 
 // --- Public Document Share Routes (No Auth Required) ---
 Route::prefix('shared-docs')->group(function () {
-    Route::get('/{token}', [\App\Http\Controllers\DocumentShareController::class, 'publicShow'])->name('document.share.public_show');
-    Route::post('/{token}/auth', [\App\Http\Controllers\DocumentShareController::class, 'publicAuth'])->name('document.share.public_auth');
-    Route::get('/{token}/download', [\App\Http\Controllers\DocumentShareController::class, 'download'])->name('document.share.download');
+    Route::get('/{token}', [DocumentShareController::class, 'publicShow'])->name('document.share.public_show');
+    Route::post('/{token}/auth', [DocumentShareController::class, 'publicAuth'])->name('document.share.public_auth');
+    Route::get('/{token}/download', [DocumentShareController::class, 'download'])->name('document.share.download');
 });
 
 //Permissions
