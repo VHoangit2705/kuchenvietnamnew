@@ -224,7 +224,7 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/technicaldocument/create.css') }}">
+<link rel="stylesheet" href="{{ asset('public/css/technicaldocument/create.css') }}">
 <script>
     // ... Giữ nguyên config script cũ ...
     window.technicalDocumentCreateConfig = {
@@ -247,5 +247,5 @@
         }
     };
 </script>
-<script src="{{ asset('js/technicaldocument/create.js') }}"></script>
+<script src="{{ asset('public/js/technicaldocument/create.js') }}"></script>
 @endsection
