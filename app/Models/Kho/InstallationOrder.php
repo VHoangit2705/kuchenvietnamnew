@@ -90,7 +90,7 @@ class InstallationOrder extends Model
 		}
 
 		return WarrantyCollaborator::on('mysql')
-			->find($this->collaborator_id);
+			->find($collaboratorId);
 	}
 	
 	public function agency()

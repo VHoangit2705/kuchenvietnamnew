@@ -30,6 +30,12 @@ Route::middleware('auth')->group(function () {
 });
 
 
+// Password change routes
+Route::middleware('auth')->group(function () {
+    Route::post('/password/change', [loginController::class, 'changePassword'])->name('password.change');
+    Route::get('/password/check-expiry', [loginController::class, 'checkPasswordExpiry'])->name('password.check-expiry');
+});
+
 Route::middleware('auth')->get('/keep-alive', function () {
     return response()->json(['status' => 'alive']);
 });
@@ -163,7 +169,6 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::post('/requestagency/confirm-agency/{id}', [RequestAgencyController::class, 'confirmAgency'])->name('requestagency.confirm-agency');
     Route::get('/requestagency/find-installation-order', [RequestAgencyController::class, 'findInstallationOrder'])->name('requestagency.find-installation-order');
     Route::get('/requestagency/installation-order', [RequestAgencyController::class, 'redirectInstallationOrder'])->name('requestagency.installation-order');
-
     // Resource routes
     Route::resource('requestagency', RequestAgencyController::class);
     Route::post('/requestagency/{id}/update-status', [RequestAgencyController::class, 'updateStatus'])->name('requestagency.update-status');

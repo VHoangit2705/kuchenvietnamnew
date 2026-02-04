@@ -51,6 +51,9 @@
         Swal.fire({ icon: 'error', title: 'Bạn không được quyền!' });
     }
 
+    function showError() {
+        showPermissionError();
+    }
     function showStatusModal(id, currentStatus, type, flag) {
         const $status = $('#new_status');
         if (type === 'agent_component') {
@@ -113,9 +116,32 @@
 
         $('#componentTableBody tr').each(function () {
             const $input = $(this).find('input[type="number"]');
-            const returnQty = parseInt($input.val());
-            const detailId = $input.attr('name').match(/\d+/)[0];
-            const sendQty = parseInt($(this).find('td').eq(1).text());
+            
+            // Bỏ qua nếu không có input (ví dụ: row "Đang tải..." hoặc row lỗi)
+            if (!$input.length) {
+                return;
+            }
+            
+            // Kiểm tra input có attribute name không
+            const inputName = $input.attr('name');
+            if (!inputName) {
+                $input.addClass('is-invalid');
+                valid = false;
+                return;
+            }
+            
+            // Kiểm tra và extract detailId từ name
+            const match = inputName.match(/\d+/);
+            if (!match || !match[0]) {
+                $input.addClass('is-invalid');
+                valid = false;
+                return;
+            }
+            
+            const detailId = match[0];
+            const returnQty = parseInt($input.val() || 0);
+            const sendQtyText = $(this).find('td').eq(1).text();
+            const sendQty = parseInt(sendQtyText || 0);
 
             if (isNaN(returnQty) || returnQty < 0 || returnQty > sendQty) {
                 $input.addClass('is-invalid');
@@ -136,12 +162,17 @@
         const showBranch = !$('#branchSection').hasClass('d-none');
         let components = '';
 
+        // Chỉ validate khi branchSection đang hiển thị và có input
         if (showBranch) {
-            const data = validateReturnQuantities();
-            if (!data) {
-                return Swal.fire({ icon: 'error', title: 'Số lượng trả phải hợp lệ và không lớn hơn số lượng gửi!' });
+            // Kiểm tra xem có input nào trong table không
+            const hasInputs = $('#componentTableBody input[type="number"]').length > 0;
+            if (hasInputs) {
+                const data = validateReturnQuantities();
+                if (!data) {
+                    return Swal.fire({ icon: 'error', title: 'Số lượng trả phải hợp lệ và không lớn hơn số lượng gửi!' });
+                }
+                components = data;
             }
-            components = data;
         }
         OpenWaitBox();
         $.post("{{ route('warranty.updatestatus') }}", { _token: csrfToken, id, status: newStatus, components })

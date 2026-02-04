@@ -48,6 +48,11 @@ class User extends Authenticatable  implements OAuthenticatable
 		'cookie_value',
 		'password_changed_at'
 	];
+
+	/**
+	 * Cache permissions để tránh query lặp lại
+	 */
+	protected $cachedPermissions = null;
 	
 	
 	/**
@@ -102,7 +107,6 @@ class User extends Authenticatable  implements OAuthenticatable
         if ($this->cachedPermissions !== null) {
             return $this->cachedPermissions;
         }
-
         // Eager load roles với permissions nếu chưa có
         if (!$this->relationLoaded('roles')) {
             $this->load(['roles.permissions']);
@@ -110,7 +114,6 @@ class User extends Authenticatable  implements OAuthenticatable
             // Nếu roles đã load nhưng chưa có permissions thì load thêm
             $this->loadMissing('roles.permissions');
         }
-
         // Lấy permissions từ roles đã load
         $this->cachedPermissions = $this->roles
             ->pluck('permissions')
@@ -139,3 +142,4 @@ class User extends Authenticatable  implements OAuthenticatable
 		return $this->where('username', $username)->first();
 	}
 }
+
