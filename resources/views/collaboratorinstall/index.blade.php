@@ -139,9 +139,7 @@
                                 <button type"submit" id="btnSearch" class="btn btn-primary">
                                     <i class="fas fa-search me-1"></i>Tìm kiếm
                                 </button>
-                                <button type="button" id="btnBulkUpdate" class="btn btn-warning text-white" style="display:none;">
-                                    <i class="fas fa-money-bill-wave me-1"></i>Thanh toán hàng loạt
-                                </button>
+
                                 <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#paymentModal">
                                     <i class="fas fa-file-import me-1"></i>Thanh toán bằng Excel/List
                                 </button>
@@ -1165,93 +1163,7 @@
         $('#previewModal iframe').addClass('d-none');
     });
 
-    // --- BULK UPDATE LOGIC ---
-    // Handle Check All
-    $(document).on('change', '#checkAll', function() {
-        $('.check-item').prop('checked', $(this).prop('checked'));
-        toggleBulkButton();
-    });
 
-    // Handle individual check
-    $(document).on('change', '.check-item', function() {
-        toggleBulkButton();
-        // Update Check All state
-        var allChecked = $('.check-item:not(:checked)').length === 0;
-        $('#checkAll').prop('checked', allChecked && $('.check-item').length > 0);
-    });
-
-    function toggleBulkButton() {
-        if ($('.check-item:checked').length > 0) {
-            $('#btnBulkUpdate').fadeIn();
-        } else {
-            $('#btnBulkUpdate').fadeOut();
-        }
-    }
-
-    // Handle Bulk Update Click
-    $('#btnBulkUpdate').click(function() {
-        var selectedIds = [];
-        $('.check-item:checked').each(function() {
-            selectedIds.push($(this).val());
-        });
-        
-        if (selectedIds.length === 0) {
-            Swal.fire('Thông báo', 'Vui lòng chọn ít nhất một đơn hàng', 'warning');
-            return;
-        }
-
-        Swal.fire({
-            title: 'Xác nhận thanh toán?',
-            text: "Bạn có chắc chắn muốn chuyển " + selectedIds.length + " đơn hàng sang trạng thái 'Đã thanh toán'?",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Đồng ý',
-            cancelButtonText: 'Hủy'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: '{{ route("dieuphoi.bulk.update") }}',
-                    type: 'POST',
-                    data: {
-                        ids: selectedIds,
-                        _token: '{{ csrf_token() }}'
-                    },
-                    beforeSend: function() {
-                        Swal.fire({
-                            title: 'Đang xử lý...',
-                            allowOutsideClick: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire('Thành công!', response.message, 'success');
-                            // Reload table
-                            let tab = localStorage.getItem('activeTab') || 'donhang';
-                            let formData = $('#searchForm').serialize();
-                            loadTabData(tab, formData, 1);
-                            loadCounts(formData);
-                            // Hide button
-                            $('#btnBulkUpdate').hide();
-                        } else {
-                            Swal.fire('Lỗi!', response.message, 'error');
-                        }
-                    },
-                    error: function(xhr) {
-                        let msg = 'Có lỗi xảy ra khi cập nhật.';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            msg = xhr.responseJSON.message;
-                        }
-                        Swal.fire('Lỗi!', msg, 'error');
-                    }
-                });
-            }
-        });
-    });
 
     // Handle Payment by Excel/List
     $('#btnProcessPayment').click(function() {
