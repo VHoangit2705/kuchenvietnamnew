@@ -53,7 +53,12 @@
         var msg = (xhr.responseJSON && xhr.responseJSON.message) ||
             (xhr.responseJSON && xhr.responseJSON.errors ? JSON.stringify(xhr.responseJSON.errors) : null) ||
             'Có lỗi xảy ra.';
-        alert(msg);
+        Swal.fire({
+            icon: 'error',
+            title: 'Lỗi',
+            text: msg,
+            confirmButtonColor: '#d33'
+        });
     }
 
     function init() {
@@ -90,7 +95,12 @@
             e.preventDefault();
             var productId = jQuery('#originProductId').val();
             if (!productId) {
-                alert('Vui lòng chọn Sản phẩm trước.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Thiếu thông tin',
+                    text: 'Vui lòng chọn Sản phẩm trước.',
+                    confirmButtonColor: '#0d6efd'
+                });
                 return;
             }
             var fd = new FormData(this);
@@ -107,7 +117,15 @@
                     jQuery('#formAddOrigin')[0].reset();
                     jQuery('#formAddOrigin input[name="product_id"]').val(productId);
                     loadOriginsByProduct(productId);
-                    if (res && res.message) alert(res.message);
+                    if (res && res.message) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công',
+                            text: res.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
                 },
                 error: function (xhr) { showError(xhr); }
             });
@@ -163,17 +181,37 @@
 
         // Xóa mã lỗi
         jQuery('#errorList').on('click', '.btn-delete-error', function () {
-            if (!confirm('Bạn có chắc muốn xóa mã lỗi này?')) return;
             var id = jQuery(this).data('id');
-            jQuery.ajax({
-                url: routes.destroyError + '/' + id,
-                type: 'DELETE',
-                data: { _token: csrfToken },
-                success: function (res) {
-                    if (res && res.message) alert(res.message);
-                    loadErrorsByModel(selectedModelId);
-                },
-                error: function (xhr) { showError(xhr); }
+            Swal.fire({
+                title: 'Xác nhận xóa',
+                text: 'Bạn có chắc muốn xóa mã lỗi này?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    jQuery.ajax({
+                        url: routes.destroyError + '/' + id,
+                        type: 'DELETE',
+                        data: { _token: csrfToken },
+                        success: function (res) {
+                            if (res && res.message) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Đã xóa',
+                                    text: res.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                            }
+                            loadErrorsByModel(selectedModelId);
+                        },
+                        error: function (xhr) { showError(xhr); }
+                    });
+                }
             });
         });
 
@@ -195,14 +233,27 @@
                         jQuery('#modalAddError').modal('hide');
                         jQuery('#formAddError')[0].reset();
                         jQuery('#errorEditId').val('');
-                        if (res && res.message) alert(res.message);
+                        if (res && res.message) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cập nhật thành công',
+                                text: res.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
                         loadErrorsByModel(selectedModelId);
                     },
                     error: function (xhr) { showError(xhr); }
                 });
             } else {
                 if (!selectedModelId) {
-                    alert('Vui lòng chọn Mã sản phẩm (Model) trước.');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Thiếu thông tin',
+                        text: 'Vui lòng chọn Mã sản phẩm (Model) trước.',
+                        confirmButtonColor: '#0d6efd'
+                    });
                     return;
                 }
                 var fd = new FormData(this);
@@ -256,17 +307,37 @@
 
         // Xóa hướng dẫn sửa
         jQuery('#repairGuidesList').on('click', '.btn-delete-guide', function () {
-            if (!confirm('Bạn có chắc muốn xóa hướng dẫn sửa này?')) return;
             var id = jQuery(this).data('id');
-            jQuery.ajax({
-                url: (routes.destroyRepairGuide || '') + '/' + id,
-                type: 'DELETE',
-                data: { _token: csrfToken },
-                success: function (res) {
-                    if (res && res.message) alert(res.message);
-                    jQuery('#createErrorId').trigger('change');
-                },
-                error: function (xhr) { showError(xhr); }
+            Swal.fire({
+                title: 'Xác nhận xóa',
+                text: 'Bạn có chắc muốn xóa hướng dẫn sửa này?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    jQuery.ajax({
+                        url: (routes.destroyRepairGuide || '') + '/' + id,
+                        type: 'DELETE',
+                        data: { _token: csrfToken },
+                        success: function (res) {
+                            if (res && res.message) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Đã xóa',
+                                    text: res.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                            }
+                            jQuery('#createErrorId').trigger('change');
+                        },
+                        error: function (xhr) { showError(xhr); }
+                    });
+                }
             });
         });
 
@@ -275,7 +346,12 @@
             e.preventDefault();
             var errorId = jQuery('#guideErrorId').val() || jQuery('#createErrorId').val();
             if (!errorId) {
-                alert('Vui lòng chọn mã lỗi.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Thiếu thông tin',
+                    text: 'Vui lòng chọn mã lỗi.',
+                    confirmButtonColor: '#0d6efd'
+                });
                 return;
             }
             var fd = new FormData();
@@ -296,7 +372,15 @@
                 processData: false,
                 contentType: false,
                 success: function (res) {
-                    if (res && res.message) alert(res.message);
+                    if (res && res.message) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công',
+                            text: res.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
                     jQuery('#guideForm')[0].reset();
                     jQuery('#guideErrorId').val('');
                     document.getElementById('docFiles').value = '';

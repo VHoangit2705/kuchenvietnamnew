@@ -116,8 +116,8 @@
                             {{-- Nút Xóa (Form Wrapper) --}}
                             <form action="{{ route('warranty.document.documents.destroy', $doc->id) }}"
                                 method="post"
-                                class="d-inline"
-                                onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này?');">
+                                class="d-inline form-delete-document"
+                                data-doc-title="{{ $doc->title }}">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit"

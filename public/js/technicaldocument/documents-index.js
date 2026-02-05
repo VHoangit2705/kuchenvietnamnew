@@ -26,7 +26,31 @@
 
         initDeleteDocument();
         initShareModal();
+        initTableDeleteDocument();
     });
+
+    function initTableDeleteDocument() {
+        jQuery(document).on('submit', '.form-delete-document', function (e) {
+            e.preventDefault();
+            var form = this;
+            var title = jQuery(this).data('doc-title') || 'tài liệu này';
+
+            Swal.fire({
+                title: 'Xác nhận xóa',
+                text: 'Bạn có chắc chắn muốn xóa tài liệu "' + title + '"?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    }
 
     function initDeleteDocument() {
         console.log('[DOC] initDeleteDocument');
@@ -39,25 +63,38 @@
 
             console.log('[DOC] Delete ID:', id, 'Title:', title);
 
-            if (!confirm('Bạn có chắc muốn xóa tài liệu "' + title + '"?')) {
-                console.log('[DOC] Delete canceled');
-                return;
-            }
+            Swal.fire({
+                title: 'Xác nhận xóa',
+                text: 'Bạn có chắc muốn xóa tài liệu "' + title + '"?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    var url = window.docIndexRoutes.destroyDocument + '/' + id;
+                    console.log('[DOC] DELETE URL:', url);
 
-            var url = window.docIndexRoutes.destroyDocument + '/' + id;
-            console.log('[DOC] DELETE URL:', url);
-
-            jQuery.ajax({
-                url: url,
-                type: 'DELETE',
-                data: { _token: window.docIndexData.csrf },
-                success: function (res) {
-                    console.log('[DOC] Delete success:', res);
-                    location.reload();
-                },
-                error: function (xhr) {
-                    console.error('[DOC] Delete error:', xhr);
-                    alert(xhr.responseJSON?.message || 'Có lỗi xảy ra.');
+                    jQuery.ajax({
+                        url: url,
+                        type: 'DELETE',
+                        data: { _token: window.docIndexData.csrf },
+                        success: function (res) {
+                            console.log('[DOC] Delete success:', res);
+                            location.reload();
+                        },
+                        error: function (xhr) {
+                            console.error('[DOC] Delete error:', xhr);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi',
+                                text: xhr.responseJSON?.message || 'Có lỗi xảy ra.',
+                                confirmButtonColor: '#d33'
+                            });
+                        }
+                    });
                 }
             });
         });
@@ -159,7 +196,13 @@
             jQuery.post(window.docIndexRoutes.shareStore, formData)
                 .done(function (res) {
                     console.log('[DOC] Share created:', res);
-                    alert(res.message);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thành công',
+                        text: res.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                     jQuery('#createShareForm')[0].reset();
 
                     var versionId = formData.find(x => x.name === 'document_version_id')?.value;
@@ -170,7 +213,12 @@
                 })
                 .fail(function (xhr) {
                     console.error('[DOC] Create share FAILED', xhr);
-                    alert(xhr.responseJSON?.message || 'Lỗi khi tạo link.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: xhr.responseJSON?.message || 'Lỗi khi tạo link.',
+                        confirmButtonColor: '#d33'
+                    });
                 });
         });
 
@@ -179,22 +227,30 @@
             var id = jQuery(this).data('id');
             console.log('[DOC] Revoke share id:', id);
 
-            if (!confirm('Bạn có chắc chắn muốn thu hồi liên kết này không?')) {
-                console.log('[DOC] Revoke canceled');
-                return;
-            }
+            Swal.fire({
+                title: 'Xác nhận thu hồi',
+                text: 'Bạn có chắc chắn muốn thu hồi liên kết này không?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Thu hồi',
+                cancelButtonText: 'Hủy'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    var url = window.docIndexRoutes.shareRevoke + '/' + id;
+                    console.log('[DOC] POST revoke:', url);
 
-            var url = window.docIndexRoutes.shareRevoke + '/' + id;
-            console.log('[DOC] POST revoke:', url);
-
-            jQuery.post(url, { _token: window.docIndexData.csrf })
-                .done(function (res) {
-                    console.log('[DOC] Revoke success:', res);
-                    loadShareList(jQuery('#shareVersionId').val());
-                })
-                .fail(function (xhr) {
-                    console.error('[DOC] Revoke FAILED', xhr);
-                });
+                    jQuery.post(url, { _token: window.docIndexData.csrf })
+                        .done(function (res) {
+                            console.log('[DOC] Revoke success:', res);
+                            loadShareList(jQuery('#shareVersionId').val());
+                        })
+                        .fail(function (xhr) {
+                            console.error('[DOC] Revoke FAILED', xhr);
+                        });
+                }
+            });
         });
 
         // Copy to Clipboard
@@ -204,7 +260,15 @@
 
             navigator.clipboard.writeText(url).then(function () {
                 console.log('[DOC] Copied to clipboard');
-                alert('Đã sao chép liên kết!');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Đã sao chép',
+                    text: 'Đã sao chép liên kết!',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
             }).catch(function (err) {
                 console.error('[DOC] Clipboard error:', err);
             });

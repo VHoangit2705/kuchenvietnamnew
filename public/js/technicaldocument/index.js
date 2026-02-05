@@ -108,7 +108,12 @@
             }).first().val();
             
             if (!modelId) {
-                alert('Vui lòng chọn Mã sản phẩm trước khi tìm kiếm.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Thiếu thông tin',
+                    text: 'Vui lòng chọn Mã sản phẩm trước khi tìm kiếm.',
+                    confirmButtonColor: '#0d6efd'
+                });
                 return;
             }
 
