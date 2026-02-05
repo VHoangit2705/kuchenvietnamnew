@@ -154,6 +154,11 @@
                     <div class="form-floating mb-3">
                         <input type="text" class="form-control fw-bold" name="model_code" id="modalModelCode" placeholder="Model" required>
                         <label for="modalModelCode">Mã Model (SKU) <span class="text-danger">*</span></label>
+                        <div class="form-text text-muted small mt-1">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Có thể nhập nhiều mã model, ngăn cách bằng dấu <strong>phẩy (,)</strong>. 
+                            Ví dụ: <code>KU MIF208, KU TRI271, KU GEIF 288</code>
+                        </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">

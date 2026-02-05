@@ -45,6 +45,8 @@ class TechnicalDocumentController extends Controller
     public function getOriginsByProduct(Request $request)
     {
         return ProductModel::where('product_id', $request->product_id)
+            ->whereNotNull('xuat_xu')
+            ->where('xuat_xu', '!=', '')
             ->select('xuat_xu')
             ->distinct()
             ->get();
@@ -64,7 +66,7 @@ class TechnicalDocumentController extends Controller
         $request->validate([
             'product_id'   => 'required|integer',
             'xuat_xu'      => 'required|string|max:255',
-            'model_code'   => 'required|string|max:100',
+            'model_code'   => 'required|string',
             'version'      => 'nullable|string|max:50',
             'release_year' => 'nullable|integer|min:1990|max:2100',
         ], [
@@ -78,36 +80,79 @@ class TechnicalDocumentController extends Controller
             return response()->json(['message' => 'Sản phẩm không tồn tại.'], 422);
         }
 
-        $modelCode = trim($request->model_code);
-        $version = $request->filled('version') ? trim($request->version) : null;
+        // Split model codes by comma and trim whitespace
+        $modelCodesInput = trim($request->model_code);
+        $modelCodes = array_map('trim', explode(',', $modelCodesInput));
+        $modelCodes = array_filter($modelCodes); // Remove empty values
 
-        $exists = ProductModel::where('product_id', $productId)
-            ->where('model_code', $modelCode)
-            ->where(function ($q) use ($version) {
-                if ($version === null || $version === '') {
-                    $q->whereNull('version');
-                } else {
-                    $q->where('version', $version);
-                }
-            })
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'message' => 'Mã model "' . $modelCode . '"' . ($version ? ' (phiên bản ' . $version . ')' : '') . ' đã tồn tại cho sản phẩm này.',
-            ], 422);
+        if (empty($modelCodes)) {
+            return response()->json(['message' => 'Mã model không được để trống.'], 422);
         }
 
-        ProductModel::create([
-            'product_id'   => $productId,
-            'xuat_xu'      => trim($request->xuat_xu),
-            'model_code'   => $modelCode,
-            'version'      => $version,
-            'release_year' => $request->filled('release_year') ? (int) $request->release_year : null,
-            'status'       => 'active',
-        ]);
+        $version = $request->filled('version') ? trim($request->version) : null;
+        $xuatXu = trim($request->xuat_xu);
+        $releaseYear = $request->filled('release_year') ? (int) $request->release_year : null;
 
-        return response()->json(['message' => 'Đã thêm xuất xứ thành công.']);
+        $created = [];
+        $skipped = [];
+        $errors = [];
+
+        foreach ($modelCodes as $modelCode) {
+            // Validate each model code length
+            if (strlen($modelCode) > 100) {
+                $errors[] = "Mã model '{$modelCode}' quá dài (tối đa 100 ký tự).";
+                continue;
+            }
+
+            // Check if model code already exists
+            $exists = ProductModel::where('product_id', $productId)
+                ->where('model_code', $modelCode)
+                ->where(function ($q) use ($version) {
+                    if ($version === null || $version === '') {
+                        $q->whereNull('version');
+                    } else {
+                        $q->where('version', $version);
+                    }
+                })
+                ->exists();
+
+            if ($exists) {
+                $skipped[] = $modelCode;
+                continue;
+            }
+
+            // Create new ProductModel
+            ProductModel::create([
+                'product_id'   => $productId,
+                'xuat_xu'      => $xuatXu,
+                'model_code'   => $modelCode,
+                'version'      => $version,
+                'release_year' => $releaseYear,
+                'status'       => 'active',
+            ]);
+
+            $created[] = $modelCode;
+        }
+
+        // Build response message
+        $messages = [];
+        if (!empty($created)) {
+            $messages[] = 'Đã thêm thành công ' . count($created) . ' mã model: ' . implode(', ', $created);
+        }
+        if (!empty($skipped)) {
+            $messages[] = 'Bỏ qua ' . count($skipped) . ' mã đã tồn tại: ' . implode(', ', $skipped);
+        }
+        if (!empty($errors)) {
+            $messages[] = 'Lỗi: ' . implode('; ', $errors);
+        }
+
+        $finalMessage = implode('. ', $messages);
+
+        if (empty($created) && !empty($skipped)) {
+            return response()->json(['message' => $finalMessage], 422);
+        }
+
+        return response()->json(['message' => $finalMessage]);
     }
 
     // Chi tiết lỗi: hướng dẫn sửa + tài liệu/ảnh/video đính kèm (cho modal Tra cứu)
