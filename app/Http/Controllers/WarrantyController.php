@@ -2124,7 +2124,7 @@ class WarrantyController extends Controller
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
                 $path = $photo->store('photos', 'public');
-                $photos[] = $path;
+                $photos[] = 'storage/' . $path;
             }
             if (!empty($photos)) {
                 // Chỉ lưu vào warranty_requests (upload tiếp nhận, không phải lỗi)
@@ -2138,8 +2138,9 @@ class WarrantyController extends Controller
 
         // Xử lý video - chỉ lưu vào warranty_requests (không phải lỗi)
         if ($request->hasFile('video')) {
-            $videoPath = $request->file('video')->store('videos', 'public');
-            if ($videoPath) {
+            $path = $request->file('video')->store('videos', 'public');
+            if ($path) {
+                $videoPath = 'storage/' . $path;
                 // Chỉ lưu vào warranty_requests (upload tiếp nhận, không phải lỗi)
                 $warranty->video_upload = $videoPath;
             }
