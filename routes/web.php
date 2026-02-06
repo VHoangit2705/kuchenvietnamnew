@@ -297,7 +297,7 @@ Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCo
 // =====================================================
 // PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
 // =====================================================
-Route::domain('docs.kuchenvietnam.vn')->group(function () {
+Route::domain('docs.kuchenvietnam.vn')->middleware('docs.domain')->group(function () {
 
     // Xem tài liệu (public)
     Route::get('/{token}', [DocumentShareController::class, 'publicShow'])
