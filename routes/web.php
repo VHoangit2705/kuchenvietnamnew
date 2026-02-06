@@ -23,6 +23,34 @@ use App\Http\Controllers\TechnicalDocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\CommonErrorController;
 
+// =====================================================
+// PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
+// Đặt ở đầu để ưu tiên match trước các route khác
+// =====================================================
+Route::domain('docs.kuchenvietnam.vn')->middleware(\App\Http\Middleware\EnsureDocsSubdomain::class)->group(function () {
+
+    // Chặn truy cập root domain của docs (tránh fallback về main app)
+    Route::get('/', function () {
+        abort(404);
+    });
+
+    // Xem tài liệu (public)
+    Route::get('/{token}', [DocumentShareController::class, 'publicShow'])
+        ->name('docs.share.show');
+
+    // Xác thực mật khẩu (nếu có)
+    Route::post('/{token}/auth', [DocumentShareController::class, 'publicAuth'])
+        ->name('docs.share.auth');
+
+    // Download file (nếu được phép)
+    Route::get('/{token}/download', [DocumentShareController::class, 'download'])
+        ->name('docs.share.download');
+});
+
+// =====================================================
+// MAIN APPLICATION ROUTES
+// =====================================================
+
 Route::get('/login', [loginController::class, 'Index'])->name("login.form");
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/login', [loginController::class, 'Login'])->name("login");
@@ -294,23 +322,6 @@ Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandCo
 
 Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
 Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
-// =====================================================
-// PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
-// =====================================================
-Route::domain('docs.kuchenvietnam.vn')->middleware('docs.domain')->group(function () {
-
-    // Xem tài liệu (public)
-    Route::get('/{token}', [DocumentShareController::class, 'publicShow'])
-        ->name('docs.share.show');
-
-    // Xác thực mật khẩu (nếu có)
-    Route::post('/{token}/auth', [DocumentShareController::class, 'publicAuth'])
-        ->name('docs.share.auth');
-
-    // Download file (nếu được phép)
-    Route::get('/{token}/download', [DocumentShareController::class, 'download'])
-        ->name('docs.share.download');
-});
 
 // Route::get('/clear-cache', function () {
 
