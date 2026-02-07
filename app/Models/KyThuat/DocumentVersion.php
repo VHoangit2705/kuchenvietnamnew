@@ -32,4 +32,18 @@ class DocumentVersion extends Model
     {
         return $this->hasMany(DocumentShare::class, 'document_version_id');
     }
+
+    public function getFilePathAttribute()
+    {
+        return $this->img_upload ?? $this->video_upload ?? $this->pdf_upload;
+    }
+
+    public function getFileTypeAttribute()
+    {
+        $path = $this->file_path;
+        if ($path) {
+            return strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        }
+        return null;
+    }
 }

@@ -23,6 +23,7 @@
                             <i class="bi bi-search"></i> Tra cứu
                         </a>
 
+                        @if(Auth::user()->hasAnyRole(['Admin']))
                         {{-- Nút Quản lý Mã lỗi (Màu vàng cảnh báo/Info) --}}
                         <a href="{{ route('warranty.document.errors.index') }}"
                             class="btn btn-warning text-dark px-3 py-2 fw-bold bg-opacity-25 border-warning flex-fill">
@@ -40,6 +41,7 @@
                             class="btn btn-primary px-4 py-2 fw-bold text-white flex-fill shadow">
                             <i class="bi bi-file-earmark-arrow-up-fill"></i> Tải lên TL
                         </a>
+                        @endif
                     </div>
                 </div>
             </div>

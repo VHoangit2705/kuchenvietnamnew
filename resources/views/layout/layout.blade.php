@@ -84,7 +84,7 @@
                 @if (Auth::user()->hasPermission('In tem bảo hành'))
                 <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
                 @endif
-                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
+                @if (Auth::user()->hasAnyRole(['admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']))
                 <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
                 @endif
                 @endif
