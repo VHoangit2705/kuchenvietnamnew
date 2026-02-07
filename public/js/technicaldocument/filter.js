@@ -60,12 +60,31 @@ window.TechnicalDocumentFilter = (function () {
 
         jQuery.get(config.routes.getOriginsByProduct, { product_id: productId }, function (res) {
             let opts = '<option value="">Xuất xứ</option>';
+            
+            // Check if no origins found or all origins are empty
+            if (!res || res.length === 0) {
+                opts = '<option value="">Không tìm thấy xuất xứ của sản phẩm</option>';
+                jQuery(config.selectors.origin).html(opts).prop('disabled', true);
+                jQuery(config.selectors.model).html('<option value="">Chọn model</option>').prop('disabled', true);
+                return;
+            }
+            
             (res || []).forEach(function (o) {
                 let x = o.xuat_xu || '';
-                let sel = (selectOrigin && x === selectOrigin) ? ' selected' : '';
-                opts += '<option value="' + x + '"' + sel + '>' + x + '</option>';
+                if (x) { // Only add non-empty origins
+                    let sel = (selectOrigin && x === selectOrigin) ? ' selected' : '';
+                    opts += '<option value="' + x + '"' + sel + '>' + x + '</option>';
+                }
             });
-            jQuery(config.selectors.origin).html(opts).prop('disabled', false);
+            
+            // Check if no valid origins were added
+            if (opts === '<option value="">Xuất xứ</option>') {
+                opts = '<option value="">Không tìm thấy xuất xứ của sản phẩm</option>';
+                jQuery(config.selectors.origin).html(opts).prop('disabled', true);
+            } else {
+                jQuery(config.selectors.origin).html(opts).prop('disabled', false);
+            }
+            
             jQuery(config.selectors.model).html('<option value="">Chọn model</option>').prop('disabled', true);
             if (selectOrigin) loadModels(productId, selectOrigin);
         });

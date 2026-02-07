@@ -46,7 +46,7 @@ return [
     
      // Warranty Image Base URL configuration
     'warranty' => [
-        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public'),
+        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kythuat.kuchenvietnam.vn/storage/app/public'),
     ],
 
     // VietQR public API configuration
@@ -61,7 +61,7 @@ return [
 
     // Warranty Image Base URL configuration
     'warranty' => [
-        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kuchenvietnam.vn/kuchen/trungtambaohanhs/storage/app/public'),
+        'image_base_url' => env('WARRANTY_IMAGE_BASE_URL', 'https://kythuat.kuchenvietnam.vn/storage/app/public'),
     ],
 
 ];

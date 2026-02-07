@@ -238,6 +238,7 @@
                 showConfirmButton: confirm
             });
         }
+
         function validateEmail(email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             return emailRegex.test(email);
@@ -246,7 +247,7 @@
         $(document).ready(function() {
             ThongBao();
             CheckPasswordExpiry();
-            NewYear2026Notice();
+
             // Set active menu item based on current URL
             setActiveMenuItem();
 

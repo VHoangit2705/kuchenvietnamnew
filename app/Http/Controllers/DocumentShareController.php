@@ -30,7 +30,7 @@ class DocumentShareController extends Controller
             return [
                 'id'            => $share->id,
                 'share_token'   => $share->share_token,
-                'full_url'      => route('document.share.public_show', $share->share_token),
+                'full_url' => route('docs.share.show', $share->share_token),
                 'permission'    => $share->permission,
                 'has_password'  => !empty($share->password_hash),
                 'expires_at'    => $share->expires_at ? $share->expires_at->format('Y-m-d H:i') : 'Vĩnh viễn',
@@ -116,10 +116,10 @@ class DocumentShareController extends Controller
 
         $version = $share->documentVersion;
         $document = $version->technicalDocument;
-        
+
         // Chu xử lý hiển thị file
         $storageUrl = rtrim(asset('storage'), '/');
-        $fileUrl = $storageUrl . '/' . ltrim($version->file_path, '/');
+        $fileUrl = asset('storage/' . ltrim($version->file_path, '/'));
 
         return view('technicaldocument.share.public-view', compact('share', 'document', 'version', 'fileUrl'));
     }
@@ -130,7 +130,7 @@ class DocumentShareController extends Controller
     public function publicAuth(Request $request, $token)
     {
         $share = DocumentShare::where('share_token', $token)->firstOrFail();
-        
+
         if (Hash::check($request->password, $share->password_hash)) {
             $sessionKey = 'doc_share_auth_' . $token;
             Session::put($sessionKey, true);
@@ -151,7 +151,7 @@ class DocumentShareController extends Controller
         if ($share->status !== 'active' || ($share->expires_at && $share->expires_at->isPast())) {
             abort(403, 'Link không khả dụng.');
         }
-        
+
         if ($share->password_hash) {
             $sessionKey = 'doc_share_auth_' . $token;
             if (!Session::has($sessionKey)) {
@@ -165,7 +165,8 @@ class DocumentShareController extends Controller
         }
 
         $version = $share->documentVersion;
-        $fullPath = storage_path('app/public/' . ltrim($version->file_path, '/'));
+        $fileUrl = asset('storage/' . ltrim($version->file_path, '/'));
+
 
         if (!file_exists($fullPath)) {
             abort(404, 'File gốc không tìm thấy.');
