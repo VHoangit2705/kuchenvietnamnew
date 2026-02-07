@@ -44,13 +44,21 @@
 
                         <div id="error-message-phone" class="text-danger mb-2" style="display: none;"></div>
                     </div>
+
+                    <div class="alert alert-warning border-2 border-warning shadow-sm d-flex align-items-center mt-3 mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-3 me-3 text-warning"></i>
+                        <div>
+                            <h6 class="fw-bold text-uppercase mb-1">Chú ý quan trọng</h6>
+                            <span>Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui lòng nhập theo cú pháp: <span class="badge bg-danger text-white ms-1">2025050500 + (3 chữ số cuối serial)</span></span>
+                        </div>
+                    </div>
+
                     <p>- Hệ thống sẽ ưu tiên kiểm tra theo mã bảo hành. Nếu không tìm thấy, hệ thống sẽ tự động tra cứu
                         theo mã đơn hàng (order_code1 / order_code2).</p>
                     <p>- Đối với các đơn hàng được mua trước ngày 25/11/2024 đang áp dụng mẫu tem bảo hành cũ. Vui lòng
                         nhấn tạo phiếu bảo hành và bỏ qua bước "Tra cứu" này và tạo trực tiếp phiếu bảo hành ngay nút
                         dưới.</p>
-                    <p>- CHÚ Ý: Sản phẩm <b>Robot hút bụi lau nhà KU PPR3006</b> kỹ thuật viên khi tra cứu bảo hành vui
-                        lòng nhập theo cú pháp: 2025050500 + (3 chữ số cuối của mã serial sản phẩm)</p>
+                    
 
                     <div class="d-flex gap-2 flex-wrap">
                         <button class="btn btn-primary px-4" id="btn-check">Tra cứu</button>
