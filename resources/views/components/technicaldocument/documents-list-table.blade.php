@@ -24,7 +24,8 @@
 
                     {{-- Phân loại: Badge có viền --}}
                     <td>
-                        <span class="badge rounded-pill bg-light text-dark border border-secondary border-opacity-25 px-3 py-2">
+                        <span
+                            class="badge rounded-pill bg-light text-dark border border-secondary border-opacity-25 px-3 py-2">
                             {{ $doc->doc_type }}
                         </span>
                     </td>
@@ -50,7 +51,8 @@
                         $latestVer = $doc->documentVersions?->sortByDesc('id')->first();
                         @endphp
                         @if($latestVer)
-                        <span class="badge text-dark bg-info bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill font-monospace">
+                        <span
+                            class="badge text-dark bg-info bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill font-monospace">
                             v{{ $latestVer->version }}
                         </span>
                         @else
@@ -61,15 +63,18 @@
                     {{-- Trạng thái: Badge màu sắc rõ ràng + Icon --}}
                     <td class="text-center">
                         @if($doc->status === 'active')
-                        <span class="badge text-white bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3">
+                        <span
+                            class="badge text-white bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3">
                             <i class="bi bi-check-circle-fill me-1"></i>Hoạt động
                         </span>
                         @elseif($doc->status === 'deprecated')
-                        <span class="badge text-white bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3">
+                        <span
+                            class="badge text-white bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3">
                             <i class="bi bi-exclamation-triangle-fill me-1"></i>Lỗi thời
                         </span>
                         @else
-                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-3">
+                        <span
+                            class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-3">
                             {{ $doc->status }}
                         </span>
                         @endif
@@ -81,52 +86,51 @@
                             {{-- Nút Xem --}}
                             <a href="{{ route('warranty.document.documents.show', $doc->id) }}"
                                 class="btn btn-outline-secondary rounded-circle d-flex justify-content-center align-items-center"
-                                style="width: 32px; height: 32px;"
-                                title="Xem chi tiết" data-bs-toggle="tooltip">
+                                style="width: 32px; height: 32px;" title="Xem chi tiết" data-bs-toggle="tooltip">
                                 <i class="bi bi-eye-fill"></i>
                             </a>
 
                             {{-- Nút Sửa --}}
+                            @if(Auth::user()->hasAnyRole(['Admin']))
                             <a href="{{ route('warranty.document.documents.edit', $doc->id) }}"
                                 class="btn btn-outline-primary rounded-circle d-flex justify-content-center align-items-center"
-                                style="width: 32px; height: 32px;"
-                                title="Chỉnh sửa" data-bs-toggle="tooltip">
+                                style="width: 32px; height: 32px;" title="Chỉnh sửa" data-bs-toggle="tooltip">
                                 <i class="bi bi-pencil-fill"></i>
                             </a>
+                            @endif
+
+                            @if(Auth::user()->hasAnyRole(['Admin']))
+                            {{-- Nút Sửa --}}
+                            <a href="{{ route('warranty.document.documents.edit', $doc->id) }}"
+                                class="btn btn-outline-primary rounded-circle d-flex justify-content-center align-items-center"
+                                style="width: 32px; height: 32px;" title="Chỉnh sửa" data-bs-toggle="tooltip">
+                                <i class="bi bi-pencil-fill"></i>
+                            </a>
+                            @endif
 
                             {{-- Nút Chia sẻ --}}
-                            @php
-                            $latestVer = $doc->documentVersions?->sortByDesc('id')->first();
-                            @endphp
-
                             @if($latestVer)
-                            <button
-                                type="button"
+                            <button type="button"
                                 class="btn btn-outline-info rounded-circle d-flex justify-content-center align-items-center btn-share-doc"
-                                style="width: 32px; height: 32px;"
-                                data-version-id="{{ $latestVer->id }}"
-                                data-doc-title="{{ $doc->title }}"
-                                title="Chia sẻ"
-                                data-bs-toggle="tooltip">
+                                style="width: 32px; height: 32px;" data-version-id="{{ $latestVer->id }}"
+                                data-doc-title="{{ $doc->title }}" title="Chia sẻ" data-bs-toggle="tooltip">
                                 <i class="bi bi-share-fill"></i>
                             </button>
                             @endif
 
-
+                            @if(Auth::user()->hasAnyRole(['Admin']))
                             {{-- Nút Xóa (Form Wrapper) --}}
-                            <form action="{{ route('warranty.document.documents.destroy', $doc->id) }}"
-                                method="post"
-                                class="d-inline form-delete-document"
-                                data-doc-title="{{ $doc->title }}">
+                            <form action="{{ route('warranty.document.documents.destroy', $doc->id) }}" method="post"
+                                class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit"
                                     class="btn btn-outline-danger rounded-circle d-flex justify-content-center align-items-center"
-                                    style="width: 32px; height: 32px;"
-                                    title="Xóa vĩnh viễn" data-bs-toggle="tooltip">
+                                    style="width: 32px; height: 32px;" title="Xóa vĩnh viễn" data-bs-toggle="tooltip">
                                     <i class="bi bi-trash-fill"></i>
                                 </button>
                             </form>
+                            @endif
                         </div>
                     </td>
                 </tr>

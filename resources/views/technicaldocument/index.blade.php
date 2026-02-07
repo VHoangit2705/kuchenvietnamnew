@@ -31,18 +31,22 @@
             
             <div class="d-flex flex-wrap justify-content-center gap-2 gap-md-3 mt-4">
                 {{-- Style xanh lá nhạt cho hành động thêm --}}
+                @if(Auth::user()->hasAnyRole(['Admin']))
                 <a href="{{ route('warranty.document.create') }}" 
                    class="btn border-0 text-success fw-bold px-3 py-2"
                    style="background-color: #d1e7dd;">
                     <i class="bi bi-plus-square-fill me-2"></i><span class="d-none d-sm-inline">Thêm dữ liệu</span><span class="d-sm-none">Thêm</span>
                 </a>
+                @endif
             
                 {{-- Style xanh dương nhạt cho tài liệu --}}
+                @if(Auth::user()->hasAnyRole(['Admin', 'Kỹ thuật viên']))
                 <a href="{{ route('warranty.document.documents.index') }}" 
                    class="btn border-0 text-primary fw-bold px-3 py-2"
                    style="background-color: #cfe2ff;">
                     <i class="bi bi-folder-fill me-2"></i><span class="d-none d-sm-inline">Quản lý tài liệu</span><span class="d-sm-none">Quản lý</span>
                 </a>
+                @endif
             
                 {{-- Style xám cho reset --}}
                 <button onclick="location.reload()" 
@@ -73,9 +77,6 @@
                     </div>
                     <h5 class="text-secondary">Không tìm thấy dữ liệu</h5>
                     <p class="text-muted">Model này chưa được cập nhật mã lỗi nào.</p>
-                    <a href="{{ route('warranty.document.create') }}" class="btn btn-outline-primary rounded-pill mt-2">
-                        <i class="bi bi-plus-lg me-1"></i>Đóng góp dữ liệu ngay
-                    </a>
                 </div>
             </div>
         </div>

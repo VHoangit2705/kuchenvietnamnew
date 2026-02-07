@@ -13,7 +13,7 @@
                 category: '#docCategory',
                 product: '#docProduct',
                 origin: '#docOrigin',
-                model: '#docModel'
+                model: '#docModelId'
             }
         });
     });

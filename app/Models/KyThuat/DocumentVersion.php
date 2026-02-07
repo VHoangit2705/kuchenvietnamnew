@@ -16,8 +16,9 @@ class DocumentVersion extends Model
     protected $fillable = [
         'document_id',
         'version',
-        'file_path',
-        'file_type',
+        'img_upload',
+        'video_upload',
+        'pdf_upload',
         'status',
         'uploaded_by',
     ];
@@ -30,5 +31,19 @@ class DocumentVersion extends Model
     public function documentShares()
     {
         return $this->hasMany(DocumentShare::class, 'document_version_id');
+    }
+
+    public function getFilePathAttribute()
+    {
+        return $this->img_upload ?? $this->video_upload ?? $this->pdf_upload;
+    }
+
+    public function getFileTypeAttribute()
+    {
+        $path = $this->file_path;
+        if ($path) {
+            return strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        }
+        return null;
     }
 }
