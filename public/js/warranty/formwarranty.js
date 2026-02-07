@@ -248,10 +248,7 @@ function ValidateForm() {
             '#phone_number',
             '#address',
             '#shipment_date',
-            '#return_date',
-            '#ctv_phone',
-            '#ctv_name',
-            '#ctv_address'
+            '#return_date'
         );
     } else {
         requiredFields.push(
@@ -399,7 +396,7 @@ function ShowCTVFiles() {
     let type = $('#type').val();
     if (type === 'agent_component') {
         $('.ctv-fields').show();
-        $('.ctv-fields input').attr('required', true);
+        $('.ctv-fields input').attr('required', false);
         $('.description_error').hide();
         $('.description_error textarea').val('');
         $('.description_error textarea').removeAttr('required');
@@ -416,7 +413,7 @@ function ShowCTVFiles() {
         let selected = $(this).val();
         if (selected === 'agent_component') {
             $('.ctv-fields').show();
-            $('.ctv-fields input').attr('required', true);
+            $('.ctv-fields input').attr('required', false);
             $('.description_error').hide();
             $('.description_error textarea').val('');
             $('.description_error textarea').removeAttr('required');
