@@ -158,24 +158,16 @@
                 <option value="">Chọn sản phẩm</option>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
             <label class="form-label fw-semibold">Xuất xứ <span class="text-danger">*</span></label>
             <select class="form-select" id="{{ $ids['origin'] }}" disabled>
                 <option value="">Xuất xứ</option>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
             <label class="form-label fw-semibold">Mã Model <span class="text-danger">*</span></label>
             <select class="form-select fw-bold" id="{{ $ids['model'] }}" name="model_id" disabled required>
                 <option value="">Mã Model</option>
-            </select>
-        </div>
-        <div class="col-md-2 d-flex align-items-end">
-            <label class="form-label fw-semibold invisible">Hiển thị</label>
-            <select class="form-select" name="status">
-                <option value="active">Active</option>
-                <option value="deprecated">Deprecated</option>
-                <option value="draft">Draft</option>
             </select>
         </div>
     </div>

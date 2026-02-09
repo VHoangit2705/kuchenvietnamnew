@@ -6,7 +6,7 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm">
                 <div>
-                    <h2 class="fw-bold text-primary mb-1"><i class="bi bi-folder-plus me-2"></i>Thêm Tài Liệu Kỹ Thuật</h2>
+                    <h2 class="fw-bold text-primary mb-1"><i class="bi bi-folder-plus me-2"></i>Thêm Mã Lỗi Kỹ Thuật</h2>
                     <p class="text-muted mb-0 small">Thiết lập dữ liệu sửa chữa chuẩn hóa cho từng Model sản phẩm</p>
                 </div>
                 <div>

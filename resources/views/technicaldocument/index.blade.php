@@ -34,7 +34,7 @@
                 <a href="{{ route('warranty.document.create') }}" 
                    class="btn border-0 text-success fw-bold px-3 py-2"
                    style="background-color: #d1e7dd;">
-                    <i class="bi bi-plus-square-fill me-2"></i><span class="d-none d-sm-inline">Thêm dữ liệu</span><span class="d-sm-none">Thêm</span>
+                    <i class="bi bi-plus-square-fill me-2"></i><span class="d-none d-sm-inline">Thêm mã lỗi</span><span class="d-sm-none">Thêm</span>
                 </a>
             
                 {{-- Style xanh dương nhạt cho tài liệu --}}

@@ -41,14 +41,6 @@
                             <td class="text-secondary">Tiêu đề</td>
                             <td class="fw-semibold">{{ $document->title }}</td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary">Trạng thái</td>
-                            <td>
-                                <span class="badge {{ $document->status === 'active' ? 'bg-success' : ($document->status === 'deprecated' ? 'bg-warning text-dark' : 'bg-secondary') }}">
-                                    {{ $document->status }}
-                                </span>
-                            </td>
-                        </tr>
                         @if($document->description)
                         <tr>
                             <td class="text-secondary align-top">Mô tả</td>
@@ -118,7 +110,73 @@
                         <p class="text-muted small mb-0">Chưa có phiên bản file.</p>
                     @endif
                 </div>
+                </div>
             </div>
+
+            <!-- File Đính Kèm Section -->
+            @if($document->attachments->isNotEmpty())
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-paperclip me-2"></i>File Đính Kèm</h5>
+                </div>
+                <div class="card-body p-4">
+                    {{-- Images Grid --}}
+                    @php
+                        $images = $document->attachments->whereIn('file_type', ['image', 'jpg', 'jpeg', 'png', 'webp']);
+                        $others = $document->attachments->whereNotIn('file_type', ['image', 'jpg', 'jpeg', 'png', 'webp']);
+                    @endphp
+
+                    @if($images->isNotEmpty())
+                        <h6 class="fw-bold small text-muted mb-3">HÌNH ẢNH</h6>
+                        <div class="row g-2 mb-4">
+                            @foreach($images as $img)
+                                <div class="col-6 col-md-4 col-lg-3">
+                                    <a href="{{ $storageUrl . '/' . ltrim($img->file_path, '/') }}" target="_blank" class="d-block position-relative rounded overflow-hidden shadow-sm" style="padding-top: 100%;">
+                                        <img src="{{ $storageUrl . '/' . ltrim($img->file_path, '/') }}" class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover" alt="{{ $img->file_name }}">
+                                    </a>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Others List (PDF, Video) --}}
+                    @if($others->isNotEmpty())
+                        <h6 class="fw-bold small text-muted mb-3">TÀI LIỆU & VIDEO</h6>
+                        <ul class="list-group list-group-flush border rounded-3 overflow-hidden">
+                            @foreach($others as $att)
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <div class="d-flex align-items-center overflow-hidden">
+                                        @if(in_array($att->file_type, ['pdf']))
+                                            <div class="bg-danger text-white rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="bi bi-file-earmark-pdf fs-5"></i>
+                                            </div>
+                                        @elseif(in_array($att->file_type, ['video', 'mp4', 'webm']))
+                                            <div class="bg-primary text-white rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="bi bi-play-circle fs-5"></i>
+                                            </div>
+                                        @else
+                                            <div class="bg-secondary text-white rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="bi bi-file-earmark-text fs-5"></i>
+                                            </div>
+                                        @endif
+                                        
+                                        <div class="overflow-hidden">
+                                            <a href="{{ $storageUrl . '/' . ltrim($att->file_path, '/') }}" target="_blank" class="fw-semibold text-decoration-none text-dark d-block text-truncate">
+                                                {{ $att->file_name }}
+                                            </a>
+                                            <span class="small text-muted text-uppercase">{{ $att->file_type }}</span>
+                                        </div>
+                                    </div>
+                                    <a href="{{ $storageUrl . '/' . ltrim($att->file_path, '/') }}" target="_blank" class="btn btn-sm btn-light rounded-pill ms-2">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </div>
+            @endif
 
             @php
                 $firstViewable = $document->documentVersions->sortByDesc('id')->first(function ($v) {

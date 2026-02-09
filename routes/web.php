@@ -249,6 +249,7 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         Route::get('/documents/{id}', [TechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show')->middleware('role:admin,kythuatvien');
         Route::put('/documents/{id}', [TechnicalDocumentController::class, 'updateDocument'])->name('warranty.document.documents.update')->middleware('role:admin,kythuatvien');
         Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy')->middleware('role:admin,kythuatvien');
+        Route::get('/documents/destroy-attachment/{id}', [TechnicalDocumentController::class, 'destroyAttachment'])->name('warranty.document.documents.destroy_attachment')->middleware('role:admin,kythuatvien');
         Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
 
         // ... (Existing Technical Document Routes)

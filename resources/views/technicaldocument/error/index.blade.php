@@ -67,7 +67,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary">Model</label>
-                    <select class="form-select" id="filterModel" name="model_id">
+                    <select class="form-select" id="filterModel" name="model_id" disabled>
                         <option value="">Chọn model</option>
                         @if($productModel)
                             @foreach($productModel ? [] : [] as $m)
