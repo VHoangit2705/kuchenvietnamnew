@@ -35,6 +35,9 @@
                         <input class="form-check-input" type="checkbox" id="chkseri" name="chkseri" value="HÀNG KHÔNG CÓ MÃ SERI">
                         <label class="form-check-label" for="chkseri"> HÀNG KHÔNG CÓ MÃ SERI </label>
                     </div>
+                    <div class="alert alert-info py-2 px-3 d-none small mb-2" id="ppr3006-hint" role="alert">
+                        <strong>Robot hút bụi lau nhà KU PPR3006:</strong> Sản phẩm có Serial (chỉ in nhầm số lô). Nhập mã: <strong>2025050500</strong> + 3 chữ số cuối Serial trên thân máy (VD: 2025050500123). Không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI".
+                    </div>
                     <div class="form-group" id="serialGroup">
                         <label for="serial_number" class="form-label mt-1">Mã seri tem bảo hành (<span 
                                 style="color: red;">*</span>)</label>
@@ -206,6 +209,7 @@
                 takePhoto: '{{ route("warranty.takephoto") }}',
             },
             csrfToken: '{{ csrf_token() }}',
+            productIdPPR3006: 1605,
             lstproduct: {!! json_encode($lstproduct ?? []) !!},
             products: {!! json_encode($products ?? []) !!}
         };

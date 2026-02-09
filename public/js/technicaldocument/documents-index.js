@@ -34,6 +34,7 @@
             e.preventDefault();
             var form = this;
             var title = jQuery(this).data('doc-title') || 'tài liệu này';
+            var url = form.action;
 
             Swal.fire({
                 title: 'Xác nhận xóa',
@@ -46,7 +47,32 @@
                 cancelButtonText: 'Hủy'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    form.submit();
+                    // Send AJAX request instead of form.submit()
+                    jQuery.ajax({
+                        url: url,
+                        type: 'POST', // Use POST with _method=DELETE
+                        data: jQuery(form).serialize(), // Includes _token and _method
+                        success: function (res) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công',
+                                text: res.message || 'Đã xóa tài liệu.',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        },
+                        error: function (xhr) {
+                            console.error('[DOC] Delete error:', xhr);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Lỗi',
+                                text: xhr.responseJSON?.message || 'Có lỗi xảy ra khi xóa.',
+                                confirmButtonColor: '#d33'
+                            });
+                        }
+                    });
                 }
             });
         });

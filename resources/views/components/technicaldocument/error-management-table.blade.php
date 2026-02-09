@@ -38,7 +38,7 @@
                             <i class="bi bi-exclamation-triangle-fill me-1"></i>Phổ biến
                         </span>
                     @else
-                        <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2">
+                        <span class="badge text-white rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2">
                             <i class="bi bi-info-circle-fill me-1"></i>Bình thường
                         </span>
                     @endif

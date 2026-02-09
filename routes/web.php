@@ -245,9 +245,11 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         Route::get('/documents/create', [TechnicalDocumentController::class, 'createDocument'])->name('warranty.document.documents.create')->middleware('role:admin,kythuatvien');
         Route::post('/documents', [TechnicalDocumentController::class, 'storeDocument'])->name('warranty.document.documents.store')->middleware('role:admin,kythuatvien');
         Route::get('/documents/edit/{id}', [TechnicalDocumentController::class, 'editDocument'])->name('warranty.document.documents.edit')->middleware('role:admin,kythuatvien');
+        Route::get('/documents/{id}/file', [TechnicalDocumentController::class, 'streamDocumentFile'])->name('warranty.document.documents.file')->middleware('role:admin,kythuatvien');
         Route::get('/documents/{id}', [TechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show')->middleware('role:admin,kythuatvien');
         Route::put('/documents/{id}', [TechnicalDocumentController::class, 'updateDocument'])->name('warranty.document.documents.update')->middleware('role:admin,kythuatvien');
         Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy')->middleware('role:admin,kythuatvien');
+        Route::get('/documents/destroy-attachment/{id}', [TechnicalDocumentController::class, 'destroyAttachment'])->name('warranty.document.documents.destroy_attachment')->middleware('role:admin,kythuatvien');
         Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
 
         // ... (Existing Technical Document Routes)

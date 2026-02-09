@@ -1510,9 +1510,9 @@ class WarrantyController extends Controller
         $provinces = Province::orderBy('name')->get();
         $products = [];
         if (session('brand') == 'kuchen') {
-            $products = Product::where('view', '1')->select('product_name', 'check_seri')->get()->toArray();
+            $products = Product::where('view', '1')->select('id', 'product_name', 'check_seri')->get()->toArray();
         } else {
-            $products = Product::where('view', '3')->select('product_name', 'check_seri')->get()->toArray();
+            $products = Product::where('view', '3')->select('id', 'product_name', 'check_seri')->get()->toArray();
         }
         return view('warranty.formwarranty', compact('warranty', 'lstproduct', 'products', 'chinhanh', 'provinces'));
     }
@@ -2001,6 +2001,26 @@ class WarrantyController extends Controller
                 'message' => 'Sản phẩm cũ, vui lòng liên hệ chuyên viên để giải quyết.'
             ]);
         }
+
+        // Robot PPR3006 (product_id 1605): bắt buộc có serial đúng cú pháp 2025050500 + 3 số cuối, không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI"
+        $productIdPpr3006 = 1605;
+        if ((int) $product->id === $productIdPpr3006) {
+            $serialInput = $request->serial_number ? trim($request->serial_number) : '';
+            $noSerialText = 'HÀNG KHÔNG CÓ MÃ SERI';
+            if ($serialInput === '' || strtoupper($serialInput) === $noSerialText) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sản phẩm Robot hút bụi lau nhà KU PPR3006 có Serial (chỉ in nhầm số lô). Bắt buộc nhập mã bảo hành: 2025050500 + 3 chữ số cuối Serial trên thân máy. Không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI".',
+                ]);
+            }
+            if (!preg_match('/^2025050500\d{3}$/', $serialInput)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mã seri PPR3006 phải đúng cú pháp: 2025050500 + 3 chữ số cuối (ví dụ: 2025050500123).',
+                ]);
+            }
+        }
+
         $shipmentDate = Carbon::createFromFormat('d/m/Y', $request->shipment_date);
         $warrantyEnd = $shipmentDate->copy()->addMonths($product->month);
 

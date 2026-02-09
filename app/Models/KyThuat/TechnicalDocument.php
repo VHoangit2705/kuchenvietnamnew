@@ -53,6 +53,9 @@ class TechnicalDocument extends Model
     /**
      * Quan hệ: Document ↔ Repair Guides (qua bảng trung gian)
      */
+    /**
+     * Quan hệ: Document ↔ Repair Guides (qua bảng trung gian)
+     */
     public function repairGuides()
     {
         return $this->belongsToMany(
@@ -61,5 +64,13 @@ class TechnicalDocument extends Model
             'document_id',
             'repair_guide_id'
         );
+    }
+
+    /**
+     * Quan hệ: Document → File đính kèm (Attachments)
+     */
+    public function attachments()
+    {
+        return $this->hasMany(TechnicalDocumentAttachment::class, 'document_id');
     }
 }

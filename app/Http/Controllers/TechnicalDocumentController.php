@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use ZipArchive;
 use App\Models\Kho\Category;
 use App\Models\Kho\Product;
@@ -14,6 +15,7 @@ use App\Models\KyThuat\RepairGuide;
 use App\Models\KyThuat\TechnicalDocument;
 use App\Models\KyThuat\DocumentVersion;
 use App\Models\KyThuat\RepairGuideDocument;
+use App\Models\KyThuat\TechnicalDocumentAttachment;
 
 class TechnicalDocumentController extends Controller
 {
@@ -177,16 +179,18 @@ class TechnicalDocumentController extends Controller
             $documents = [];
             foreach ($guide->technicalDocuments as $doc) {
                 $version = $doc->documentVersions->sortByDesc('id')->first();
-                if (!$version) {
+                $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                if (!$filePath) {
                     continue;
                 }
-                $fileUrl = $storageUrl . '/' . ltrim($version->file_path, '/');
+                $fileUrl = $storageUrl . '/' . ltrim($filePath, '/');
+                $ext = pathinfo($filePath, PATHINFO_EXTENSION);
                 $documents[] = [
                     'id'        => $doc->id,
                     'title'     => $doc->title,
                     'doc_type'  => $doc->doc_type,
                     'file_url'  => $fileUrl,
-                    'file_type' => $version->file_type,
+                    'file_type' => $ext,
                 ];
             }
             return [
@@ -232,13 +236,16 @@ class TechnicalDocumentController extends Controller
         foreach ($error->repairGuides as $guide) {
             foreach ($guide->technicalDocuments as $doc) {
                 $version = $doc->documentVersions->sortByDesc('id')->first();
-                if ($version && $version->file_path) {
-                    $fullPath = storage_path('app/public/' . ltrim($version->file_path, '/'));
-                    if (file_exists($fullPath)) {
-                        $filePaths[] = [
-                            'path' => $fullPath,
-                            'name' => basename($version->file_path),
-                        ];
+                if ($version) {
+                    $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                    if ($filePath) {
+                        $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
+                        if (file_exists($fullPath)) {
+                            $filePaths[] = [
+                                'path' => $fullPath,
+                                'name' => basename($filePath),
+                            ];
+                        }
                     }
                 }
             }
@@ -322,6 +329,52 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => 'Đã thêm mã lỗi thành công.']);
     }
 
+    /**
+     * Giới hạn dung lượng file tài liệu kỹ thuật: ảnh < 2MB, PDF < 5MB, video < 10MB.
+     */
+    private const FILE_MAX_IMAGE_BYTES = 2 * 1024 * 1024;   // 2MB
+    private const FILE_MAX_PDF_BYTES   = 5 * 1024 * 1024;   // 5MB
+    private const FILE_MAX_VIDEO_BYTES = 10 * 1024 * 1024; // 10MB
+
+    private function validateTechnicalDocumentFile($file, string $attribute = 'file'): void
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+        $size = $file->getSize();
+        $name = $file->getClientOriginalName();
+
+        $allowed = ['jpg', 'jpeg', 'png', 'pdf', 'mp4', 'webm'];
+        if (!in_array($ext, $allowed)) {
+            throw ValidationException::withMessages([
+                $attribute => "File \"{$name}\" có định dạng không hỗ trợ. Chỉ chấp nhận: " . implode(', ', $allowed),
+            ]);
+        }
+
+        if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
+            if ($size > 2 * 1024 * 1024) { // 2MB
+                throw ValidationException::withMessages([
+                    $attribute => "File ảnh \"{$name}\" vượt quá 2MB. Vui lòng chọn file nhỏ hơn.",
+                ]);
+            }
+            return;
+        }
+        if ($ext === 'pdf') {
+            if ($size > 5 * 1024 * 1024) { // 5MB
+                throw ValidationException::withMessages([
+                    $attribute => "File PDF \"{$name}\" vượt quá 5MB. Vui lòng chọn file nhỏ hơn.",
+                ]);
+            }
+            return;
+        }
+        if (in_array($ext, ['mp4', 'webm'])) {
+            if ($size > 10 * 1024 * 1024) { // 10MB
+                throw ValidationException::withMessages([
+                    $attribute => "File video \"{$name}\" vượt quá 10MB. Vui lòng chọn file nhỏ hơn.",
+                ]);
+            }
+            return;
+        }
+    }
+
     // 6–7. Thêm hướng dẫn sửa & gắn tài liệu (Bước 6–7)
     public function storeRepairGuide(Request $request)
     {
@@ -332,12 +385,19 @@ class TechnicalDocumentController extends Controller
             'estimated_time' => 'nullable|integer|min:0',
             'safety_note'    => 'nullable|string',
             'files'          => 'nullable|array',
-            'files.*'        => 'file|mimes:pdf,jpg,jpeg,png,mp4,webm|max:20480',
+            'files.*'        => 'file|mimes:pdf,jpg,jpeg,png,mp4,webm',
         ], [
             'error_id.required' => 'Vui lòng chọn mã lỗi.',
             'title.required'    => 'Tiêu đề hướng dẫn không được để trống.',
             'steps.required'    => 'Các bước xử lý không được để trống.',
         ]);
+
+        $uploadedFiles = $request->file('files');
+        if (!empty($uploadedFiles)) {
+            foreach ($uploadedFiles as $index => $file) {
+                $this->validateTechnicalDocumentFile($file, 'files.' . $index);
+            }
+        }
 
         $error = CommonError::with('productModel')->findOrFail($request->error_id);
         $modelId = $error->model_id;
@@ -388,14 +448,25 @@ class TechnicalDocumentController extends Controller
                     'status'      => 'active',
                 ]);
 
-                DocumentVersion::create([
-                    'document_id'  => $doc->id,
-                    'version'      => '1.0',
-                    'file_path'    => $path,
-                    'file_type'    => $ext,
-                    'status'       => 'active',
-                    'uploaded_by'  => Auth::id(),
-                ]);
+                $createData = [
+                    'document_id' => $doc->id,
+                    'version'     => '1.0',
+                    'status'      => 'active',
+                    'uploaded_by' => Auth::id(),
+                    'img_upload'   => null,
+                    'video_upload' => null,
+                    'pdf_upload'   => null,
+                ];
+
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                    $createData['img_upload'] = $path;
+                } elseif (in_array($ext, ['mp4', 'webm'])) {
+                    $createData['video_upload'] = $path;
+                } elseif ($ext === 'pdf') {
+                    $createData['pdf_upload'] = $path;
+                }
+
+                DocumentVersion::create($createData);
 
                 RepairGuideDocument::create([
                     'repair_guide_id' => $guide->id,
@@ -576,13 +647,11 @@ class TechnicalDocumentController extends Controller
     {
         $request->validate([
             'model_id'    => 'required|integer',
-            'doc_type'    => 'required|string|in:manual,wiring,repair,image,video,bulletin',
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'file'        => 'required|file|mimes:pdf,jpg,jpeg,png,mp4,webm|max:20480',
+            'file'        => 'required|file',
         ], [
             'model_id.required' => 'Vui lòng chọn model.',
-            'doc_type.required'  => 'Loại tài liệu không được để trống.',
             'title.required'    => 'Tiêu đề không được để trống.',
             'file.required'     => 'Vui lòng chọn file tài liệu.',
         ]);
@@ -591,40 +660,128 @@ class TechnicalDocumentController extends Controller
         }
 
         $file = $request->file('file');
+        $this->validateTechnicalDocumentFile($file, 'file');
         $ext = strtolower($file->getClientOriginalExtension());
-        $basePath = 'technical_documents/' . date('Y/m/d');
-        $path = $file->storeAs($basePath, time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName()), 'public');
+        $directory = $this->getDirectoryForFile($ext);
+        $path = $file->storeAs($directory, time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName()), 'public');
+
+        // Auto-detect doc_type from extension
+        $docType = match ($ext) {
+            'pdf' => 'manual',
+            'jpg', 'jpeg', 'png', 'gif', 'webp' => 'image',
+            'mp4', 'webm' => 'video',
+            default => 'manual',
+        };
 
         $doc = TechnicalDocument::create([
             'model_id'    => $request->model_id,
-            'doc_type'    => $request->doc_type,
+            'doc_type'    => $docType,
             'title'       => $request->title,
             'description' => $request->description,
             'status'      => 'active',
         ]);
 
-        DocumentVersion::create([
+        $createData = [
             'document_id' => $doc->id,
             'version'     => '1.0',
-            'file_path'   => $path,
-            'file_type'   => $ext,
-            'status'     => 'active',
+            'status'      => 'active',
             'uploaded_by' => Auth::id(),
-        ]);
+            'img_upload'   => null,
+            'video_upload' => null,
+            'pdf_upload'   => null,
+        ];
+
+        // Debug logging
+        // \Log::info('DocumentVersion Creation Debug', [
+        //     'ext' => $ext,
+        //     'path' => $path,
+        //     'createData_before' => $createData
+        // ]);
+
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $createData['img_upload'] = $path;
+        } elseif (in_array($ext, ['mp4', 'webm'])) {
+            $createData['video_upload'] = $path;
+        } elseif ($ext === 'pdf') {
+            $createData['pdf_upload'] = $path;
+        }
+
+        // \Log::info('DocumentVersion Creation After Assignment', [
+        //     'createData_after' => $createData
+        // ]);
+
+        DocumentVersion::create($createData);
+
+        // Xử lý file đính kèm ngay khi tạo
+        $this->processAttachments($request, $doc->id);
 
         return redirect()->route('warranty.document.documents.index', ['model_id' => $request->model_id])->with('success', 'Đã thêm tài liệu.');
     }
 
+    /**
+     * Stream file tài liệu qua Laravel (tránh 403 khi xem trực tiếp từ /storage/...).
+     * Chỉ user đã đăng nhập + có quyền xem tài liệu mới truy cập được.
+     */
+    public function streamDocumentFile(Request $request, $id)
+    {
+        $document = TechnicalDocument::with('documentVersions')->findOrFail($id);
+        $versionId = $request->query('version_id');
+        $version = $versionId
+            ? $document->documentVersions->firstWhere('id', (int) $versionId)
+            : $document->documentVersions->sortByDesc('id')->first();
+
+        if (!$version) {
+            abort(404, 'Không tìm thấy phiên bản tài liệu.');
+        }
+
+        $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+
+        if (!$filePath) {
+            abort(404, 'File không tồn tại (DB).');
+        }
+
+        $path = Storage::disk('public')->path($filePath);
+        if (!is_file($path)) {
+            abort(404, 'File không tồn tại trên đĩa.');
+        }
+
+        $disposition = $request->query('download') ? 'attachment' : 'inline';
+        $ext = pathinfo($filePath, PATHINFO_EXTENSION);
+        $mime = $this->mimeForExtension($ext);
+        $filename = basename($filePath);
+
+        return response()->file($path, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => $disposition . '; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function mimeForExtension(string $ext): string
+    {
+        $map = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+        ];
+        return $map[strtolower($ext)] ?? 'application/octet-stream';
+    }
+
     public function showDocument($id)
     {
-        $document = TechnicalDocument::with(['productModel', 'documentVersions', 'repairGuides.commonError'])->findOrFail($id);
+        $document = TechnicalDocument::with(['productModel', 'documentVersions', 'repairGuides.commonError', 'attachments'])->findOrFail($id);
+        $fileRouteName = 'warranty.document.documents.file';
         $storageUrl = rtrim(asset('storage'), '/');
-        return view('technicaldocument.document-show', compact('document', 'storageUrl'));
+        return view('technicaldocument.document-show', compact('document', 'fileRouteName', 'storageUrl'));
     }
 
     public function editDocument($id)
     {
-        $document = TechnicalDocument::with(['productModel', 'documentVersions'])->findOrFail($id);
+        $document = TechnicalDocument::with(['productModel', 'documentVersions', 'attachments'])->findOrFail($id);
         $categories = Category::where('website_id', 2)->get();
         $storageUrl = rtrim(asset('storage'), '/');
         return view('technicaldocument.document-edit', compact('document', 'categories', 'storageUrl'));
@@ -634,51 +791,111 @@ class TechnicalDocumentController extends Controller
     {
         $document = TechnicalDocument::findOrFail($id);
         $request->validate([
-            'doc_type'    => 'required|string|in:manual,wiring,repair,image,video,bulletin',
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status'      => 'required|string|in:active,inactive,deprecated',
-            'file'        => 'nullable|file|mimes:pdf,jpg,jpeg,png,mp4,webm|max:20480',
-            'version'     => 'nullable|required_with:file|string|max:50',
+            'file'        => 'nullable|file',
+            'version'     => 'nullable|string|max:50',
         ], [
             'title.required' => 'Tiêu đề không được để trống.',
-            'version.required_with' => 'Vui lòng nhập số phiên bản khi tải file mới.',
         ]);
 
+        if ($request->hasFile('file')) {
+            $this->validateTechnicalDocumentFile($request->file('file'), 'file');
+        }
+
         $document->update([
-            'doc_type'    => $request->doc_type,
             'title'       => $request->title,
             'description' => $request->description,
-            'status'      => $request->status,
         ]);
 
         $message = 'Đã cập nhật thông tin tài liệu.';
 
         if ($request->hasFile('file')) {
-            $existingVer = $document->documentVersions()->where('version', $request->version)->exists();
-            if ($existingVer) {
-                return back()->withErrors(['version' => 'Phiên bản ' . $request->version . ' đã tồn tại.'])->withInput();
+            // Tự động tăng version
+            $latestVersion = $document->documentVersions()->orderByDesc('id')->first();
+            $newVersion = '1.0';
+
+            if ($latestVersion) {
+                $parts = explode('.', $latestVersion->version);
+                if (count($parts) >= 2 && is_numeric($end = end($parts))) {
+                    array_pop($parts);
+                    $parts[] = $end + 1;
+                    $newVersion = implode('.', $parts);
+                } else {
+                    // Fallback nếu version cũ không đúng định dạng số (ví dụ "v1") -> nối thêm .1
+                    $newVersion = $latestVersion->version . '.1';
+                }
+            }
+
+            // Kiểm tra trùng (dù lý thuyết khó xảy ra nếu auto-increment chuẩn, nhưng safety first)
+            while ($document->documentVersions()->where('version', $newVersion)->exists()) {
+                $parts = explode('.', $newVersion);
+                $end = array_pop($parts);
+                $parts[] = $end + 1;
+                $newVersion = implode('.', $parts);
             }
 
             $file = $request->file('file');
             $ext = strtolower($file->getClientOriginalExtension());
-            $basePath = 'technical_documents/' . date('Y/m/d');
-            $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
-            $path = $file->storeAs($basePath, $fileName, 'public');
 
-            DocumentVersion::create([
+            // Auto-update doc_type if file changes
+            $docType = match ($ext) {
+                'pdf' => 'manual',
+                'jpg', 'jpeg', 'png', 'gif', 'webp' => 'image',
+                'mp4', 'webm' => 'video',
+                default => 'manual',
+            };
+            $document->update(['doc_type' => $docType]);
+
+            $directory = $this->getDirectoryForFile($ext);
+            
+            // Thêm version vào tên file để tránh trùng lặp/cache
+            $fileName = time() . '_v' . $newVersion . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+            
+            $path = $file->storeAs($directory, $fileName, 'public');
+
+            $createData = [
                 'document_id' => $document->id,
-                'version'     => $request->version,
-                'file_path'   => $path,
-                'file_type'   => $ext,
+                'version'     => $newVersion,
                 'status'      => 'active',
                 'uploaded_by' => Auth::id(),
-            ]);
+                'img_upload'   => null,
+                'video_upload' => null,
+                'pdf_upload'   => null,
+            ];
 
-            $message = 'Đã cập nhật tài liệu và thêm phiên bản mới.';
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $createData['img_upload'] = $path;
+            } elseif (in_array($ext, ['mp4', 'webm'])) {
+                $createData['video_upload'] = $path;
+            } elseif ($ext === 'pdf') {
+                $createData['pdf_upload'] = $path;
+            }
+
+            DocumentVersion::create($createData);
+
+            $message = 'Đã cập nhật tài liệu. Phiên bản mới: ' . $newVersion;
         }
 
+        // Xử lý file đính kèm theo từng loại
+        $this->processAttachments($request, $document->id);
+
         return redirect()->route('warranty.document.documents.edit', $id)->with('success', $message);
+    }
+    
+    // Xóa file đính kèm
+    public function destroyAttachment($id)
+    {
+        $attachment = TechnicalDocumentAttachment::findOrFail($id);
+        $fullPath = storage_path('app/public/' . ltrim($attachment->file_path, '/'));
+        
+        if (file_exists($fullPath)) {
+            @unlink($fullPath);
+        }
+        
+        $attachment->delete();
+        
+        return back()->with('success', 'Đã xóa file đính kèm.');
     }
 
     public function destroyDocument($id)
@@ -692,5 +909,52 @@ class TechnicalDocumentController extends Controller
         }
         $document->delete();
         return response()->json(['message' => 'Đã xóa tài liệu.']);
+    }
+
+    /**
+     * Helper xử lý lưu attachments từ nhiều nguồn input
+     */
+    private function processAttachments(Request $request, $documentId)
+    {
+        $inputs = [
+            'attachments_pdf'   => 'pdf',
+            'attachments_video' => 'video',
+        ];
+
+        foreach ($inputs as $inputName => $forceType) {
+            if ($request->hasFile($inputName)) {
+                $files = $request->file($inputName);
+                foreach ($files as $file) {
+                    // Validate sơ bộ
+                    $this->validateTechnicalDocumentFile($file, $inputName);
+
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    $directory = $this->getDirectoryForFile($ext);
+                    
+                    $originalName = $file->getClientOriginalName();
+                    // Thêm prefix loại file để dễ debug
+                    $fileName = time() . '_' . $forceType . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+                    
+                    $path = $file->storeAs($directory, $fileName, 'public');
+
+                    TechnicalDocumentAttachment::create([
+                        'document_id' => $documentId,
+                        'file_path'   => $path,
+                        'file_type'   => $forceType, // Lưu luôn loại theo input
+                        'file_name'   => $originalName,
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function getDirectoryForFile(string $ext): string
+    {
+        return match ($ext) {
+            'jpg', 'jpeg', 'png', 'gif', 'webp' => 'photos',
+            'pdf' => 'reports',
+            'mp4', 'webm' => 'videos',
+            default => 'technical_documents', // Fallback
+        };
     }
 }
