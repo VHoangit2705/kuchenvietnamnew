@@ -732,10 +732,9 @@ class TechnicalDocumentController extends Controller
             'description' => 'nullable|string',
             'status'      => 'required|string|in:active,inactive,deprecated',
             'file'        => 'nullable|file|mimes:pdf,jpg,jpeg,png,mp4,webm',
-            'version'     => 'nullable|required_with:file|string|max:50',
+            'version'     => 'nullable|string|max:50',
         ], [
             'title.required' => 'Tiêu đề không được để trống.',
-            'version.required_with' => 'Vui lòng nhập số phiên bản khi tải file mới.',
         ]);
 
         if ($request->hasFile('file')) {
@@ -752,27 +751,49 @@ class TechnicalDocumentController extends Controller
         $message = 'Đã cập nhật thông tin tài liệu.';
 
         if ($request->hasFile('file')) {
-            $existingVer = $document->documentVersions()->where('version', $request->version)->exists();
-            if ($existingVer) {
-                return back()->withErrors(['version' => 'Phiên bản ' . $request->version . ' đã tồn tại.'])->withInput();
+            // Tự động tăng version
+            $latestVersion = $document->documentVersions()->orderByDesc('id')->first();
+            $newVersion = '1.0';
+
+            if ($latestVersion) {
+                $parts = explode('.', $latestVersion->version);
+                if (count($parts) >= 2 && is_numeric($end = end($parts))) {
+                    array_pop($parts);
+                    $parts[] = $end + 1;
+                    $newVersion = implode('.', $parts);
+                } else {
+                    // Fallback nếu version cũ không đúng định dạng số (ví dụ "v1") -> nối thêm .1
+                    $newVersion = $latestVersion->version . '.1';
+                }
+            }
+
+            // Kiểm tra trùng (dù lý thuyết khó xảy ra nếu auto-increment chuẩn, nhưng safety first)
+            while ($document->documentVersions()->where('version', $newVersion)->exists()) {
+                $parts = explode('.', $newVersion);
+                $end = array_pop($parts);
+                $parts[] = $end + 1;
+                $newVersion = implode('.', $parts);
             }
 
             $file = $request->file('file');
             $ext = strtolower($file->getClientOriginalExtension());
             $basePath = 'technical_documents/' . date('Y/m/d');
-            $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+            
+            // Thêm version vào tên file để tránh trùng lặp/cache
+            $fileName = time() . '_v' . $newVersion . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+            
             $path = $file->storeAs($basePath, $fileName, 'public');
 
             DocumentVersion::create([
                 'document_id' => $document->id,
-                'version'     => $request->version,
+                'version'     => $newVersion,
                 'file_path'   => $path,
                 'file_type'   => $ext,
                 'status'      => 'active',
                 'uploaded_by' => Auth::id(),
             ]);
 
-            $message = 'Đã cập nhật tài liệu và thêm phiên bản mới.';
+            $message = 'Đã cập nhật tài liệu. Phiên bản mới: ' . $newVersion;
         }
 
         return redirect()->route('warranty.document.documents.edit', $id)->with('success', $message);

@@ -70,8 +70,9 @@
                             <h6 class="fw-bold text-primary mb-3"><i class="bi bi-cloud-upload me-2"></i>Cập nhật phiên bản mới</h6>
                             <div class="row">
                                 <div class="col-md-4 mb-3">
-                                    <label class="form-label small text-muted">Phiên bản mới (Ví dụ: 1.1)</label>
-                                    <input type="text" class="form-control" name="version" placeholder="Nhập số..." value="{{ old('version') }}">
+                                    <label class="form-label small text-muted">Phiên bản (Tự động tăng)</label>
+                                    <input type="text" class="form-control bg-light" value="Verison...." disabled>
+                                    <input type="hidden" name="version" value="">
                                 </div>
                                 <div class="col-md-8 mb-3">
                                     <label class="form-label small text-muted">File tài liệu mới</label>
