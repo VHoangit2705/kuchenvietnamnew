@@ -36,6 +36,8 @@
         });
 
         jQuery('#formDocCreate').on('submit', function (e) {
+            var btn = jQuery('#btnSubmitDoc');
+            
             var fileInput = document.getElementById('docCreateFile');
             if (fileInput && fileInput.files && fileInput.files.length > 0) {
                 var result = validateDocFile(fileInput.files[0]);
@@ -46,7 +48,15 @@
                     } else {
                         alert(result.message);
                     }
+                    return;
                 }
+            }
+            // Prevent double submit
+            if (jQuery(this).data('submitted') === true) {
+                e.preventDefault();
+            } else {
+                jQuery(this).data('submitted', true);
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang lưu...');
             }
         });
     });

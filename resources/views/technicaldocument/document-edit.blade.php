@@ -88,12 +88,16 @@
                         <ul class="list-group list-group-flush rounded border">
                             @foreach($document->documentVersions->sortByDesc('id') as $ver)
                                 <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                    @php
+                                        $filePath = $ver->img_upload ?? $ver->video_upload ?? $ver->pdf_upload;
+                                        $ext = $filePath ? pathinfo($filePath, PATHINFO_EXTENSION) : '';
+                                    @endphp
                                     <div>
                                         <span class="badge bg-secondary me-2">v{{ $ver->version }}</span>
-                                        <span class="small text-muted">{{ $ver->file_type }} • {{ $ver->created_at->format('d/m/Y H:i') }}</span>
+                                        <span class="small text-muted">{{ $ext ? strtoupper($ext) : '—' }} • {{ $ver->created_at->format('d/m/Y H:i') }}</span>
                                     </div>
-                                    @if($ver->file_path)
-                                        <a href="{{ $storageUrl . '/' . ltrim($ver->file_path, '/') }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    @if($filePath)
+                                        <a href="{{ $storageUrl . '/' . ltrim($filePath, '/') }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                             <i class="bi bi-download me-1"></i>Tải
                                         </a>
                                     @endif

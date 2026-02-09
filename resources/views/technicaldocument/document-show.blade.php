@@ -81,15 +81,18 @@
                     <ul class="list-group list-group-flush">
                         @foreach($document->documentVersions->sortByDesc('id') as $ver)
                             @php
-                                $fileUrl = $ver->file_path ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id]) : null;
-                                $downloadUrl = $ver->file_path ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id, 'download' => 1]) : null;
-                                $ext = strtolower($ver->file_type ?? '');
+                                $filePath = $ver->img_upload ?? $ver->video_upload ?? $ver->pdf_upload;
+                                $hasFile = !empty($filePath);
+                                $fileUrl = $hasFile ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id]) : null;
+                                $downloadUrl = $hasFile ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id, 'download' => 1]) : null;
+                                // Get extension from path
+                                $ext = $hasFile ? strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) : '';
                                 $canView = $fileUrl && in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm']);
                             @endphp
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0 border-0 py-2">
                                 <span class="small">
                                     <span class="badge bg-light text-dark me-2">v{{ $ver->version }}</span>
-                                    {{ $ver->file_type ?? '—' }}
+                                    {{ $ext ? strtoupper($ext) : '—' }}
                                 </span>
                                 @if($fileUrl)
                                     <div class="btn-group btn-group-sm">
@@ -180,30 +183,54 @@
 
             @php
                 $firstViewable = $document->documentVersions->sortByDesc('id')->first(function ($v) {
-                    $ext = strtolower($v->file_type ?? '');
-                    return in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm']);
+                    return $v->img_upload || $v->video_upload || $v->pdf_upload;
                 });
             @endphp
-            @if($firstViewable && $firstViewable->file_path)
+            @if($firstViewable)
                 @php
                     $embedUrl = route('warranty.document.documents.file', [$document->id, 'version_id' => $firstViewable->id]);
-                    $embedExt = strtolower($firstViewable->file_type ?? '');
+                    $filePath = $firstViewable->img_upload ?? $firstViewable->video_upload ?? $firstViewable->pdf_upload;
+                    $embedExt = $filePath ? strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) : '';
+                    
+                    // Fallback determine type based on which column is filled if ext is missing
+                    if (!$embedExt) {
+                        if ($firstViewable->pdf_upload) $embedExt = 'pdf';
+                        elseif ($firstViewable->img_upload) $embedExt = 'jpg'; // Generic image
+                        elseif ($firstViewable->video_upload) $embedExt = 'mp4'; // Generic video
+                    }
                 @endphp
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">
                     <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold mb-0"><i class="bi bi-eye me-2"></i>Xem trực tiếp (v{{ $firstViewable->version }})</h5>
-                        <a href="{{ $embedUrl }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">Mở tab mới</a>
+                        <h5 class="fw-bold mb-0">
+                            @if($firstViewable->pdf_upload) <i class="bi bi-file-earmark-pdf me-2"></i> @endif
+                            @if($firstViewable->img_upload) <i class="bi bi-image me-2"></i> @endif
+                            @if($firstViewable->video_upload) <i class="bi bi-camera-video me-2"></i> @endif
+                            Xem trực tiếp (v{{ $firstViewable->version }})
+                        </h5>
+                        <a href="{{ $embedUrl }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Mở tab mới
+                        </a>
                     </div>
-                    <div class="card-body p-0 bg-dark">
-                        @if($embedExt === 'pdf')
-                            <iframe src="{{ $embedUrl }}#toolbar=1" class="w-100" style="height: 70vh; min-height: 400px; border: none;" title="Xem PDF"></iframe>
-                        @elseif(in_array($embedExt, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                    <div class="card-body p-0 bg-dark d-flex justify-content-center align-items-center" style="min-height: 400px;">
+                        @if($firstViewable->pdf_upload || $embedExt === 'pdf')
+                            <iframe src="{{ $embedUrl }}#toolbar=1" class="w-100" style="height: 70vh; min-height: 500px; border: none;" title="Xem PDF"></iframe>
+                        @elseif($firstViewable->img_upload || in_array($embedExt, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
                             <div class="text-center p-3">
                                 <img src="{{ $embedUrl }}" alt="Xem ảnh" class="img-fluid" style="max-height: 70vh;">
                             </div>
-                        @elseif(in_array($embedExt, ['mp4', 'webm']))
-                            <div class="p-3">
-                                <video src="{{ $embedUrl }}" controls class="w-100" style="max-height: 70vh;">Trình duyệt không hỗ trợ video.</video>
+                        @elseif($firstViewable->video_upload || in_array($embedExt, ['mp4', 'webm', 'mov']))
+                            <div class="w-100 h-100">
+                                <video src="{{ $embedUrl }}" controls class="w-100" style="max-height: 70vh; width: 100%; display: block;">
+                                    Trình duyệt không hỗ trợ thẻ video.
+                                </video>
+                            </div>
+                        @else
+                            <div class="text-white text-center p-5">
+                                <i class="bi bi-file-earmark-x fs-1 mb-3 d-block text-secondary"></i>
+                                <p>Định dạng file không hỗ trợ xem trước.</p>
+                                <a href="{{ $embedUrl }}?download=1" class="btn btn-light btn-sm mt-2">
+                                    <i class="bi bi-download me-1"></i>Tải xuống
+                                </a>
                             </div>
                         @endif
                     </div>

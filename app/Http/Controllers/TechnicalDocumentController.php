@@ -179,16 +179,18 @@ class TechnicalDocumentController extends Controller
             $documents = [];
             foreach ($guide->technicalDocuments as $doc) {
                 $version = $doc->documentVersions->sortByDesc('id')->first();
-                if (!$version) {
+                $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                if (!$filePath) {
                     continue;
                 }
-                $fileUrl = $storageUrl . '/' . ltrim($version->file_path, '/');
+                $fileUrl = $storageUrl . '/' . ltrim($filePath, '/');
+                $ext = pathinfo($filePath, PATHINFO_EXTENSION);
                 $documents[] = [
                     'id'        => $doc->id,
                     'title'     => $doc->title,
                     'doc_type'  => $doc->doc_type,
                     'file_url'  => $fileUrl,
-                    'file_type' => $version->file_type,
+                    'file_type' => $ext,
                 ];
             }
             return [
@@ -234,13 +236,16 @@ class TechnicalDocumentController extends Controller
         foreach ($error->repairGuides as $guide) {
             foreach ($guide->technicalDocuments as $doc) {
                 $version = $doc->documentVersions->sortByDesc('id')->first();
-                if ($version && $version->file_path) {
-                    $fullPath = storage_path('app/public/' . ltrim($version->file_path, '/'));
-                    if (file_exists($fullPath)) {
-                        $filePaths[] = [
-                            'path' => $fullPath,
-                            'name' => basename($version->file_path),
-                        ];
+                if ($version) {
+                    $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                    if ($filePath) {
+                        $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
+                        if (file_exists($fullPath)) {
+                            $filePaths[] = [
+                                'path' => $fullPath,
+                                'name' => basename($filePath),
+                            ];
+                        }
                     }
                 }
             }
@@ -443,14 +448,25 @@ class TechnicalDocumentController extends Controller
                     'status'      => 'active',
                 ]);
 
-                DocumentVersion::create([
-                    'document_id'  => $doc->id,
-                    'version'      => '1.0',
-                    'file_path'    => $path,
-                    'file_type'    => $ext,
-                    'status'       => 'active',
-                    'uploaded_by'  => Auth::id(),
-                ]);
+                $createData = [
+                    'document_id' => $doc->id,
+                    'version'     => '1.0',
+                    'status'      => 'active',
+                    'uploaded_by' => Auth::id(),
+                    'img_upload'   => null,
+                    'video_upload' => null,
+                    'pdf_upload'   => null,
+                ];
+
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                    $createData['img_upload'] = $path;
+                } elseif (in_array($ext, ['mp4', 'webm'])) {
+                    $createData['video_upload'] = $path;
+                } elseif ($ext === 'pdf') {
+                    $createData['pdf_upload'] = $path;
+                }
+
+                DocumentVersion::create($createData);
 
                 RepairGuideDocument::create([
                     'repair_guide_id' => $guide->id,
@@ -646,7 +662,6 @@ class TechnicalDocumentController extends Controller
         $file = $request->file('file');
         $this->validateTechnicalDocumentFile($file, 'file');
         $ext = strtolower($file->getClientOriginalExtension());
-        $ext = strtolower($file->getClientOriginalExtension());
         $directory = $this->getDirectoryForFile($ext);
         $path = $file->storeAs($directory, time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName()), 'public');
 
@@ -666,14 +681,36 @@ class TechnicalDocumentController extends Controller
             'status'      => 'active',
         ]);
 
-        DocumentVersion::create([
+        $createData = [
             'document_id' => $doc->id,
             'version'     => '1.0',
-            'file_path'   => $path,
-            'file_type'   => $ext,
-            'status'     => 'active',
+            'status'      => 'active',
             'uploaded_by' => Auth::id(),
-        ]);
+            'img_upload'   => null,
+            'video_upload' => null,
+            'pdf_upload'   => null,
+        ];
+
+        // Debug logging
+        // \Log::info('DocumentVersion Creation Debug', [
+        //     'ext' => $ext,
+        //     'path' => $path,
+        //     'createData_before' => $createData
+        // ]);
+
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $createData['img_upload'] = $path;
+        } elseif (in_array($ext, ['mp4', 'webm'])) {
+            $createData['video_upload'] = $path;
+        } elseif ($ext === 'pdf') {
+            $createData['pdf_upload'] = $path;
+        }
+
+        // \Log::info('DocumentVersion Creation After Assignment', [
+        //     'createData_after' => $createData
+        // ]);
+
+        DocumentVersion::create($createData);
 
         // Xử lý file đính kèm ngay khi tạo
         $this->processAttachments($request, $doc->id);
@@ -693,18 +730,25 @@ class TechnicalDocumentController extends Controller
             ? $document->documentVersions->firstWhere('id', (int) $versionId)
             : $document->documentVersions->sortByDesc('id')->first();
 
-        if (!$version || !$version->file_path) {
-            abort(404, 'Không tìm thấy file.');
+        if (!$version) {
+            abort(404, 'Không tìm thấy phiên bản tài liệu.');
         }
 
-        $path = Storage::disk('public')->path($version->file_path);
+        $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+
+        if (!$filePath) {
+            abort(404, 'File không tồn tại (DB).');
+        }
+
+        $path = Storage::disk('public')->path($filePath);
         if (!is_file($path)) {
             abort(404, 'File không tồn tại trên đĩa.');
         }
 
         $disposition = $request->query('download') ? 'attachment' : 'inline';
-        $mime = $this->mimeForExtension($version->file_type ?? '');
-        $filename = basename($version->file_path);
+        $ext = pathinfo($filePath, PATHINFO_EXTENSION);
+        $mime = $this->mimeForExtension($ext);
+        $filename = basename($filePath);
 
         return response()->file($path, [
             'Content-Type'        => $mime,
@@ -810,14 +854,25 @@ class TechnicalDocumentController extends Controller
             
             $path = $file->storeAs($directory, $fileName, 'public');
 
-            DocumentVersion::create([
+            $createData = [
                 'document_id' => $document->id,
                 'version'     => $newVersion,
-                'file_path'   => $path,
-                'file_type'   => $ext,
                 'status'      => 'active',
                 'uploaded_by' => Auth::id(),
-            ]);
+                'img_upload'   => null,
+                'video_upload' => null,
+                'pdf_upload'   => null,
+            ];
+
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $createData['img_upload'] = $path;
+            } elseif (in_array($ext, ['mp4', 'webm'])) {
+                $createData['video_upload'] = $path;
+            } elseif ($ext === 'pdf') {
+                $createData['pdf_upload'] = $path;
+            }
+
+            DocumentVersion::create($createData);
 
             $message = 'Đã cập nhật tài liệu. Phiên bản mới: ' . $newVersion;
         }
@@ -862,7 +917,6 @@ class TechnicalDocumentController extends Controller
     private function processAttachments(Request $request, $documentId)
     {
         $inputs = [
-            'attachments_image' => 'image',
             'attachments_pdf'   => 'pdf',
             'attachments_video' => 'video',
         ];

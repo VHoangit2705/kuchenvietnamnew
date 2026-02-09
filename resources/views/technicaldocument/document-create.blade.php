@@ -50,17 +50,12 @@
                 <div class="border-top pt-3 mt-3 bg-light p-3 rounded">
                     <h6 class="fw-bold text-primary mb-3"><i class="bi bi-paperclip me-2"></i>File Đính Kèm (Tùy chọn)</h6>
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold small">Hình ảnh đính kèm</label>
-                            <input type="file" class="form-control" name="attachments_image[]" multiple accept="image/*">
-                            <div class="form-text small">Chọn nhiều ảnh (JPG, PNG)</div>
-                        </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label fw-semibold small">Tài liệu PDF đính kèm</label>
                             <input type="file" class="form-control" name="attachments_pdf[]" multiple accept=".pdf">
                             <div class="form-text small">Chọn nhiều file PDF</div>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label fw-semibold small">Video hướng dẫn đính kèm</label>
                             <input type="file" class="form-control" name="attachments_video[]" multiple accept="video/*">
                             <div class="form-text small">Chọn nhiều video (MP4)</div>
@@ -69,7 +64,7 @@
                 </div>
                 <div class="mb-3"></div>
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-upload me-1"></i>Lưu tài liệu</button>
+                    <button type="submit" class="btn btn-primary px-4" id="btnSubmitDoc"><i class="bi bi-upload me-1"></i>Lưu tài liệu</button>
                     <a href="{{ route('warranty.document.documents.index') }}" class="btn btn-outline-secondary">Hủy</a>
                 </div>
             </form>

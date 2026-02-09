@@ -16,8 +16,9 @@ class DocumentVersion extends Model
     protected $fillable = [
         'document_id',
         'version',
-        'file_path',
-        'file_type',
+        'img_upload',
+        'video_upload',
+        'pdf_upload',
         'status',
         'uploaded_by',
     ];
