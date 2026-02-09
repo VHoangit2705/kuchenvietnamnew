@@ -75,8 +75,8 @@
                                 </div>
                                 <div class="col-md-8 mb-3">
                                     <label class="form-label small text-muted">File tài liệu mới</label>
-                                    <input type="file" class="form-control" name="file">
-                                    <div class="form-text small">Chấp nhận: pdf, jpg, png, mp4...</div>
+                                    <input type="file" class="form-control" name="file" id="docEditFile">
+                                    <div class="form-text small">Ảnh &lt; 2MB — PDF &lt; 5MB — Video &lt; 10MB.</div>
                                 </div>
                             </div>
                         </div>

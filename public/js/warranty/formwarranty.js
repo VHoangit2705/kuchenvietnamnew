@@ -1,8 +1,12 @@
 // JS cho formwarranty.blade.php
 // Cấu hình được inject từ Blade: window.FORM_WARRANTY_CONFIG
+// Robot PPR3006 (product_id 1605): bắt buộc nhập serial theo cú pháp 2025050500 + 3 số cuối, không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI"
+
+var isPPR3006 = false;
 
 $(document).ready(function () {
     const config = window.FORM_WARRANTY_CONFIG || {};
+    const PRODUCT_ID_PPR3006 = (config.productIdPPR3006 !== undefined) ? config.productIdPPR3006 : 1605;
 
     SelectProduct();
     ClickCheckBox();
@@ -86,8 +90,9 @@ $(document).ready(function () {
 
         if (matchedProducts.length > 0) {
             matchedProducts.slice(0, 10).forEach(p => {
+                const pid = (p.id !== undefined) ? p.id : '';
                 $suggestionsBox.append(
-                    `<button type="button" class="list-group-item list-group-item-action">${p.product_name}</button>`
+                    `<button type="button" class="list-group-item list-group-item-action" data-product-id="${pid}">${p.product_name}</button>`
                 );
             });
             $suggestionsBox.removeClass('d-none');
@@ -99,11 +104,28 @@ $(document).ready(function () {
     // Khi người dùng chọn sản phẩm gợi ý
     $(document).on('mousedown', '#product-suggestions button', function () {
         $('#product').val($(this).text());
+        const productId = $(this).data('product-id');
         if ($(this).data('product-id') == 1) {
             $('#serialthanmayGroup').remove('d-none');
         }
         $('#serialthanmayGroup').addClass('d-none');
         $('#product-suggestions').addClass('d-none');
+
+        // Check if product is PPR3006 (id 1605): bắt buộc có serial, không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI"
+        const nameMatch = $(this).text().toLowerCase().includes('ppr3006');
+        const idMatch = (productId !== '' && parseInt(productId, 10) === PRODUCT_ID_PPR3006);
+        isPPR3006 = nameMatch || idMatch;
+        if (isPPR3006) {
+            $('#chkseri').prop('disabled', true).prop('checked', false);
+            $('#serialGroup').show();
+            $('#serial_number').val('').attr('placeholder', 'Nhập 2025050500 + 3 số cuối serial');
+            $('#serial_number').closest('.form-group').find('.error').text('');
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').removeClass('d-none');
+        } else {
+            $('#chkseri').prop('disabled', false);
+            $('#serial_number').attr('placeholder', '');
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').addClass('d-none');
+        }
     });
 
     $('#product').on('blur', function () {
@@ -123,6 +145,22 @@ $(document).ready(function () {
             $('#serialthanmayGroup').removeClass('d-none');
         }
         else { $('#serialthanmayGroup').addClass('d-none'); }
+
+        // Check if product is PPR3006 (id 1605)
+        const nameMatch = matchedProduct && (matchedProduct.product_name || '').toLowerCase().includes('ppr3006');
+        const idMatch = matchedProduct && matchedProduct.id !== undefined && parseInt(matchedProduct.id, 10) === PRODUCT_ID_PPR3006;
+        isPPR3006 = !!(nameMatch || idMatch);
+        if (isPPR3006) {
+            $('#chkseri').prop('disabled', true).prop('checked', false);
+            $('#serialGroup').show();
+            if ($('#serial_number').val() === 'HÀNG KHÔNG CÓ MÃ SERI') $('#serial_number').val('');
+            $('#serial_number').attr('placeholder', 'Nhập 2025050500 + 3 số cuối serial');
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').removeClass('d-none');
+        } else {
+            $('#chkseri').prop('disabled', false);
+            $('#serial_number').attr('placeholder', '');
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').addClass('d-none');
+        }
     });
 
     // Ẩn gợi ý khi click ra ngoài
@@ -134,13 +172,43 @@ $(document).ready(function () {
 
     // auto fill vào serial (khi là select)
     $('#product').on('change', function () {
-        var serial = $(this).find(':selected').data('serial') || '';
-        $('#serial_number').val(serial);
+        const $opt = $(this).find(':selected');
+        const productName = $opt.val() || '';
+        const serial = $opt.data('serial') || '';
+        const nameMatch = (productName || '').toLowerCase().includes('ppr3006');
+        isPPR3006 = nameMatch;
+        if (isPPR3006) {
+            $('#chkseri').prop('disabled', true).prop('checked', false);
+            $('#serialGroup').show();
+            if (serial && /^2025050500\d{3}$/.test(String(serial).trim())) {
+                $('#serial_number').val(serial);
+            } else {
+                $('#serial_number').val('');
+            }
+            $('#serial_number').attr('placeholder', 'Nhập 2025050500 + 3 số cuối serial');
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').removeClass('d-none');
+        } else {
+            $('#chkseri').prop('disabled', false);
+            $('#serial_number').attr('placeholder', '');
+            $('#serial_number').val(serial);
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').addClass('d-none');
+        }
     });
 });
 
 function ClickCheckBox() {
     $('#chkseri').on('change', function () {
+        // Robot PPR3006 (id 1605): tuyệt đối không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI"
+        if ($(this).is(':checked') && isPPR3006) {
+            $(this).prop('checked', false);
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sản phẩm Robot hút bụi lau nhà KU PPR3006 có Serial',
+                html: 'Sản phẩm này có mã Serial (chỉ bị in nhầm số lô). Bắt buộc nhập mã bảo hành theo cú pháp: <strong>2025050500 + 3 chữ số cuối Serial</strong> trên thân máy (ví dụ: 2025050500123).',
+                confirmButtonText: 'Đã hiểu'
+            });
+            return;
+        }
         if ($(this).is(':checked')) {
             $('#serialGroup').hide();
             $('#serial_number').val('HÀNG KHÔNG CÓ MÃ SERI');
@@ -154,10 +222,26 @@ function ClickCheckBox() {
 function SelectProduct() {
     const config = window.FORM_WARRANTY_CONFIG || {};
     const productList = config.lstproduct || [];
+    const PRODUCT_ID_PPR3006 = (config.productIdPPR3006 !== undefined) ? config.productIdPPR3006 : 1605;
     if (Array.isArray(productList) && productList.length === 1) {
+        const one = productList[0];
         const $select = $('#product');
         $select.find('option:eq(1)').prop('selected', true).trigger('change');
-        $('#serial_number').val(productList[0].warranty_code);
+        const isPpr = (one.product_name || '').toLowerCase().includes('ppr3006') || (one.id !== undefined && parseInt(one.id, 10) === PRODUCT_ID_PPR3006);
+        if (isPpr && one.warranty_code && /^2025050500\d{3}$/.test(String(one.warranty_code).trim())) {
+            $('#serial_number').val(one.warranty_code);
+        } else if (isPpr) {
+            $('#serial_number').val('');
+            $('#serial_number').attr('placeholder', 'Nhập 2025050500 + 3 số cuối serial');
+        } else {
+            $('#serial_number').val(one.warranty_code || '');
+        }
+        if (isPpr) {
+            isPPR3006 = true;
+            $('#chkseri').prop('disabled', true).prop('checked', false);
+            $('#serialGroup').show();
+            if ($('#ppr3006-hint').length) $('#ppr3006-hint').removeClass('d-none');
+        }
     }
 }
 
@@ -301,6 +385,21 @@ function ValidateForm() {
         if (returnDate < today) {
             $('#return_date').closest('.form-group').find('.error').text('Ngày hẹn trả phải lớn hơn hoặc bằng ngày tiếp nhận.');
             if (!__firstErrorField) __firstErrorField = $('#return_date');
+            __formIsValid = false;
+        }
+    }
+
+    // Kiểm tra serial cho PPR3006 (id 1605): không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI", bắt buộc đúng cú pháp
+    if (isPPR3006) {
+        const serial = $('#serial_number').val()?.trim();
+        const noSerialText = 'HÀNG KHÔNG CÓ MÃ SERI';
+        if (!serial || serial.toUpperCase() === noSerialText) {
+            $('#serial_number').closest('.form-group').find('.error').text('Sản phẩm PPR3006 có Serial (chỉ in nhầm số lô). Bắt buộc nhập: 2025050500 + 3 số cuối Serial thân máy. Không chấp nhận "HÀNG KHÔNG CÓ MÃ SERI".');
+            if (!__firstErrorField) __firstErrorField = $('#serial_number');
+            __formIsValid = false;
+        } else if (!/^2025050500\d{3}$/.test(serial)) {
+            $('#serial_number').closest('.form-group').find('.error').text('Mã seri PPR3006 phải đúng cú pháp: 2025050500 + 3 chữ số cuối (ví dụ: 2025050500123).');
+            if (!__firstErrorField) __firstErrorField = $('#serial_number');
             __formIsValid = false;
         }
     }

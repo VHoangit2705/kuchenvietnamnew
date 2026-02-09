@@ -89,7 +89,8 @@
                     <ul class="list-group list-group-flush">
                         @foreach($document->documentVersions->sortByDesc('id') as $ver)
                             @php
-                                $fileUrl = $ver->file_path ? ($storageUrl . '/' . ltrim($ver->file_path, '/')) : null;
+                                $fileUrl = $ver->file_path ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id]) : null;
+                                $downloadUrl = $ver->file_path ? route('warranty.document.documents.file', [$document->id, 'version_id' => $ver->id, 'download' => 1]) : null;
                                 $ext = strtolower($ver->file_type ?? '');
                                 $canView = $fileUrl && in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm']);
                             @endphp
@@ -105,7 +106,7 @@
                                                 <i class="bi bi-eye me-1"></i>Xem
                                             </a>
                                         @endif
-                                        <a href="{{ $fileUrl }}" target="_blank" download class="btn btn-sm btn-primary" title="Tải xuống">
+                                        <a href="{{ $downloadUrl }}" target="_blank" class="btn btn-sm btn-primary" title="Tải xuống">
                                             <i class="bi bi-download me-1"></i>Tải
                                         </a>
                                     </div>
@@ -127,7 +128,7 @@
             @endphp
             @if($firstViewable && $firstViewable->file_path)
                 @php
-                    $embedUrl = $storageUrl . '/' . ltrim($firstViewable->file_path, '/');
+                    $embedUrl = route('warranty.document.documents.file', [$document->id, 'version_id' => $firstViewable->id]);
                     $embedExt = strtolower($firstViewable->file_type ?? '');
                 @endphp
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-4">

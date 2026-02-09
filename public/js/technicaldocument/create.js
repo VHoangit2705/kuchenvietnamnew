@@ -341,7 +341,49 @@
             });
         });
 
-        // Bước 6–7: Lưu hướng dẫn + tài liệu
+        // Giới hạn file tài liệu: ảnh 2MB, PDF 5MB, video 10MB
+        var MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+        var MAX_PDF_BYTES = 5 * 1024 * 1024;
+        var MAX_VIDEO_BYTES = 10 * 1024 * 1024;
+
+        function validateGuideFiles(files) {
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var name = file.name || '';
+                var ext = (name.split('.').pop() || '').toLowerCase();
+                var size = file.size;
+                if (['jpg', 'jpeg', 'png'].indexOf(ext) !== -1) {
+                    if (size > MAX_IMAGE_BYTES) {
+                        return { valid: false, message: 'File ảnh "' + name + '" vượt quá 2MB. Vui lòng chọn file nhỏ hơn.' };
+                    }
+                } else if (ext === 'pdf') {
+                    if (size > MAX_PDF_BYTES) {
+                        return { valid: false, message: 'File PDF "' + name + '" vượt quá 5MB. Vui lòng chọn file nhỏ hơn.' };
+                    }
+                } else if (['mp4', 'webm'].indexOf(ext) !== -1) {
+                    if (size > MAX_VIDEO_BYTES) {
+                        return { valid: false, message: 'File video "' + name + '" vượt quá 10MB. Vui lòng chọn file nhỏ hơn.' };
+                    }
+                }
+            }
+            return { valid: true };
+        }
+
+        function setSaveGuideButtonLoading(loading) {
+            var $btn = jQuery('#btnSaveGuide');
+            var $label = $btn.find('.btn-save-label');
+            var $spinner = $btn.find('.spinner-border');
+            if (loading) {
+                $btn.prop('disabled', true);
+                $label.addClass('d-none');
+                $spinner.removeClass('d-none');
+            } else {
+                $btn.prop('disabled', false);
+                $label.removeClass('d-none');
+                $spinner.addClass('d-none');
+            }
+        }
+
         jQuery('#guideForm').on('submit', function (e) {
             e.preventDefault();
             var errorId = jQuery('#guideErrorId').val() || jQuery('#createErrorId').val();
@@ -354,6 +396,18 @@
                 });
                 return;
             }
+            var files = document.getElementById('docFiles').files;
+            var fileCheck = validateGuideFiles(files);
+            if (!fileCheck.valid) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Kích thước file không hợp lệ',
+                    text: fileCheck.message,
+                    confirmButtonColor: '#0d6efd'
+                });
+                return;
+            }
+
             var fd = new FormData();
             fd.append('error_id', errorId);
             fd.append('title', jQuery('#guideTitle').val());
@@ -361,10 +415,12 @@
             fd.append('estimated_time', jQuery('#guideEstimatedTime').val() || 0);
             fd.append('safety_note', jQuery('#guideSafetyNote').val());
             fd.append('_token', csrfToken);
-            var files = document.getElementById('docFiles').files;
             for (var i = 0; i < files.length; i++) {
                 fd.append('files[]', files[i]);
             }
+
+            setSaveGuideButtonLoading(true);
+
             jQuery.ajax({
                 url: routes.storeRepairGuide || '',
                 type: 'POST',
@@ -386,8 +442,12 @@
                     document.getElementById('docFiles').value = '';
                     jQuery('#uploadedDocList').empty();
                     loadErrorsByModel(selectedModelId);
+                    setSaveGuideButtonLoading(false);
                 },
-                error: function (xhr) { showError(xhr); }
+                error: function (xhr) {
+                    showError(xhr);
+                    setSaveGuideButtonLoading(false);
+                }
             });
         });
 

@@ -53,8 +53,8 @@
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold">File tài liệu (phiên bản 1.0) <span class="text-danger">*</span></label>
-                    <input type="file" class="form-control" name="file" accept=".pdf,.jpg,.jpeg,.png,.mp4,.webm" required>
-                    <small class="text-muted">PDF, JPG, PNG, MP4. Tối đa 20MB.</small>
+                    <input type="file" class="form-control" name="file" id="docCreateFile" accept=".pdf,.jpg,.jpeg,.png,.mp4,.webm" required>
+                    <small class="text-muted">Ảnh (JPG, PNG) &lt; 2MB — PDF &lt; 5MB — Video (MP4, WebM) &lt; 10MB.</small>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary px-4"><i class="bi bi-upload me-1"></i>Lưu tài liệu</button>

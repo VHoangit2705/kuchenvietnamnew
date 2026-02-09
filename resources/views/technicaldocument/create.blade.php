@@ -117,7 +117,7 @@
                                 <div class="upload-zone p-4 text-center border rounded-3 bg-light position-relative" style="border: 2px dashed #cbd5e1 !important;">
                                     <i class="bi bi-cloud-arrow-up fs-2 text-primary mb-2 d-block"></i>
                                     <span class="fw-semibold text-dark">Click hoặc kéo thả file vào đây</span>
-                                    <p class="text-muted small mb-0">Hỗ trợ: PDF, JPG, PNG, MP4 (Max 20MB)</p>
+                                    <p class="text-muted small mb-0">Hỗ trợ: Ảnh (JPG, PNG) &lt; 2MB — PDF &lt; 5MB — Video (MP4, WebM) &lt; 10MB</p>
                                     <input type="file" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" id="docFiles" name="files[]" multiple accept=".pdf,.jpg,.jpeg,.png,.mp4,.webm" style="cursor: pointer;">
                                 </div>
                                 <div id="uploadedDocList" class="mt-3 d-flex flex-wrap gap-2"></div>
@@ -127,7 +127,10 @@
 
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="button" class="btn btn-light text-secondary fw-semibold" id="btnResetGuide">Làm mới</button>
-                                <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Lưu Hướng Dẫn</button>
+                                <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm" id="btnSaveGuide">
+                                    <span class="btn-save-label"><i class="bi bi-save me-2"></i>Lưu Hướng Dẫn</span>
+                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                </button>
                             </div>
                         </form>
                     </div>
