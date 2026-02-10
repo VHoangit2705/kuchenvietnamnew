@@ -29,7 +29,6 @@
             // Reset both desktop and mobile
             resetSelect('#productNameSelect, #productNameSelect_m', '-- Chọn sản phẩm --', true);
             resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', true);
-            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
             jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
 
             if (!categoryId) return;
@@ -51,7 +50,6 @@
             var productId = jQuery(this).val();
 
             resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', true);
-            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
             jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
 
             if (!productId) return;
@@ -68,60 +66,46 @@
             });
         });
 
-        // 3. Chọn xuất xứ → load mã sản phẩm (model) (Desktop + Mobile)
+        // 3. Chọn xuất xứ → enable search button
         jQuery('#originSelect, #originSelect_m').on('change', function () {
+            var origin = jQuery(this).val();
+            jQuery('#btnSearch, #btnSearch_m').prop('disabled', !origin);
+        });
+
+        // 4. Bấm Tìm kiếm → load mã lỗi theo origin + product, hiển thị bảng (Desktop + Mobile)
+        jQuery('#btnSearch, #btnSearch_m').on('click', function () {
             var productId = jQuery('#productNameSelect, #productNameSelect_m').filter(function() {
                 return jQuery(this).val();
             }).first().val();
-            var origin = jQuery(this).val();
-
-            resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', true);
-            jQuery('#btnSearch, #btnSearch_m').prop('disabled', true);
-
-            if (!origin) return;
-
-            jQuery.get(routes.getModelsByOrigin || '', {
-                product_id: productId,
-                xuat_xu: origin
-            }, function (res) {
-                resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', false);
-                (res || []).forEach(function (m) {
-                    jQuery('#productCodeSelect, #productCodeSelect_m').append(
-                        '<option value="' + m.id + '">' + (m.model_code || '') + (m.version ? ' (' + m.version + ')' : '') + '</option>'
-                    );
-                });
-            }).fail(function () {
-                resetSelect('#productCodeSelect, #productCodeSelect_m', '-- Chọn mã SP --', false);
-            });
-        });
-
-        // 4. Chọn mã SP → enable tìm kiếm (Desktop + Mobile)
-        jQuery('#productCodeSelect, #productCodeSelect_m').on('change', function () {
-            var hasValue = !!jQuery(this).val();
-            jQuery('#btnSearch, #btnSearch_m').prop('disabled', !hasValue);
-        });
-
-        // 5. Bấm Tìm kiếm → load mã lỗi theo model, hiển thị bảng (Desktop + Mobile)
-        jQuery('#btnSearch, #btnSearch_m').on('click', function () {
-            var modelId = jQuery('#productCodeSelect, #productCodeSelect_m').filter(function() {
+            var origin = jQuery('#originSelect, #originSelect_m').filter(function() {
                 return jQuery(this).val();
             }).first().val();
             
-            if (!modelId) {
+            if (!productId || !origin) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Thiếu thông tin',
-                    text: 'Vui lòng chọn Mã sản phẩm trước khi tìm kiếm.',
+                    text: 'Vui lòng chọn đầy đủ Sản phẩm và Xuất xứ trước khi tìm kiếm.',
                     confirmButtonColor: '#0d6efd'
                 });
                 return;
             }
 
+            // Directly fetch errors using product_id + origin
             jQuery('#errorTableCard').show();
             jQuery('#emptyState').addClass('d-none');
             jQuery('#errorTableBody').html('<tr><td colspan="6" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải...</td></tr>');
 
-            jQuery.get(routes.getErrorsByModel || '', { model_id: modelId }, function (res) {
+            // Show result summary
+            var productName = jQuery('#productNameSelect, #productNameSelect_m').filter(function() {
+                return jQuery(this).val();
+            }).first().find('option:selected').text();
+            jQuery('#searchResultSummary').text('(Sản phẩm: ' + productName + ' - Xuất xứ: ' + origin + ')');
+
+            jQuery.get(routes.getErrorsByModel || '', { 
+                product_id: productId, 
+                xuat_xu: origin 
+            }, function (res) {
                 var rows = res || [];
                 if (rows.length === 0) {
                     jQuery('#errorTableCard').hide();
@@ -129,22 +113,22 @@
                     return;
                 }
 
-                var html = '';
-                rows.forEach(function (e, i) {
-                    var severityLabel = { normal: 'Thường', common: 'Phổ biến', critical: 'Nghiêm trọng' }[e.severity] || e.severity;
-                    var severityClass = { normal: 'secondary', common: 'warning', critical: 'danger' }[e.severity] || 'secondary';
-                    var desc = (e.description || '').toString().substring(0, 80);
-                    if ((e.description || '').length > 80) desc += '...';
-                    html += '<tr>' +
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td><span class="badge bg-dark">' + (e.error_code || '') + '</span></td>' +
-                        '<td class="fw-semibold">' + (e.error_name || '') + '</td>' +
-                        '<td><span class="badge bg-' + severityClass + '">' + severityLabel + '</span></td>' +
-                        '<td class="text-muted small">' + (desc || '—') + '</td>' +
-                        '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-view-error" data-id="' + e.id + '" data-code="' + (e.error_code || '') + '" data-name="' + (e.error_name || '').replace(/"/g, '&quot;') + '" data-desc="' + (e.description || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" title="Xem chi tiết"><i class="bi bi-eye"></i></button></td>' +
-                        '</tr>';
-                });
-                jQuery('#errorTableBody').html(html);
+                    var html = '';
+                    rows.forEach(function (e, i) {
+                        var severityLabel = { normal: 'Thường', common: 'Phổ biến', critical: 'Nghiêm trọng' }[e.severity] || e.severity;
+                        var severityClass = { normal: 'secondary', common: 'warning', critical: 'danger' }[e.severity] || 'secondary';
+                        var desc = (e.description || '').toString().substring(0, 80);
+                        if ((e.description || '').length > 80) desc += '...';
+                        html += '<tr>' +
+                            '<td>' + (i + 1) + '</td>' +
+                            '<td><span class="badge bg-dark">' + (e.error_code || '') + '</span></td>' +
+                            '<td class="fw-semibold">' + (e.error_name || '') + '</td>' +
+                            '<td><span class="badge bg-' + severityClass + '">' + severityLabel + '</span></td>' +
+                            '<td class="text-muted small">' + (desc || '—') + '</td>' +
+                            '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-view-error" data-id="' + e.id + '" data-code="' + (e.error_code || '') + '" data-name="' + (e.error_name || '').replace(/"/g, '&quot;') + '" data-desc="' + (e.description || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" title="Xem chi tiết"><i class="bi bi-eye"></i></button></td>' +
+                            '</tr>';
+                    });
+                    jQuery('#errorTableBody').html(html);
             }).fail(function () {
                 jQuery('#errorTableBody').html('<tr><td colspan="6" class="text-center py-4 text-danger">Không tải được dữ liệu. Kiểm tra kết nối hoặc thử lại.</td></tr>');
                 jQuery('#emptyState').addClass('d-none');

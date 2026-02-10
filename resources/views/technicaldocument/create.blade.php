@@ -83,21 +83,6 @@
                                 </div>
                             </div>
 
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-8">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" id="guideTitle" name="title" placeholder="Tiêu đề">
-                                        <label for="guideTitle">Tiêu đề hướng dẫn <span class="text-danger">*</span></label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="number" class="form-control" id="guideEstimatedTime" name="estimated_time" min="0" placeholder="Phút">
-                                        <label for="guideEstimatedTime">Thời gian (phút)</label>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div class="mb-3">
                                 <div class="form-floating">
                                     <textarea class="form-control" id="guideSteps" name="steps" style="height: 150px" placeholder="Các bước"></textarea>
@@ -153,15 +138,6 @@
                     <div class="form-floating mb-3">
                         <input type="text" class="form-control" name="xuat_xu" id="modalOrigin" placeholder="Xuất xứ" required>
                         <label for="modalOrigin">Tên quốc gia/Xuất xứ <span class="text-danger">*</span></label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control fw-bold" name="model_code" id="modalModelCode" placeholder="Model" required>
-                        <label for="modalModelCode">Mã Model (SKU) <span class="text-danger">*</span></label>
-                        <div class="form-text text-muted small mt-1">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Có thể nhập nhiều mã model, ngăn cách bằng dấu <strong>phẩy (,)</strong>. 
-                            Ví dụ: <code>KU MIF208, KU TRI271, KU GEIF 288</code>
-                        </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
@@ -220,7 +196,7 @@
                     </div>
                     <div class="form-floating mb-4">
                         <textarea class="form-control" name="description" id="modalDesc" placeholder="Mô tả" style="height: 100px"></textarea>
-                        <label for="modalDesc">Mô tả chi tiết</label>
+                        <label for="modalDesc">Cách xử lý</label>
                     </div>
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy bỏ</button>

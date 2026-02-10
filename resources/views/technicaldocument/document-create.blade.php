@@ -28,7 +28,8 @@
                 <x-technicaldocument.product-filter 
                     :categories="$categories" 
                     variant="simple" 
-                    idPrefix="doc" 
+                    idPrefix="doc"
+                    :enableFormSubmission="true"
                 />
                 <div class="row g-3 mb-3">
 

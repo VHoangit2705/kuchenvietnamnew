@@ -12,7 +12,11 @@
     'categories',
     'variant' => 'desktop-pill',
     'idPrefix' => '',
-    'showAddOriginButton' => false
+    'showAddOriginButton' => false,
+    'selectedCategoryId' => '',
+    'selectedProductId' => '',
+    'selectedOrigin' => '',
+    'enableFormSubmission' => false,  // New prop to enable form field names
 ])
 
 @php
@@ -20,9 +24,15 @@
         'category' => $idPrefix ? "{$idPrefix}Category" : 'categorySelect',
         'product' => $idPrefix ? "{$idPrefix}Product" : 'productNameSelect',
         'origin' => $idPrefix ? "{$idPrefix}Origin" : 'originSelect',
-        'model' => $idPrefix ? "{$idPrefix}ModelId" : 'productCodeSelect',
         'searchBtn' => $idPrefix ? "btn{$idPrefix}Search" : 'btnSearch',
     ];
+    
+    // Field names for form submission
+    $names = $enableFormSubmission ? [
+        'category' => 'category_id',
+        'product' => 'product_id',
+        'origin' => 'xuat_xu',
+    ] : [];
 @endphp
 
 @if($variant === 'desktop-pill')
@@ -30,7 +40,7 @@
     <div class="card border-0 shadow-lg rounded-pill overflow-hidden">
         <div class="card-body p-1">
             <div class="row g-0 align-items-center">
-                <div class="col-3 border-end">
+                <div class="col-4 border-end">
                     <select class="form-select border-0 py-3 ps-4 fw-semibold" id="{{ $ids['category'] }}" style="border-radius: 30px 0 0 30px;">
                         <option selected disabled>Danh mục sản phẩm</option>
                         @foreach($categories as $category)
@@ -38,19 +48,14 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-3 border-end">
+                <div class="col-4 border-end">
                     <select class="form-select border-0 py-3 ps-3" id="{{ $ids['product'] }}" disabled>
                         <option selected disabled>Chọn sản phẩm...</option>
                     </select>
                 </div>
-                <div class="col-2 border-end">
+                <div class="col-3 border-end">
                     <select class="form-select border-0 py-3 ps-3" id="{{ $ids['origin'] }}" disabled>
                         <option selected disabled>Xuất xứ...</option>
-                    </select>
-                </div>
-                <div class="col-3">
-                    <select class="form-select border-0 py-3 ps-3 fw-bold text-primary" id="{{ $ids['model'] }}" disabled>
-                        <option selected disabled>Mã Model...</option>
                     </select>
                 </div>
                 <div class="col-1 pe-1">
@@ -80,10 +85,6 @@
                 
                 <select class="form-select py-3" id="{{ $ids['origin'] }}" disabled>
                     <option selected disabled>Xuất xứ...</option>
-                </select>
-                
-                <select class="form-select py-3 fw-bold text-primary" id="{{ $ids['model'] }}" disabled>
-                    <option selected disabled>Mã Model...</option>
                 </select>
                 
                 <button class="btn btn-primary w-100 py-3 rounded-pill" type="button" id="{{ $ids['searchBtn'] }}" disabled>
@@ -130,44 +131,30 @@
                 @endif
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="form-floating">
-                <select class="form-select border-0 bg-light fw-bold" id="{{ $ids['model'] }}" disabled>
-                    <option value="">Chọn Model</option>
-                </select>
-                <label for="{{ $ids['model'] }}">Mã Model <span class="text-danger">*</span></label>
-            </div>
-        </div>
     </div>
 
 @elseif($variant === 'simple')
-    {{-- Simple form design for document-create page --}}
+    {{-- Simple form design for document-create/documents-index page --}}
     <div class="row g-3">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
-            <select class="form-select" id="{{ $ids['category'] }}" required>
+            <select class="form-select" id="{{ $ids['category'] }}" {{ $enableFormSubmission ? 'name=category_id' : '' }} required>
                 <option value="">Chọn danh mục</option>
                 @foreach($categories as $c)
-                    <option value="{{ $c->id }}">{{ $c->name_vi }}</option>
+                    <option value="{{ $c->id }}" {{ $selectedCategoryId == $c->id ? 'selected' : '' }}>{{ $c->name_vi }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label fw-semibold">Sản phẩm <span class="text-danger">*</span></label>
-            <select class="form-select" id="{{ $ids['product'] }}" disabled>
+            <select class="form-select" id="{{ $ids['product'] }}" {{ $enableFormSubmission ? 'name=product_id' : '' }} disabled required>
                 <option value="">Chọn sản phẩm</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label fw-semibold">Xuất xứ <span class="text-danger">*</span></label>
-            <select class="form-select" id="{{ $ids['origin'] }}" disabled>
+            <select class="form-select" id="{{ $ids['origin'] }}" {{ $enableFormSubmission ? 'name=' . $names['origin'] : '' }} disabled required>
                 <option value="">Xuất xứ</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <label class="form-label fw-semibold">Mã Model <span class="text-danger">*</span></label>
-            <select class="form-select fw-bold" id="{{ $ids['model'] }}" name="model_id" disabled required>
-                <option value="">Mã Model</option>
             </select>
         </div>
     </div>

@@ -17,7 +17,11 @@
         if (window.TechnicalDocumentFilter) {
             console.log('[DOC] Init TechnicalDocumentFilter');
             window.TechnicalDocumentFilter.init(window.docIndexRoutes, {
-                currentModelId: window.docIndexData.currentModelId,
+                selectors: {
+                    category: '#filterCategory',
+                    product: '#filterProduct',
+                    origin: '#filterOrigin'
+                },
                 filter: window.docIndexData.filter
             });
         } else {

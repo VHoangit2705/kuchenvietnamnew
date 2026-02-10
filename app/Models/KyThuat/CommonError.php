@@ -24,7 +24,8 @@ class CommonError extends Model
      * Mass assignment
      */
     protected $fillable = [
-        'model_id',
+        'product_id',
+        'xuat_xu',
         'error_code',
         'error_name',
         'severity',
@@ -32,11 +33,11 @@ class CommonError extends Model
     ];
 
     /**
-     * Quan hệ: Error → Product Model
+     * Quan hệ: Error → Product
      */
-    public function productModel()
+    public function product()
     {
-        return $this->belongsTo(ProductModel::class, 'model_id');
+        return $this->belongsTo(\App\Models\Kho\Product::class, 'product_id');
     }
 
     /**

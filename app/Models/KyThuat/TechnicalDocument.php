@@ -26,7 +26,8 @@ class TechnicalDocument extends Model
      * Mass assignment
      */
     protected $fillable = [
-        'model_id',
+        'product_id',
+        'xuat_xu',
         'doc_type',
         'title',
         'description',
@@ -34,12 +35,11 @@ class TechnicalDocument extends Model
     ];
 
     /**
-     * Quan hệ logic: Document → Product Model
-     * (cross-database relation)
+     * Quan hệ: Document → Product
      */
-    public function productModel()
+    public function product()
     {
-        return $this->belongsTo(ProductModel::class, 'model_id');
+        return $this->belongsTo(\App\Models\Kho\Product::class, 'product_id');
     }
 
     /**
