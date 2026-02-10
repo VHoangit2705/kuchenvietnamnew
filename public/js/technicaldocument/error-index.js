@@ -37,8 +37,16 @@
                         url: window.errorIndexRoutes.destroyError + '/' + id,
                         type: 'DELETE',
                         data: { _token: window.errorIndexData.csrf },
-                        success: function () {
-                            location.reload();
+                        success: function (res) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công',
+                                text: res.message || 'Đã xóa mã lỗi.',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
                         },
                         error: function (xhr) {
                             Swal.fire({

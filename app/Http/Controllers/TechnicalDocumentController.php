@@ -20,35 +20,23 @@ use App\Models\KyThuat\UserRole;
 
 class TechnicalDocumentController extends Controller
 {
-    protected function authorizeRoles(array $roles): void
+    protected function authorizePermission(string $permission): void
     {
-        $userId = Auth::id();
-
-        if (!$userId) {
-            abort(403);
-        }
-
-        $hasRole = UserRole::where('user_id', $userId)
-            ->whereHas('role', function ($q) use ($roles) {
-                $q->whereIn('name', $roles);
-            })
-            ->exists();
-
-        if (!$hasRole) {
-            abort(403);
+        if (!Auth::user() || !Auth::user()->hasPermission($permission)) {
+            abort(403, 'Bạn không có quyền thực hiện hành động này.');
         }
     }
 
     public function index()
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $categories = Category::where('website_id', 2)->get();
         return view('technicaldocument.index', compact('categories'));
     }
 
     public function create()
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $categories = Category::where('website_id', 2)->get();
         return view('technicaldocument.create', compact('categories'));
     }
@@ -56,7 +44,7 @@ class TechnicalDocumentController extends Controller
     // 1. Sản phẩm theo danh mục (dùng model Product đã định nghĩa)
     public function getProductsByCategory(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $categoryId = (int) $request->get('category_id');
         if (!$categoryId) {
             return response()->json([]);
@@ -69,7 +57,7 @@ class TechnicalDocumentController extends Controller
     // 2. Xuất xứ theo sản phẩm
     public function getOriginsByProduct(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         return ProductModel::where('product_id', $request->product_id)
             ->whereNotNull('xuat_xu')
             ->where('xuat_xu', '!=', '')
@@ -81,7 +69,7 @@ class TechnicalDocumentController extends Controller
     // 3. Model theo xuất xứ
     public function getModelsByOrigin(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         return ProductModel::where('product_id', $request->product_id)
             ->where('xuat_xu', $request->xuat_xu)
             ->get(['id', 'model_code', 'version']);
@@ -90,7 +78,7 @@ class TechnicalDocumentController extends Controller
     // Thêm xuất xứ sản phẩm (tạo product_model mới)
     public function storeOrigin(Request $request)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $request->validate([
             'product_id' => 'required|integer',
             'xuat_xu' => 'required|string|max:255',
@@ -193,7 +181,7 @@ class TechnicalDocumentController extends Controller
     // Chi tiết lỗi: hướng dẫn sửa + tài liệu/ảnh/video đính kèm (cho modal Tra cứu)
     public function getErrorDetail(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             return response()->json(['error' => 'Thiếu error_id'], 400);
@@ -261,14 +249,14 @@ class TechnicalDocumentController extends Controller
     // Download toàn bộ tài liệu của mã lỗi (ZIP)
     public function downloadAllDocuments(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             abort(400, 'Thiếu error_id');
         }
 
         $error = CommonError::with([
-            'productModel',
+            'product',
             'repairGuides.technicalDocuments.documentVersions',
         ])->find($errorId);
 
@@ -299,9 +287,9 @@ class TechnicalDocumentController extends Controller
             abort(404, 'Không có tài liệu nào để tải.');
         }
 
-        $modelCode = $error->productModel ? str_replace(' ', '_', $error->productModel->model_code) : 'MODEL';
+        $productName = $error->product ? str_replace(' ', '_', $error->product->product_name) : 'PRODUCT';
         $errorCode = str_replace(' ', '_', $error->error_code);
-        $zipFileName = $modelCode . '_' . $errorCode . '_Documents_' . time() . '.zip';
+        $zipFileName = $productName . '_' . $errorCode . '_Documents_' . time() . '.zip';
         $zipPath = storage_path('app/public/temp/' . $zipFileName);
 
         if (!is_dir(dirname($zipPath))) {
@@ -324,7 +312,7 @@ class TechnicalDocumentController extends Controller
     // 4. Danh sách mã lỗi theo model (Bước 5)
     public function getErrorsByModel(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $productId = (int) $request->get('product_id');
         $xuatXu = $request->get('xuat_xu');
         if (!$productId || !$xuatXu) {
@@ -342,7 +330,7 @@ class TechnicalDocumentController extends Controller
     // 5. Thêm mã lỗi kỹ thuật (Bước 5)
     public function storeError(Request $request)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
 
         $request->validate([
             'product_id' => 'required|integer|exists:mysql3.products,id',
@@ -437,7 +425,7 @@ class TechnicalDocumentController extends Controller
     // 6–7. Thêm hướng dẫn sửa & gắn tài liệu (Bước 6–7)
     public function storeRepairGuide(Request $request)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $request->validate([
             'error_id' => 'required|integer|exists:common_errors,id',
             'title' => 'required|string|max:255',
@@ -459,9 +447,9 @@ class TechnicalDocumentController extends Controller
             }
         }
 
-        $error = CommonError::with('productModel')->findOrFail($request->error_id);
-        $modelId = $error->model_id;
-        $productModel = $error->productModel;
+        $error = CommonError::findOrFail($request->error_id);
+        $productId = $error->product_id;
+        $xuatXu = $error->xuat_xu;
 
         $guide = RepairGuide::create([
             'error_id' => $request->error_id,
@@ -475,7 +463,8 @@ class TechnicalDocumentController extends Controller
         if (!empty($uploadedFiles)) {
             $disk = 'public';
 
-            // Lấy thông tin model để đặt tên file
+            // Lấy thông tin model đại diện để đặt tên file (nếu có)
+            $productModel = ProductModel::where('product_id', $productId)->where('xuat_xu', $xuatXu)->first();
             $modelCode = $productModel ? str_replace(' ', '_', $productModel->model_code) : 'MODEL';
             $modelVersion = $productModel && $productModel->version ? str_replace(' ', '_', $productModel->version) : '';
             $errorCode = str_replace(' ', '_', $error->error_code);
@@ -503,7 +492,8 @@ class TechnicalDocumentController extends Controller
                 $path = $file->storeAs($basePath, $fileName, $disk);
 
                 $doc = TechnicalDocument::create([
-                    'model_id' => $modelId,
+                    'product_id' => $productId,
+                    'xuat_xu' => $xuatXu,
                     'doc_type' => $docType,
                     'title' => $guide->title . ' (File ' . ($index + 1) . ')',
                     'description' => 'Đính kèm hướng dẫn sửa: ' . $guide->title,
@@ -543,7 +533,7 @@ class TechnicalDocumentController extends Controller
     // --- Common errors CRUD (update, destroy) ---
     public function getErrorById($id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $error = CommonError::where('id', (int) $id)->first(['id', 'product_id', 'xuat_xu', 'error_code', 'error_name', 'severity', 'description']);
         if (!$error) {
             return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
@@ -553,7 +543,7 @@ class TechnicalDocumentController extends Controller
 
     public function updateError(Request $request, $id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $error = CommonError::findOrFail($id);
         $request->validate([
             'error_code' => 'required|string|max:100',
@@ -585,7 +575,7 @@ class TechnicalDocumentController extends Controller
 
     public function destroyError($id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $error = CommonError::findOrFail($id);
         $error->delete();
         return response()->json(['message' => 'Đã xóa mã lỗi.']);
@@ -594,7 +584,7 @@ class TechnicalDocumentController extends Controller
     // --- Repair guides CRUD (edit, update, destroy) ---
     public function getRepairGuidesByError(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             return response()->json([]);
@@ -607,8 +597,8 @@ class TechnicalDocumentController extends Controller
 
     public function editRepairGuide($id)
     {
-        $this->authorizeRoles(['Admin']);
-        $guide = RepairGuide::with(['commonError.productModel', 'technicalDocuments.documentVersions'])->findOrFail($id);
+        $this->authorizePermission('technical_document.manage');
+        $guide = RepairGuide::with(['commonError.product', 'technicalDocuments.documentVersions'])->findOrFail($id);
         $categories = Category::where('website_id', 2)->get();
         $storageUrl = rtrim(asset('storage'), '/');
         return view('technicaldocument.repair-guide-edit', compact('guide', 'categories', 'storageUrl'));
@@ -616,7 +606,7 @@ class TechnicalDocumentController extends Controller
 
     public function updateRepairGuide(Request $request, $id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $guide = RepairGuide::findOrFail($id);
         $request->validate([
             'title' => 'required|string|max:255',
@@ -642,7 +632,7 @@ class TechnicalDocumentController extends Controller
 
     public function destroyRepairGuide($id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $guide = RepairGuide::findOrFail($id);
         $guide->delete();
         return response()->json(['message' => 'Đã xóa hướng dẫn sửa.']);
@@ -650,7 +640,7 @@ class TechnicalDocumentController extends Controller
 
     public function attachDocumentsToRepairGuide(Request $request, $id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $guide = RepairGuide::findOrFail($id);
         $request->validate(['document_ids' => 'required|array', 'document_ids.*' => 'integer|exists:technical_documents,id']);
 
@@ -671,7 +661,7 @@ class TechnicalDocumentController extends Controller
 
     public function detachDocumentFromRepairGuide($id, $documentId)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         RepairGuideDocument::where('repair_guide_id', $id)->where('document_id', $documentId)->delete();
         return response()->json(['message' => 'Đã gỡ tài liệu.']);
     }
@@ -679,7 +669,7 @@ class TechnicalDocumentController extends Controller
     // --- Technical documents CRUD ---
     public function indexDocuments(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên']);
+        $this->authorizePermission('technical_document.view');
         $categories = Category::where('website_id', 2)->get();
 
         $modelId = (int) $request->get('model_id');
@@ -715,7 +705,7 @@ class TechnicalDocumentController extends Controller
 
     public function getDocumentsByModel(Request $request)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $productId = (int) $request->get('product_id');
         $xuatXu = $request->get('xuat_xu');
         if (!$productId || !$xuatXu) {
@@ -733,14 +723,14 @@ class TechnicalDocumentController extends Controller
 
     public function createDocument()
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $categories = Category::where('website_id', 2)->get();
         return view('technicaldocument.document-create', compact('categories'));
     }
 
     public function storeDocument(Request $request)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
 
         $request->validate([
             'product_id' => 'required|integer|exists:mysql3.products,id',
@@ -872,15 +862,15 @@ class TechnicalDocumentController extends Controller
 
     public function showDocument($id)
     {
-        $this->authorizeRoles(['Admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']);
+        $this->authorizePermission('technical_document.view');
         $document = TechnicalDocument::with(['product', 'documentVersions', 'repairGuides.commonError'])->findOrFail($id);
         $storageUrl = rtrim(asset('storage'), '/');
-        return view('technicaldocument.document-show', compact('document', 'fileRouteName', 'storageUrl'));
+        return view('technicaldocument.document-show', compact('document', 'storageUrl'));
     }
 
     public function editDocument($id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $document = TechnicalDocument::with(['product', 'documentVersions'])->findOrFail($id);
         $categories = Category::where('website_id', 2)->get();
         $storageUrl = rtrim(asset('storage'), '/');
@@ -889,7 +879,7 @@ class TechnicalDocumentController extends Controller
 
     public function updateDocument(Request $request, $id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $document = TechnicalDocument::findOrFail($id);
         $request->validate([
             'title' => 'required|string|max:255',
@@ -1001,7 +991,7 @@ class TechnicalDocumentController extends Controller
 
     public function destroyDocument($id)
     {
-        $this->authorizeRoles(['Admin']);
+        $this->authorizePermission('technical_document.manage');
         $document = TechnicalDocument::findOrFail($id);
         foreach ($document->documentVersions as $ver) {
             $path = $ver->img_upload ?? $ver->video_upload ?? $ver->pdf_upload;

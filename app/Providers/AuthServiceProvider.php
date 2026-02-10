@@ -24,7 +24,17 @@ class AuthServiceProvider extends BaseAuthServiceProvider
     {
         $this->registerPolicies();
         Passport::enablePasswordGrant();
-        Passport::tokensCan(['string'  => 'string',]);
+        Passport::tokensCan(['string' => 'string',]);
         Passport::tokensExpireIn(Carbon::now()->addHours(2));
+
+        // Định nghĩa Gate toàn cục sử dụng hasPermission của User model
+        \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
+            if (method_exists($user, 'hasPermission')) {
+                if ($user->hasPermission($ability)) {
+                    return true;
+                }
+            }
+            return null; // Tiếp tục kiểm tra các gate khác nếu có
+        });
     }
 }
