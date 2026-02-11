@@ -64,31 +64,33 @@
             <nav class="nav d-none d-lg-flex"
                 style="flex: 1 1 auto; justify-content: center; gap: 10px; padding-left: 15px;">
                 @if (session()->has('brand'))
-                    @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
-                            hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('In tem bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
-                    @endif
-                    @can('technical_document.view')
+                    @auth
+                        @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
+                                hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('In tem bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                        @endif
+                    @endauth
+                    @if(!Auth::check() || Auth::user()->hasPermission('technical_document.view') || Auth::user()->hasPermission('Tài liệu kỹ thuật'))
                         <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
-                    @endcan
+                    @endif
                 @endif
             </nav>
             <!-- Account Section -->
@@ -133,31 +135,33 @@
                 @if (session()->has('brand'))
                     <a class="nav-link text-white" href="{{ route('home')}}">Thoát khỏi
                         {{ strtoupper(session('brand')) }}</a>
-                    @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
-                            hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('Quản lý CTV'))
-                        <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
-                    @endif
-                    @if (Auth::user()->hasPermission('In tem bảo hành'))
-                        <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
-                    @endif
-                    @can('technical_document.view')
+                    @auth
+                        @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
+                                hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('Quản lý CTV'))
+                            <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
+                        @endif
+                        @if (Auth::user()->hasPermission('In tem bảo hành'))
+                            <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                        @endif
+                    @endauth
+                    @if(!Auth::check() || Auth::user()->hasPermission('technical_document.view') || Auth::user()->hasPermission('Tài liệu kỹ thuật'))
                         <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
-                    @endcan
+                    @endif
                 @endif
             </nav>
         </div>
@@ -262,8 +266,10 @@
         }
 
         $(document).ready(function () {
-            ThongBao();
-            CheckPasswordExpiry();
+            @auth
+                ThongBao();
+                CheckPasswordExpiry();
+            @endauth
 
             // Set active menu item based on current URL
             setActiveMenuItem();

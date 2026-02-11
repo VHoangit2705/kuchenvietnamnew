@@ -22,6 +22,7 @@ use App\Http\Controllers\CollaboratorInstallBulkController;
 use App\Http\Controllers\TechnicalDocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\CommonErrorController;
+use App\Http\Controllers\PublicTechnicalDocumentController;
 
 // =====================================================
 // PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
@@ -178,39 +179,8 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
     Route::get('/baohanh/inphieubaohanh/tem/{id}', [PrintWarrantyController::class, 'TemView'])->name('warrantycard.tem');
     Route::get('/baohanh/inphieubaohanh/dowloadtem/{id}', [PrintWarrantyController::class, 'TemDowload'])->name('warrantycard.temdowload');
     Route::get('/baocaokichhoatbaohanh', [PrintWarrantyController::class, 'ExportActiveWarranty'])->name('baocaokichhoatbaohanh');
-    Route::get('/baohanh/tailieukithuat', [TechnicalDocumentController::class, 'Index'])->name('warranty.document');
     Route::get('/baohanh/tailieukithuat/create', [TechnicalDocumentController::class, 'Create'])->name('warranty.document.create');
     Route::prefix('baohanh/tailieukithuat')->group(function () {
-
-        Route::get(
-            '/get-products-by-category',
-            [TechnicalDocumentController::class, 'getProductsByCategory']
-        )->name('warranty.document.getProductsByCategory');
-
-        Route::get(
-            '/get-origins-by-product',
-            [TechnicalDocumentController::class, 'getOriginsByProduct']
-        )->name('warranty.document.getOriginsByProduct');
-
-        Route::get(
-            '/get-models-by-origin',
-            [TechnicalDocumentController::class, 'getModelsByOrigin']
-        )->name('warranty.document.getModelsByOrigin');
-
-        Route::get(
-            '/get-errors-by-model',
-            [TechnicalDocumentController::class, 'getErrorsByModel']
-        )->name('warranty.document.getErrorsByModel');
-
-        Route::get(
-            '/get-error-detail',
-            [TechnicalDocumentController::class, 'getErrorDetail']
-        )->name('warranty.document.getErrorDetail');
-
-        Route::get(
-            '/download-all-documents',
-            [TechnicalDocumentController::class, 'downloadAllDocuments']
-        )->name('warranty.document.downloadAllDocuments');
 
         Route::post(
             '/store-origin',
@@ -228,12 +198,10 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         )->name('warranty.document.storeRepairGuide');
 
         // Common errors CRUD (update, destroy; create/store đã có)
-        Route::get('/common-errors/{id}', [TechnicalDocumentController::class, 'getErrorById'])->name('warranty.document.commonError.show');
         Route::put('/common-errors/{id}', [TechnicalDocumentController::class, 'updateError'])->name('warranty.document.commonError.update');
         Route::delete('/common-errors/{id}', [TechnicalDocumentController::class, 'destroyError'])->name('warranty.document.commonError.destroy');
 
         // Repair guides CRUD (edit, update, destroy; create/store đã có)
-        Route::get('/repair-guides-by-error', [TechnicalDocumentController::class, 'getRepairGuidesByError'])->name('warranty.document.repairGuides.byError');
         Route::get('/repair-guides/edit/{id}', [TechnicalDocumentController::class, 'editRepairGuide'])->name('warranty.document.repairGuide.edit');
         Route::put('/repair-guides/{id}', [TechnicalDocumentController::class, 'updateRepairGuide'])->name('warranty.document.repairGuide.update');
         Route::delete('/repair-guides/{id}', [TechnicalDocumentController::class, 'destroyRepairGuide'])->name('warranty.document.repairGuide.destroy');
@@ -241,19 +209,12 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         Route::delete('/repair-guides/{id}/documents/{documentId}', [TechnicalDocumentController::class, 'detachDocumentFromRepairGuide'])->name('warranty.document.repairGuide.detachDocument');
 
         // Technical documents CRUD
-        Route::get('/documents', [TechnicalDocumentController::class, 'indexDocuments'])->name('warranty.document.documents.index');
         Route::get('/documents/create', [TechnicalDocumentController::class, 'createDocument'])->name('warranty.document.documents.create');
         Route::post('/documents', [TechnicalDocumentController::class, 'storeDocument'])->name('warranty.document.documents.store');
         Route::get('/documents/edit/{id}', [TechnicalDocumentController::class, 'editDocument'])->name('warranty.document.documents.edit');
-        Route::get('/documents/{id}/file', [TechnicalDocumentController::class, 'streamDocumentFile'])->name('warranty.document.documents.file');
-        Route::get('/documents/{id}', [TechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show');
         Route::put('/documents/{id}', [TechnicalDocumentController::class, 'updateDocument'])->name('warranty.document.documents.update');
         Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy');
         Route::get('/documents/destroy-attachment/{id}', [TechnicalDocumentController::class, 'destroyAttachment'])->name('warranty.document.documents.destroy_attachment');
-        Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
-
-        // ... (Existing Technical Document Routes)
-        Route::get('/documents-by-model', [TechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
 
         // --- Document Sharing Routes (Admin) ---
         Route::prefix('share')->group(function () {
@@ -279,6 +240,24 @@ Route::prefix('shared-docs')->group(function () {
     Route::get('/{token}', [DocumentShareController::class, 'publicShow'])->name('document.share.public_show');
     Route::post('/{token}/auth', [DocumentShareController::class, 'publicAuth'])->name('document.share.public_auth');
     Route::get('/{token}/download', [DocumentShareController::class, 'download'])->name('document.share.download');
+});
+
+//Permissions
+// --- Public Technical Document Routes ---
+Route::get('/baohanh/tailieukithuat', [PublicTechnicalDocumentController::class, 'Index'])->name('warranty.document');
+Route::prefix('baohanh/tailieukithuat')->group(function () {
+    Route::get('/get-products-by-category', [PublicTechnicalDocumentController::class, 'getProductsByCategory'])->name('warranty.document.getProductsByCategory');
+    Route::get('/get-origins-by-product', [PublicTechnicalDocumentController::class, 'getOriginsByProduct'])->name('warranty.document.getOriginsByProduct');
+    Route::get('/get-models-by-origin', [PublicTechnicalDocumentController::class, 'getModelsByOrigin'])->name('warranty.document.getModelsByOrigin');
+    Route::get('/get-errors-by-model', [PublicTechnicalDocumentController::class, 'getErrorsByModel'])->name('warranty.document.getErrorsByModel');
+    Route::get('/get-error-detail', [PublicTechnicalDocumentController::class, 'getErrorDetail'])->name('warranty.document.getErrorDetail');
+    Route::get('/download-all-documents', [PublicTechnicalDocumentController::class, 'downloadAllDocuments'])->name('warranty.document.downloadAllDocuments');
+    Route::get('/common-errors/{id}', [PublicTechnicalDocumentController::class, 'getErrorById'])->name('warranty.document.commonError.show');
+    Route::get('/repair-guides-by-error', [PublicTechnicalDocumentController::class, 'getRepairGuidesByError'])->name('warranty.document.repairGuides.byError');
+    Route::get('/documents', [PublicTechnicalDocumentController::class, 'indexDocuments'])->name('warranty.document.documents.index');
+    Route::get('/documents/{id}/file', [PublicTechnicalDocumentController::class, 'streamDocumentFile'])->name('warranty.document.documents.file');
+    Route::get('/documents/{id}', [PublicTechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show');
+    Route::get('/documents-by-model', [PublicTechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
 });
 
 //Permissions
