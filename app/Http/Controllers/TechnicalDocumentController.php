@@ -29,9 +29,7 @@ class TechnicalDocumentController extends Controller
 
     public function index()
     {
-        if (!session()->has('brand')) {
-            session(['brand' => 'kuchen']);
-        }
+        $this->authorizePermission('technical_document.view');
         $categories = Category::where('website_id', 2)->get();
         return view('technicaldocument.index', compact('categories'));
     }
@@ -46,6 +44,7 @@ class TechnicalDocumentController extends Controller
     // 1. Sản phẩm theo danh mục (dùng model Product đã định nghĩa)
     public function getProductsByCategory(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $categoryId = (int) $request->get('category_id');
         if (!$categoryId) {
             return response()->json([]);
@@ -58,6 +57,7 @@ class TechnicalDocumentController extends Controller
     // 2. Xuất xứ theo sản phẩm
     public function getOriginsByProduct(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         return ProductModel::where('product_id', $request->product_id)
             ->whereNotNull('xuat_xu')
             ->where('xuat_xu', '!=', '')
@@ -69,6 +69,7 @@ class TechnicalDocumentController extends Controller
     // 3. Model theo xuất xứ
     public function getModelsByOrigin(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         return ProductModel::where('product_id', $request->product_id)
             ->where('xuat_xu', $request->xuat_xu)
             ->get(['id', 'model_code', 'version']);
@@ -180,6 +181,7 @@ class TechnicalDocumentController extends Controller
     // Chi tiết lỗi: hướng dẫn sửa + tài liệu/ảnh/video đính kèm (cho modal Tra cứu)
     public function getErrorDetail(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             return response()->json(['error' => 'Thiếu error_id'], 400);
@@ -247,6 +249,7 @@ class TechnicalDocumentController extends Controller
     // Download toàn bộ tài liệu của mã lỗi (ZIP)
     public function downloadAllDocuments(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             abort(400, 'Thiếu error_id');
@@ -309,6 +312,7 @@ class TechnicalDocumentController extends Controller
     // 4. Danh sách mã lỗi theo model (Bước 5)
     public function getErrorsByModel(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $productId = (int) $request->get('product_id');
         $xuatXu = $request->get('xuat_xu');
         if (!$productId || !$xuatXu) {
@@ -529,6 +533,7 @@ class TechnicalDocumentController extends Controller
     // --- Common errors CRUD (update, destroy) ---
     public function getErrorById($id)
     {
+        $this->authorizePermission('technical_document.manage');
         $error = CommonError::where('id', (int) $id)->first(['id', 'product_id', 'xuat_xu', 'error_code', 'error_name', 'severity', 'description']);
         if (!$error) {
             return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
@@ -579,6 +584,7 @@ class TechnicalDocumentController extends Controller
     // --- Repair guides CRUD (edit, update, destroy) ---
     public function getRepairGuidesByError(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $errorId = (int) $request->get('error_id');
         if (!$errorId) {
             return response()->json([]);
@@ -663,9 +669,7 @@ class TechnicalDocumentController extends Controller
     // --- Technical documents CRUD ---
     public function indexDocuments(Request $request)
     {
-        if (!session()->has('brand')) {
-            session(['brand' => 'kuchen']);
-        }
+        $this->authorizePermission('technical_document.view');
         $categories = Category::where('website_id', 2)->get();
 
         $modelId = (int) $request->get('model_id');
@@ -701,6 +705,7 @@ class TechnicalDocumentController extends Controller
 
     public function getDocumentsByModel(Request $request)
     {
+        $this->authorizePermission('technical_document.view');
         $productId = (int) $request->get('product_id');
         $xuatXu = $request->get('xuat_xu');
         if (!$productId || !$xuatXu) {
