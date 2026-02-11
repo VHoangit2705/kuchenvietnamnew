@@ -28,15 +28,15 @@ class DocumentShareController extends Controller
         // Format lại data để hiển thị dễ dàng
         $data = $shares->map(function ($share) {
             return [
-                'id'            => $share->id,
-                'share_token'   => $share->share_token,
+                'id' => $share->id,
+                'share_token' => $share->share_token,
                 'full_url' => route('docs.share.show', $share->share_token),
-                'permission'    => $share->permission,
-                'has_password'  => !empty($share->password_hash),
-                'expires_at'    => $share->expires_at ? $share->expires_at->format('Y-m-d H:i') : 'Vĩnh viễn',
-                'access_count'  => $share->access_count,
-                'status'        => $share->status,
-                'is_expired'    => $share->expires_at && $share->expires_at->isPast(),
+                'permission' => $share->permission,
+                'has_password' => !empty($share->password_hash),
+                'expires_at' => $share->expires_at ? $share->expires_at->format('Y-m-d H:i') : 'Vĩnh viễn',
+                'access_count' => $share->access_count,
+                'status' => $share->status,
+                'is_expired' => $share->expires_at && $share->expires_at->isPast(),
             ];
         });
 
@@ -50,25 +50,25 @@ class DocumentShareController extends Controller
     {
         $request->validate([
             'document_version_id' => 'required|integer',
-            'permission'          => 'required|in:view,download',
-            'expires_at'          => 'nullable|date',
-            'password'            => 'nullable|string|min:4',
+            'permission' => 'required|in:view,download',
+            'expires_at' => 'nullable|date',
+            'password' => 'nullable|string|min:4',
         ]);
 
         $version = DocumentVersion::findOrFail($request->document_version_id);
 
         $share = DocumentShare::create([
             'document_version_id' => $version->id,
-            'share_token'         => Str::uuid()->toString(),
-            'permission'          => $request->permission,
-            'password_hash'       => $request->filled('password') ? Hash::make($request->password) : null,
-            'expires_at'          => $request->expires_at ? Carbon::parse($request->expires_at) : null,
-            'created_by'          => Auth::id(),
-            'status'              => 'active',
+            'share_token' => Str::uuid()->toString(),
+            'permission' => $request->permission,
+            'password_hash' => $request->filled('password') ? Hash::make($request->password) : null,
+            'expires_at' => $request->expires_at ? Carbon::parse($request->expires_at) : null,
+            'created_by' => Auth::id(),
+            'status' => 'active',
         ]);
 
         return response()->json([
-            'message'   => 'Đã tạo link chia sẻ.',
+            'message' => 'Đã tạo link chia sẻ.',
             'share_url' => route('document.share.public_show', $share->share_token),
         ]);
     }
@@ -90,7 +90,7 @@ class DocumentShareController extends Controller
      */
     public function publicShow($token)
     {
-        $share = DocumentShare::where('share_token', $token)->first();
+        $share = DocumentShare::with(['documentVersion.technicalDocument.attachments'])->where('share_token', $token)->first();
 
         // 1. Check tồn tại & trạng thái
         if (!$share || $share->status !== 'active') {
@@ -118,10 +118,11 @@ class DocumentShareController extends Controller
         $document = $version->technicalDocument;
 
         // Chu xử lý hiển thị file
-        $storageUrl = rtrim(asset('storage'), '/');
-        $fileUrl = asset('storage/' . ltrim($version->file_path, '/'));
+        $filePath = $version->img_upload ?: $version->video_upload ?: $version->pdf_upload;
+        $fileUrl = asset('storage/' . ltrim($filePath, '/'));
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 
-        return view('technicaldocument.share.public-view', compact('share', 'document', 'version', 'fileUrl'));
+        return view('technicaldocument.share.public-view', compact('share', 'document', 'version', 'fileUrl', 'extension'));
     }
 
     /**
@@ -165,13 +166,18 @@ class DocumentShareController extends Controller
         }
 
         $version = $share->documentVersion;
-        $fileUrl = asset('storage/' . ltrim($version->file_path, '/'));
+        $filePath = $version->img_upload ?: $version->video_upload ?: $version->pdf_upload;
 
+        if (!$filePath) {
+            abort(404, 'File không tồn tại.');
+        }
+
+        $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
 
         if (!file_exists($fullPath)) {
             abort(404, 'File gốc không tìm thấy.');
         }
 
-        return response()->download($fullPath, basename($version->file_path));
+        return response()->download($fullPath, basename($filePath));
     }
 }
