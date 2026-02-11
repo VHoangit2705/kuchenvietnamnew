@@ -30,12 +30,6 @@
                                     <i class="bi bi-gear-wide-connected"></i> QL Mã lỗi
                                 </a>
 
-                                {{-- Nút Thêm Mã lỗi (Màu xanh lá) --}}
-                                <a href="{{ route('warranty.document.errors.create', ['product_id' => $productModel->product_id ?? '', 'xuat_xu' => $productModel->xuat_xu ?? '']) }}"
-                                    class="btn btn-success px-3 py-2 fw-bold text-white flex-fill shadow-sm">
-                                    <i class="bi bi-plus-circle"></i> Tạo Mã lỗi
-                                </a>
-
                                 {{-- Nút Thêm Tài liệu (Màu chủ đạo - Lớn nhất) --}}
                                 <a href="{{ route('warranty.document.documents.create', ['product_id' => $productModel->product_id ?? '', 'xuat_xu' => $productModel->xuat_xu ?? '']) }}"
                                     class="btn btn-primary px-4 py-2 fw-bold text-white flex-fill shadow">

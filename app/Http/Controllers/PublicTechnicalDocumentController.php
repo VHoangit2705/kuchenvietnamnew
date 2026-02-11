@@ -71,7 +71,8 @@ class PublicTechnicalDocumentController extends Controller
         ])->findOrFail($id);
 
         $latestVersion = $document->documentVersions->first();
-        return view('technicaldocument.document-show', compact('document', 'latestVersion'));
+        $storageUrl = rtrim(asset('storage'), '/');
+        return view('technicaldocument.document-show', compact('document', 'latestVersion', 'storageUrl'));
     }
 
     // STREAM FILE
@@ -147,16 +148,72 @@ class PublicTechnicalDocumentController extends Controller
     public function getErrorDetail(Request $request)
     {
         $errorId = (int) $request->get('error_id');
+        if (!$errorId) {
+            return response()->json(['error' => 'Thiếu error_id'], 400);
+        }
+
         $error = CommonError::with([
-            'repairGuides' => function ($q) {
-                $q->with('documents');
-            }
+            'repairGuides.technicalDocuments.documentVersions',
         ])->find($errorId);
 
-        if (!$error)
-            return response()->json(null);
+        if (!$error) {
+            return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
+        }
 
-        return response()->json($error);
+        $storageUrl = rtrim(asset('storage'), '/');
+
+        $repairGuides = $error->repairGuides->map(function ($guide) use ($storageUrl) {
+            $documents = [];
+            foreach ($guide->technicalDocuments as $doc) {
+                $version = $doc->documentVersions->sortByDesc('id')->first();
+                // Ensure version exists
+                if (!$version)
+                    continue;
+
+                $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                if (!$filePath) {
+                    continue;
+                }
+                $fileUrl = '';
+                if ($version->img_upload) {
+                    $fileUrl = $storageUrl . '/' . ltrim($version->img_upload, '/');
+                } elseif ($version->video_upload) {
+                    $fileUrl = $storageUrl . '/' . ltrim($version->video_upload, '/');
+                } elseif ($version->pdf_upload) {
+                    $fileUrl = $storageUrl . '/' . ltrim($version->pdf_upload, '/');
+                }
+
+                if (!$fileUrl)
+                    continue;
+
+                $documents[] = [
+                    'id' => $doc->id,
+                    'title' => $doc->title,
+                    'doc_type' => $doc->doc_type,
+                    'file_url' => $fileUrl,
+                    'file_type' => $doc->doc_type === 'image' ? 'jpg' : ($doc->doc_type === 'video' ? 'mp4' : 'pdf'), // Simplified type hint or define based on extension if needed
+                ];
+            }
+            return [
+                'id' => $guide->id,
+                'title' => $guide->title,
+                'steps' => $guide->steps,
+                'estimated_time' => $guide->estimated_time,
+                'safety_note' => $guide->safety_note,
+                'documents' => $documents,
+            ];
+        });
+
+        return response()->json([
+            'error' => [
+                'id' => $error->id,
+                'error_code' => $error->error_code,
+                'error_name' => $error->error_name,
+                'description' => $error->description,
+                'severity' => $error->severity,
+            ],
+            'repair_guides' => $repairGuides,
+        ]);
     }
 
     public function getRepairGuidesByError(Request $request)
@@ -165,10 +222,9 @@ class PublicTechnicalDocumentController extends Controller
         if (!$errorId)
             return response()->json([]);
 
-        $guides = RepairGuide::where('common_error_id', $errorId)
-            ->with(['documents'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $guides = RepairGuide::where('error_id', $errorId) // Foreign key is error_id, not common_error_id based on Model definition? Model says belongsTo CommonError::class, 'error_id'.
+            ->orderBy('id')
+            ->get(['id', 'error_id', 'title', 'steps', 'estimated_time', 'safety_note']);
 
         return response()->json($guides);
     }
@@ -176,7 +232,10 @@ class PublicTechnicalDocumentController extends Controller
     public function getErrorById($id)
     {
         // For common error details page if any
-        $error = CommonError::with(['repairGuides.documents'])->findOrFail($id);
+        $error = CommonError::where('id', (int) $id)->first(['id', 'product_id', 'xuat_xu', 'error_code', 'error_name', 'severity', 'description']);
+        if (!$error) {
+            return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
+        }
         return response()->json($error);
     }
 
@@ -200,37 +259,60 @@ class PublicTechnicalDocumentController extends Controller
     public function downloadAllDocuments(Request $request)
     {
         $errorId = (int) $request->get('error_id');
-        $error = CommonError::with(['repairGuides.documents.documentVersions'])->find($errorId);
-
-        if (!$error)
-            abort(404);
-
-        $zip = new \ZipArchive;
-        $fileName = 'documents_error_' . $error->error_code . '.zip';
-        $zipPath = storage_path('app/public/temp/' . $fileName);
-
-        if (!file_exists(dirname($zipPath))) {
-            mkdir(dirname($zipPath), 0755, true);
+        if (!$errorId) {
+            abort(400, 'Thiếu error_id');
         }
 
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
-            foreach ($error->repairGuides as $guide) {
-                foreach ($guide->documents as $doc) {
-                    $ver = $doc->documentVersions->sortByDesc('created_at')->first();
-                    if ($ver) {
-                        $filePath = $ver->img_upload ?? $ver->video_upload ?? $ver->pdf_upload;
-                        if ($filePath) {
-                            $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
-                            if (file_exists($fullPath)) {
-                                $zip->addFile($fullPath, $doc->title . '.' . pathinfo($fullPath, PATHINFO_EXTENSION));
-                            }
+        $error = CommonError::with([
+            'product',
+            'repairGuides.technicalDocuments.documentVersions',
+        ])->find($errorId);
+
+        if (!$error)
+            abort(404, 'Không tìm thấy mã lỗi');
+
+        $filePaths = [];
+        foreach ($error->repairGuides as $guide) {
+            foreach ($guide->technicalDocuments as $doc) { // Correct relationship name
+                $version = $doc->documentVersions->sortByDesc('id')->first();
+                if ($version) {
+                    $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
+                    if ($filePath) {
+                        $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
+                        if (file_exists($fullPath)) {
+                            $filePaths[] = [
+                                'path' => $fullPath,
+                                'name' => basename($filePath),
+                            ];
                         }
                     }
                 }
             }
-            $zip->close();
         }
 
-        return response()->download($zipPath)->deleteFileAfterSend(true);
+        if (empty($filePaths)) {
+            abort(404, 'Không có tài liệu nào để tải.');
+        }
+
+        $productName = $error->product ? str_replace(' ', '_', $error->product->product_name) : 'PRODUCT';
+        $errorCode = str_replace(' ', '_', $error->error_code);
+        $zipFileName = $productName . '_' . $errorCode . '_Documents_' . time() . '.zip';
+        $zipPath = storage_path('app/public/temp/' . $zipFileName);
+
+        if (!is_dir(dirname($zipPath))) {
+            mkdir(dirname($zipPath), 0755, true);
+        }
+
+        $zip = new \ZipArchive;
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+            abort(500, 'Không tạo được file ZIP.');
+        }
+
+        foreach ($filePaths as $file) {
+            $zip->addFile($file['path'], $file['name']);
+        }
+        $zip->close();
+
+        return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
     }
 }
