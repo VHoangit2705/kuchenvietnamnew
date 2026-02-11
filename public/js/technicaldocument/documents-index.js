@@ -17,7 +17,11 @@
         if (window.TechnicalDocumentFilter) {
             console.log('[DOC] Init TechnicalDocumentFilter');
             window.TechnicalDocumentFilter.init(window.docIndexRoutes, {
-                currentModelId: window.docIndexData.currentModelId,
+                selectors: {
+                    category: '#filterCategory',
+                    product: '#filterProduct',
+                    origin: '#filterOrigin'
+                },
                 filter: window.docIndexData.filter
             });
         } else {
@@ -109,7 +113,15 @@
                         data: { _token: window.docIndexData.csrf },
                         success: function (res) {
                             console.log('[DOC] Delete success:', res);
-                            location.reload();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công',
+                                text: res.message || 'Đã xóa tài liệu.',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
                         },
                         error: function (xhr) {
                             console.error('[DOC] Delete error:', xhr);

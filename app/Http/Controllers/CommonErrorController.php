@@ -16,22 +16,46 @@ class CommonErrorController extends Controller
     public function index(Request $request)
     {
         $categories = Category::where('website_id', 2)->get();
+
         $modelId = (int) $request->get('model_id');
+        $productId = (int) $request->get('product_id');
+        $xuatXu = $request->get('xuat_xu');
+
         $errors = collect();
         $productModel = null;
-        $filter = ['category_id' => '', 'product_id' => '', 'xuat_xu' => ''];
+        $filter = [
+            'category_id' => $request->get('category_id', ''),
+            'product_id' => $productId ?: '',
+            'xuat_xu' => $xuatXu ?: ''
+        ];
 
-        if ($modelId) {
-            $productModel = ProductModel::with('product')->find($modelId);
+        // If no model_id but we have product and origin, find the first model
+        if (!$modelId && $productId && $xuatXu) {
+            $productModel = ProductModel::with('product')->where('product_id', $productId)
+                ->where('xuat_xu', $xuatXu)
+                ->first();
             if ($productModel) {
-                $errors = CommonError::where('model_id', $modelId)
-                    ->orderBy('error_code')
-                    ->get();
+                $modelId = $productModel->id;
+            }
+        }
 
+        if ($productId && $xuatXu) {
+            if (!$productModel) {
+                $productModel = ProductModel::with('product')->where('product_id', $productId)
+                    ->where('xuat_xu', $xuatXu)
+                    ->first();
+            }
+
+            $errors = CommonError::where('product_id', $productId)
+                ->where('xuat_xu', $xuatXu)
+                ->orderBy('error_code')
+                ->get();
+
+            if ($productModel) {
                 $filter = [
                     'category_id' => $productModel->product->category_id ?? '',
-                    'product_id'  => $productModel->product_id,
-                    'xuat_xu'     => $productModel->xuat_xu ?? '',
+                    'product_id' => $productId,
+                    'xuat_xu' => $xuatXu,
                 ];
             }
         }
@@ -44,56 +68,59 @@ class CommonErrorController extends Controller
      */
     public function create(Request $request)
     {
-        $modelId = (int) $request->get('model_id');
+        $productId = (int) $request->get('product_id');
+        $xuatXu = $request->get('xuat_xu');
         $productModel = null;
-        if ($modelId) {
-            $productModel = ProductModel::find($modelId);
+        if ($productId && $xuatXu) {
+            $productModel = ProductModel::with('product')
+                ->where('product_id', $productId)
+                ->where('xuat_xu', $xuatXu)
+                ->first();
         }
-        
-        // Pass categories for the filter in case user wants to change model context (though usually simpler to just fix the model)
-        // For simplicity, we just assume entry from index with selected model, or we can load categories to select model.
-        // Let's reuse the same filter structure if we want full flexibility, but for now strict to model.
-        
+
         $categories = Category::where('website_id', 2)->get();
-        
+
         return view('technicaldocument.error.create', compact('productModel', 'categories'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $request->validate([
-            'model_id'    => 'required|integer|exists:product_models,id',
-            'error_code'  => 'required|string|max:100',
-            'error_name'  => 'required|string|max:255',
-            'severity'    => 'required|in:normal,common,critical',
+            'product_id' => 'required|integer|exists:mysql3.products,id',
+            'xuat_xu' => 'required|string',
+            'error_code' => 'required|string|max:100',
+            'error_name' => 'required|string|max:255',
+            'severity' => 'required|in:normal,common,critical',
             'description' => 'nullable|string',
         ], [
-            'model_id.required'   => 'Vui lòng chọn model sản phẩm.',
+            'product_id.required' => 'Vui lòng chọn sản phẩm.',
+            'xuat_xu.required' => 'Vui lòng chọn xuất xứ.',
             'error_code.required' => 'Mã lỗi không được để trống.',
             'error_name.required' => 'Tên lỗi không được để trống.',
         ]);
 
-        $exists = CommonError::where('model_id', $request->model_id)
+        $exists = CommonError::where('product_id', $request->product_id)
+            ->where('xuat_xu', $request->xuat_xu)
             ->where('error_code', $request->error_code)
             ->exists();
 
         if ($exists) {
-            return back()->withErrors(['error_code' => 'Mã lỗi "' . $request->error_code . '" đã tồn tại cho model này.'])->withInput();
+            return back()->withErrors(['error_code' => 'Mã lỗi "' . $request->error_code . '" đã tồn tại cho sản phẩm này.'])->withInput();
         }
 
         CommonError::create([
-            'model_id'    => $request->model_id,
-            'error_code'  => $request->error_code,
-            'error_name'  => $request->error_name,
-            'severity'    => $request->severity,
+            'product_id' => $request->product_id,
+            'xuat_xu' => $request->xuat_xu,
+            'error_code' => $request->error_code,
+            'error_name' => $request->error_name,
+            'severity' => $request->severity,
             'description' => $request->description,
         ]);
 
-        return redirect()->route('warranty.document.errors.index', ['model_id' => $request->model_id])
-            ->with('success', 'Đã thêm mã lỗi thành công.');
+        return redirect()->route('warranty.document.errors.index', [
+            'product_id' => $request->product_id,
+            'xuat_xu' => $request->xuat_xu
+        ])->with('success', 'Đã thêm mã lỗi thành công.');
     }
 
     /**
@@ -101,8 +128,12 @@ class CommonErrorController extends Controller
      */
     public function edit($id)
     {
-        $error = CommonError::with('productModel')->findOrFail($id);
-        return view('technicaldocument.error.edit', compact('error'));
+        $error = CommonError::findOrFail($id);
+        $productModel = ProductModel::with('product')
+            ->where('product_id', $error->product_id)
+            ->where('xuat_xu', $error->xuat_xu)
+            ->first();
+        return view('technicaldocument.error.edit', compact('error', 'productModel'));
     }
 
     /**
@@ -111,11 +142,11 @@ class CommonErrorController extends Controller
     public function update(Request $request, $id)
     {
         $error = CommonError::findOrFail($id);
-        
+
         $request->validate([
-            'error_code'  => 'required|string|max:100',
-            'error_name'  => 'required|string|max:255',
-            'severity'    => 'required|in:normal,common,critical',
+            'error_code' => 'required|string|max:100',
+            'error_name' => 'required|string|max:255',
+            'severity' => 'required|in:normal,common,critical',
             'description' => 'nullable|string',
         ], [
             'error_code.required' => 'Mã lỗi không được để trống.',
@@ -124,7 +155,8 @@ class CommonErrorController extends Controller
 
         // Check duplicate if code changed
         if ($request->error_code !== $error->error_code) {
-            $exists = CommonError::where('model_id', $error->model_id)
+            $exists = CommonError::where('product_id', $error->product_id)
+                ->where('xuat_xu', $error->xuat_xu)
                 ->where('error_code', $request->error_code)
                 ->exists();
             if ($exists) {
@@ -133,13 +165,16 @@ class CommonErrorController extends Controller
         }
 
         $error->update([
-            'error_code'  => $request->error_code,
-            'error_name'  => $request->error_name,
-            'severity'    => $request->severity,
+            'error_code' => $request->error_code,
+            'error_name' => $request->error_name,
+            'severity' => $request->severity,
             'description' => $request->description,
         ]);
 
-        return redirect()->route('warranty.document.errors.index', ['model_id' => $error->model_id])
+        return redirect()->route('warranty.document.errors.index', [
+            'product_id' => $error->product_id,
+            'xuat_xu' => $error->xuat_xu
+        ])
             ->with('success', 'Đã cập nhật mã lỗi.');
     }
 
@@ -149,7 +184,6 @@ class CommonErrorController extends Controller
     public function destroy($id)
     {
         $error = CommonError::findOrFail($id);
-        $modelId = $error->model_id;
         $error->delete();
 
         return response()->json(['message' => 'Đã xóa mã lỗi.']);

@@ -5,9 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @if(session()->has('brand') && session('brand') == 'kuchen')
-    <link rel="shortcut icon" href="{{ asset('imgs/logokuchen.png') }}" type="image/x-icon">
+        <link rel="shortcut icon" href="{{ asset('imgs/logokuchen.png') }}" type="image/x-icon">
     @elseif(session()->has('brand') && session('brand') == 'hurom')
-    <link rel="shortcut icon" href="{{ asset('imgs/logohurom.png') }}" type="image/x-icon">
+        <link rel="shortcut icon" href="{{ asset('imgs/logohurom.png') }}" type="image/x-icon">
     @endif
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Bảo hành {{ strtoupper(session('brand')) }}</title>
@@ -43,9 +43,9 @@
             <div class="header-logo d-flex align-items-center d-none d-lg-flex" style="flex-shrink: 0;">
                 <a href="{{ route('home') }}">
                     @if (session()->has('brand') && session('brand') == 'kuchen')
-                    <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
+                        <img src="{{ asset('imgs/logokuchen.png') }}" alt="Logo" style="height: 50px;">
                     @elseif(session()->has('brand') && session('brand') == 'hurom')
-                    <img src="{{ asset('imgs/hurom.webp') }}" alt="Logo" style="height: 30px;">
+                        <img src="{{ asset('imgs/hurom.webp') }}" alt="Logo" style="height: 30px;">
                     @endif
                 </a>
             </div>
@@ -55,44 +55,49 @@
                 data-bs-target="#navbarMenu" aria-controls="navbarMenu" aria-expanded="false"
                 aria-label="Toggle navigation" style="z-index: 1060; flex-shrink: 0; padding-left: 15px;">
                 @if (session()->has('brand'))
-                <img src="{{ asset('icons/menu.png') }}" alt="Menu"
-                    style="height: 25px; filter: invert(100%) sepia(100%) saturate(2) hue-rotate(180deg);">
+                    <img src="{{ asset('icons/menu.png') }}" alt="Menu"
+                        style="height: 25px; filter: invert(100%) sepia(100%) saturate(2) hue-rotate(180deg);">
                 @endif
             </button>
 
             <!-- Full Menu (Hidden on small screens) -->
-            <nav class="nav d-none d-lg-flex" style="flex: 1 1 auto; justify-content: center; gap: 10px; padding-left: 15px;">
+            <nav class="nav d-none d-lg-flex"
+                style="flex: 1 1 auto; justify-content: center; gap: 10px; padding-left: 15px;">
                 @if (session()->has('brand'))
-                @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
-                @endif
-                @if (Auth::user()->hasPermission('In tem bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
-                @endif
-                @if (Auth::user()->hasAnyRole(['admin', 'Kỹ thuật viên', 'Chăm sóc khách hàng']))
-                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
-                @endif
+                    @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
+                            hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('In tem bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                    @endif
+                    @can('technical_document.view')
+                        <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
+                    @endcan
                 @endif
             </nav>
             <!-- Account Section -->
-            <div class="d-flex align-items-center text-white" style="flex-shrink: 0; margin-left: auto; padding-right: 15px;">
+            <div class="d-flex align-items-center text-white"
+                style="flex-shrink: 0; margin-left: auto; padding-right: 15px;">
                 <div class="dropdown">
-                    <button class="btn btn-link text-white text-decoration-none dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <button
+                        class="btn btn-link text-white text-decoration-none dropdown-toggle d-flex align-items-center"
+                        type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-2" style="font-size: 1.5rem;"></i>
                         <span class="d-none d-lg-inline">{{ Auth::user()->full_name ?? 'Khách' }}</span>
                     </button>
@@ -106,7 +111,8 @@
                             <hr class="dropdown-divider">
                         </li>
                         <li>
-                            <a class="dropdown-item text-danger" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                            <a class="dropdown-item text-danger" href="#"
+                                onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                 <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
                             </a>
                         </li>
@@ -125,31 +131,33 @@
             style="top: 48px; z-index: 1050;">
             <nav class="nav flex-column text-white p-3">
                 @if (session()->has('brand'))
-                <a class="nav-link text-white" href="{{ route('home')}}">Thoát khỏi {{ strtoupper(session('brand')) }}</a>
-                @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
-                <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
-                @endif
-                @if (Auth::user()->hasPermission('Quản lý CTV'))
-                <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
-                @endif
-                @if (Auth::user()->hasPermission('In tem bảo hành'))
-                <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
-                @endif
-                @if (Auth::user()->hasAnyRole(['admin', 'kythuatvien']))
-                <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
-                @endif
+                    <a class="nav-link text-white" href="{{ route('home')}}">Thoát khỏi
+                        {{ strtoupper(session('brand')) }}</a>
+                    @if (Auth::user()->hasPermission('Danh sách ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warranty.' . session('brand')) }}">Danh sách ca bảo
+                            hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Tiếp nhận ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warranty.check') }}">Tiếp nhận ca bảo hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Thống kê ca bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('baocao') }}">Thống kê bảo hành</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('ctv.getlist') }}">Quản lý CTV</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('requestagency.index') }}">QL Đại Lý</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('Quản lý CTV'))
+                        <a class="nav-link text-white" href="{{ route('dieuphoi.index') }}">Điều phối CTV</a>
+                    @endif
+                    @if (Auth::user()->hasPermission('In tem bảo hành'))
+                        <a class="nav-link text-white" href="{{ route('warrantycard') }}">In tem bảo hành</a>
+                    @endif
+                    @can('technical_document.view')
+                        <a class="nav-link text-white" href="{{ route('warranty.document') }}">Tài liệu kỹ thuật</a>
+                    @endcan
                 @endif
             </nav>
         </div>
@@ -164,48 +172,57 @@
     </div>
 
     <!-- Modal Cập Nhật Thông Tin -->
-    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="changePasswordModalLabel">Cập nhật thông tin tài khoản</h5>
-                    <button type="button" class="btn-close" id="modalCloseBtn" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" id="modalCloseBtn" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
                 <form id="changePasswordForm">
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="username" class="form-label">Tên đăng nhập</label>
-                                <input type="text" class="form-control" id="username" name="username" value="{{ Auth::user()->username ?? '' }}" required>
+                                <input type="text" class="form-control" id="username" name="username"
+                                    value="{{ Auth::user()->username ?? '' }}" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" value="{{ Auth::user()->email ?? '' }}" required>
+                                <input type="email" class="form-control" id="email" name="email"
+                                    value="{{ Auth::user()->email ?? '' }}" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
                         <hr class="my-3">
                         <h6 class="mb-3">Đổi mật khẩu</h6>
                         <div class="mb-3">
-                            <label for="currentPassword" class="form-label">Mật khẩu hiện tại <span class="text-muted">(để trống nếu không đổi)</span></label>
+                            <label for="currentPassword" class="form-label">Mật khẩu hiện tại <span
+                                    class="text-muted">(để trống nếu không đổi)</span></label>
                             <input type="password" class="form-control" id="currentPassword" name="current_password">
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
                             <label for="newPassword" class="form-label">Mật khẩu mới</label>
-                            <input type="password" class="form-control" id="newPassword" name="new_password" minlength="8">
-                            <small class="form-text text-muted">Mật khẩu phải có ít nhất 8 ký tự, bao gồm cả chữ cái và số</small>
+                            <input type="password" class="form-control" id="newPassword" name="new_password"
+                                minlength="8">
+                            <small class="form-text text-muted">Mật khẩu phải có ít nhất 8 ký tự, bao gồm cả chữ cái và
+                                số</small>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
                             <label for="confirmPassword" class="form-label">Xác nhận mật khẩu mới</label>
-                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password" minlength="8">
+                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
+                                minlength="8">
                             <div class="invalid-feedback"></div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" id="cancelBtn" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-secondary" id="cancelBtn"
+                            data-bs-dismiss="modal">Hủy</button>
                         <button type="submit" class="btn btn-primary">Cập nhật</button>
                     </div>
                 </form>
@@ -244,7 +261,7 @@
             return emailRegex.test(email);
         }
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             ThongBao();
             CheckPasswordExpiry();
 
@@ -259,7 +276,7 @@
             });
 
             // Bắt lỗi AJAX toàn cục
-            $(document).ajaxError(function(event, xhr, settings, thrownError) {
+            $(document).ajaxError(function (event, xhr, settings, thrownError) {
                 if (xhr.status === 401) {
                     Swal.fire({
                         icon: 'warning',
@@ -272,7 +289,7 @@
             });
 
             // Reset form khi đóng modal
-            $('#changePasswordModal').on('hidden.bs.modal', function() {
+            $('#changePasswordModal').on('hidden.bs.modal', function () {
                 $('#changePasswordForm')[0].reset();
                 $('#changePasswordForm').find('.is-invalid').removeClass('is-invalid');
                 $('#changePasswordForm').find('.invalid-feedback').text('');
@@ -282,7 +299,7 @@
             });
 
             // Real-time validation for username (sử dụng event delegation để tránh đăng ký nhiều lần)
-            $(document).on('input', '#changePasswordModal #username', function() {
+            $(document).on('input', '#changePasswordModal #username', function () {
                 const $username = $(this);
                 const username = $username.val().trim();
                 $username.removeClass('is-invalid');
@@ -297,7 +314,7 @@
             });
 
             // Real-time validation for email (sử dụng event delegation để tránh đăng ký nhiều lần)
-            $(document).on('input', '#changePasswordModal #email', function() {
+            $(document).on('input', '#changePasswordModal #email', function () {
                 const $email = $(this);
                 const email = $email.val().trim();
                 $email.removeClass('is-invalid');
@@ -311,7 +328,7 @@
             });
 
             // Xử lý form cập nhật thông tin
-            $('#changePasswordForm').on('submit', function(e) {
+            $('#changePasswordForm').on('submit', function (e) {
                 e.preventDefault();
                 const form = $(this);
                 const username = $('#username').val();
@@ -406,7 +423,7 @@
                     url: "{{ route('password.change') }}",
                     type: 'POST',
                     data: formData,
-                    success: function(response) {
+                    success: function (response) {
                         if (response.success) {
                             Swal.fire({
                                 icon: 'success',
@@ -437,7 +454,7 @@
                             });
                         }
                     },
-                    error: function(xhr) {
+                    error: function (xhr) {
                         const errors = xhr.responseJSON?.errors || {};
                         if (xhr.responseJSON?.message) {
                             Swal.fire({
@@ -446,7 +463,7 @@
                                 text: xhr.responseJSON.message
                             });
                         } else {
-                            Object.keys(errors).forEach(function(key) {
+                            Object.keys(errors).forEach(function (key) {
                                 const input = form.find('[name="' + key + '"]');
                                 input.addClass('is-invalid');
                                 input.next('.invalid-feedback').text(errors[key][0]);
@@ -462,7 +479,7 @@
             $.ajax({
                 url: "{{ route('password.check-expiry') }}",
                 type: 'GET',
-                success: function(response) {
+                success: function (response) {
                     if (response.should_warn) {
                         const daysRemaining = response.days_remaining || 0;
                         const daysSinceChange = response.days_since_change || 0;
@@ -488,7 +505,7 @@
                         });
                     }
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     console.error("Lỗi kiểm tra mật khẩu:", xhr);
                 }
             });
@@ -502,7 +519,7 @@
             $.ajax({
                 url: "{{ route('password.check-expiry') }}",
                 type: 'GET',
-                success: function(response) {
+                success: function (response) {
                     if (response.should_warn) {
                         const daysSinceChange = response.days_since_change || 0;
                         const isExpired = daysSinceChange >= 30;
@@ -511,7 +528,7 @@
                         openPasswordModal(false);
                     }
                 },
-                error: function() {
+                error: function () {
                     // Nếu lỗi thì mở modal bình thường
                     openPasswordModal(false);
                 }
@@ -571,7 +588,7 @@
         }
 
         // Reset modal khi đóng
-        $('#changePasswordModal').on('hidden.bs.modal', function() {
+        $('#changePasswordModal').on('hidden.bs.modal', function () {
             $('#cancelBtn').prop('disabled', false).removeClass('d-none');
             $('#modalCloseBtn').prop('disabled', false).removeClass('d-none');
             $(this).attr('data-bs-backdrop', 'true');
@@ -595,7 +612,7 @@
             $.ajax({
                 url: "{{ route('warranty.thongbao') }}",
                 type: 'GET',
-                success: function(response) {
+                success: function (response) {
                     if (response.success) {
                         Swal.fire({
                             icon: "warning",
@@ -620,7 +637,7 @@
                         localStorage.setItem('lastThongBaoTime', now);
                     }
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     console.error("Đã xảy ra lỗi:", error);
                 }
             });
@@ -645,7 +662,7 @@
             $('.nav-link').removeClass('active');
 
             // Check each menu link
-            $('.nav-link').each(function() {
+            $('.nav-link').each(function () {
                 const linkHref = $(this).attr('href');
                 if (linkHref) {
                     // Check if current URL matches the link

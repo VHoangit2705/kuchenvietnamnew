@@ -10,7 +10,8 @@
     var routes = config.routes || {};
     var csrfToken = config.csrfToken || '';
 
-    var selectedModelId = null;
+    var selectedProductId = null;
+    var selectedOrigin = null;
 
     function resetSelect(sel, placeholder, disabled) {
         jQuery(sel).html('<option value="">' + placeholder + '</option>').prop('disabled', disabled);
@@ -25,8 +26,8 @@
         });
     }
 
-    function loadErrorsByModel(modelId) {
-        jQuery.get(routes.getErrorsByModel || '', { model_id: modelId }, function (res) {
+    function loadErrorsByProduct(productId, origin) {
+        jQuery.get(routes.getErrorsByModel || '', { product_id: productId, xuat_xu: origin }, function (res) {
             var opts = '<option value="">-- Chọn mã lỗi --</option>';
             (res || []).forEach(function (e) {
                 opts += '<option value="' + e.id + '">' + (e.error_code || '') + ' - ' + (e.error_name || '') + '</option>';
@@ -67,7 +68,6 @@
             var cid = jQuery(this).val();
             resetSelect('#createProduct', '-- Chọn sản phẩm --', true);
             resetSelect('#createOrigin', '-- Chọn xuất xứ --', true);
-            resetSelect('#createModelId', '-- Chọn mã SP --', true);
             jQuery('#blockAfterModel').hide();
             if (!cid) return;
             jQuery.get(routes.getProductsByCategory || '', { category_id: cid }, function (res) {
@@ -82,7 +82,6 @@
         jQuery('#createProduct').on('change', function () {
             var pid = jQuery(this).val();
             resetSelect('#createOrigin', '-- Chọn xuất xứ --', true);
-            resetSelect('#createModelId', '-- Chọn mã SP --', true);
             jQuery('#blockAfterModel').hide();
             jQuery('#originProductId').val(pid || '');
             jQuery('#btnAddOrigin').prop('disabled', !pid);
@@ -131,30 +130,18 @@
             });
         });
 
-        // Bước 3–4: Xuất xứ → load Mã SP
+        // Bước 3: Xuất xứ → show block quản lý lỗi
         jQuery('#createOrigin').on('change', function () {
             var pid = jQuery('#createProduct').val();
             var origin = jQuery(this).val();
-            resetSelect('#createModelId', '-- Chọn mã SP --', true);
             jQuery('#blockAfterModel').hide();
-            if (!origin) return;
-            jQuery.get(routes.getModelsByOrigin || '', { product_id: pid, xuat_xu: origin }, function (res) {
-                resetSelect('#createModelId', '-- Chọn mã SP --', false);
-                (res || []).forEach(function (m) {
-                    jQuery('#createModelId').append('<option value="' + m.id + '">' + (m.model_code || '') + (m.version ? ' (' + m.version + ')' : '') + '</option>');
-                });
-            });
-        });
-
-        // Bước 4: Chọn Model → hiện block thêm lỗi & hướng dẫn, load danh sách lỗi
-        jQuery('#createModelId').on('change', function () {
-            selectedModelId = jQuery(this).val();
-            if (!selectedModelId) {
-                jQuery('#blockAfterModel').hide();
-                return;
-            }
+            selectedProductId = pid;
+            selectedOrigin = origin;
+            
+            if (!pid || !origin) return;
+            
             jQuery('#blockAfterModel').show();
-            loadErrorsByModel(selectedModelId);
+            loadErrorsByProduct(pid, origin);
         });
 
         // Mở modal Thêm mã lỗi → clear edit mode
@@ -207,7 +194,7 @@
                                     showConfirmButton: false
                                 });
                             }
-                            loadErrorsByModel(selectedModelId);
+                            loadErrorsByProduct(selectedProductId, selectedOrigin);
                         },
                         error: function (xhr) { showError(xhr); }
                     });
@@ -242,22 +229,23 @@
                                 showConfirmButton: false
                             });
                         }
-                        loadErrorsByModel(selectedModelId);
+                        loadErrorsByProduct(selectedProductId, selectedOrigin);
                     },
                     error: function (xhr) { showError(xhr); }
                 });
             } else {
-                if (!selectedModelId) {
+                if (!selectedProductId || !selectedOrigin) {
                     Swal.fire({
                         icon: 'warning',
                         title: 'Thiếu thông tin',
-                        text: 'Vui lòng chọn Mã sản phẩm (Model) trước.',
+                        text: 'Vui lòng chọn Sản phẩm và Xuất xứ trước.',
                         confirmButtonColor: '#0d6efd'
                     });
                     return;
                 }
                 var fd = new FormData(this);
-                fd.append('model_id', selectedModelId);
+                fd.append('product_id', selectedProductId);
+                fd.append('xuat_xu', selectedOrigin);
                 fd.append('_token', csrfToken);
                 jQuery.ajax({
                     url: routes.storeError || '',
@@ -268,7 +256,7 @@
                     success: function () {
                         jQuery('#modalAddError').modal('hide');
                         jQuery('#formAddError')[0].reset();
-                        loadErrorsByModel(selectedModelId);
+                        loadErrorsByProduct(selectedProductId, selectedOrigin);
                     },
                     error: function (xhr) { showError(xhr); }
                 });
@@ -441,7 +429,7 @@
                     jQuery('#guideErrorId').val('');
                     document.getElementById('docFiles').value = '';
                     jQuery('#uploadedDocList').empty();
-                    loadErrorsByModel(selectedModelId);
+                    loadErrorsByProduct(selectedProductId, selectedOrigin);
                     setSaveGuideButtonLoading(false);
                 },
                 error: function (xhr) {
