@@ -27,14 +27,7 @@ class TechnicalDocumentController extends Controller
         }
     }
 
-    public function index()
-    {
-        if (!session()->has('brand')) {
-            session(['brand' => 'kuchen']);
-        }
-        $categories = Category::where('website_id', 2)->get();
-        return view('technicaldocument.index', compact('categories'));
-    }
+
 
     public function create()
     {
@@ -43,36 +36,7 @@ class TechnicalDocumentController extends Controller
         return view('technicaldocument.create', compact('categories'));
     }
 
-    // 1. Sản phẩm theo danh mục (dùng model Product đã định nghĩa)
-    public function getProductsByCategory(Request $request)
-    {
-        $categoryId = (int) $request->get('category_id');
-        if (!$categoryId) {
-            return response()->json([]);
-        }
 
-        $products = Product::getProductsByCategoryId($categoryId, 1);
-        return response()->json($products);
-    }
-
-    // 2. Xuất xứ theo sản phẩm
-    public function getOriginsByProduct(Request $request)
-    {
-        return ProductModel::where('product_id', $request->product_id)
-            ->whereNotNull('xuat_xu')
-            ->where('xuat_xu', '!=', '')
-            ->select('xuat_xu')
-            ->distinct()
-            ->get();
-    }
-
-    // 3. Model theo xuất xứ
-    public function getModelsByOrigin(Request $request)
-    {
-        return ProductModel::where('product_id', $request->product_id)
-            ->where('xuat_xu', $request->xuat_xu)
-            ->get(['id', 'model_code', 'version']);
-    }
 
     // Thêm xuất xứ sản phẩm (tạo product_model mới)
     public function storeOrigin(Request $request)
@@ -177,151 +141,11 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => $finalMessage]);
     }
 
-    // Chi tiết lỗi: hướng dẫn sửa + tài liệu/ảnh/video đính kèm (cho modal Tra cứu)
-    public function getErrorDetail(Request $request)
-    {
-        $errorId = (int) $request->get('error_id');
-        if (!$errorId) {
-            return response()->json(['error' => 'Thiếu error_id'], 400);
-        }
 
-        $error = CommonError::with([
-            'repairGuides.technicalDocuments.documentVersions',
-        ])->find($errorId);
 
-        if (!$error) {
-            return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
-        }
 
-        $storageUrl = rtrim(asset('storage'), '/');
 
-        $repairGuides = $error->repairGuides->map(function ($guide) use ($storageUrl) {
-            $documents = [];
-            foreach ($guide->technicalDocuments as $doc) {
-                $version = $doc->documentVersions->sortByDesc('id')->first();
-                $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
-                if (!$filePath) {
-                    continue;
-                }
-                $fileUrl = '';
-                if ($version->img_upload) {
-                    $fileUrl = $storageUrl . '/' . ltrim($version->img_upload, '/');
-                } elseif ($version->video_upload) {
-                    $fileUrl = $storageUrl . '/' . ltrim($version->video_upload, '/');
-                } elseif ($version->pdf_upload) {
-                    $fileUrl = $storageUrl . '/' . ltrim($version->pdf_upload, '/');
-                }
 
-                if (!$fileUrl)
-                    continue;
-
-                $documents[] = [
-                    'id' => $doc->id,
-                    'title' => $doc->title,
-                    'doc_type' => $doc->doc_type,
-                    'file_url' => $fileUrl,
-                ];
-            }
-            return [
-                'id' => $guide->id,
-                'title' => $guide->title,
-                'steps' => $guide->steps,
-                'estimated_time' => $guide->estimated_time,
-                'safety_note' => $guide->safety_note,
-                'documents' => $documents,
-            ];
-        });
-
-        return response()->json([
-            'error' => [
-                'id' => $error->id,
-                'error_code' => $error->error_code,
-                'error_name' => $error->error_name,
-                'description' => $error->description,
-                'severity' => $error->severity,
-            ],
-            'repair_guides' => $repairGuides,
-        ]);
-    }
-
-    // Download toàn bộ tài liệu của mã lỗi (ZIP)
-    public function downloadAllDocuments(Request $request)
-    {
-        $errorId = (int) $request->get('error_id');
-        if (!$errorId) {
-            abort(400, 'Thiếu error_id');
-        }
-
-        $error = CommonError::with([
-            'product',
-            'repairGuides.technicalDocuments.documentVersions',
-        ])->find($errorId);
-
-        if (!$error) {
-            abort(404, 'Không tìm thấy mã lỗi');
-        }
-
-        $filePaths = [];
-        foreach ($error->repairGuides as $guide) {
-            foreach ($guide->technicalDocuments as $doc) {
-                $version = $doc->documentVersions->sortByDesc('id')->first();
-                if ($version) {
-                    $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
-                    if ($filePath) {
-                        $fullPath = storage_path('app/public/' . ltrim($filePath, '/'));
-                        if (file_exists($fullPath)) {
-                            $filePaths[] = [
-                                'path' => $fullPath,
-                                'name' => basename($filePath),
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        if (empty($filePaths)) {
-            abort(404, 'Không có tài liệu nào để tải.');
-        }
-
-        $productName = $error->product ? str_replace(' ', '_', $error->product->product_name) : 'PRODUCT';
-        $errorCode = str_replace(' ', '_', $error->error_code);
-        $zipFileName = $productName . '_' . $errorCode . '_Documents_' . time() . '.zip';
-        $zipPath = storage_path('app/public/temp/' . $zipFileName);
-
-        if (!is_dir(dirname($zipPath))) {
-            mkdir(dirname($zipPath), 0755, true);
-        }
-
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            abort(500, 'Không tạo được file ZIP.');
-        }
-
-        foreach ($filePaths as $file) {
-            $zip->addFile($file['path'], $file['name']);
-        }
-        $zip->close();
-
-        return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
-    }
-
-    // 4. Danh sách mã lỗi theo model (Bước 5)
-    public function getErrorsByModel(Request $request)
-    {
-        $productId = (int) $request->get('product_id');
-        $xuatXu = $request->get('xuat_xu');
-        if (!$productId || !$xuatXu) {
-            return response()->json([]);
-        }
-
-        $errors = CommonError::where('product_id', $productId)
-            ->where('xuat_xu', $xuatXu)
-            ->orderBy('error_code')
-            ->get(['id', 'product_id', 'xuat_xu', 'error_code', 'error_name', 'severity', 'description']);
-
-        return response()->json($errors);
-    }
 
     // 5. Thêm mã lỗi kỹ thuật (Bước 5)
     public function storeError(Request $request)
@@ -392,29 +216,24 @@ class TechnicalDocumentController extends Controller
             ]);
         }
 
-        if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
-            if ($size > 2 * 1024 * 1024) { // 2MB
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            if ($size > self::FILE_MAX_IMAGE_BYTES) {
                 throw ValidationException::withMessages([
-                    $attribute => "File ảnh \"{$name}\" vượt quá 2MB. Vui lòng chọn file nhỏ hơn.",
+                    $attribute => "File ảnh \"{$name}\" vượt quá giới hạn cho phép (" . (self::FILE_MAX_IMAGE_BYTES / 1024 / 1024) . "MB).",
                 ]);
             }
-            return;
-        }
-        if ($ext === 'pdf') {
-            if ($size > 5 * 1024 * 1024) { // 5MB
+        } elseif ($ext === 'pdf') {
+            if ($size > self::FILE_MAX_PDF_BYTES) {
                 throw ValidationException::withMessages([
-                    $attribute => "File PDF \"{$name}\" vượt quá 5MB. Vui lòng chọn file nhỏ hơn.",
+                    $attribute => "File PDF \"{$name}\" vượt quá giới hạn cho phép (" . (self::FILE_MAX_PDF_BYTES / 1024 / 1024) . "MB).",
                 ]);
             }
-            return;
-        }
-        if (in_array($ext, ['mp4', 'webm'])) {
-            if ($size > 10 * 1024 * 1024) { // 10MB
+        } elseif (in_array($ext, ['mp4', 'webm'])) {
+            if ($size > self::FILE_MAX_VIDEO_BYTES) {
                 throw ValidationException::withMessages([
-                    $attribute => "File video \"{$name}\" vượt quá 10MB. Vui lòng chọn file nhỏ hơn.",
+                    $attribute => "File video \"{$name}\" vượt quá giới hạn cho phép (" . (self::FILE_MAX_VIDEO_BYTES / 1024 / 1024) . "MB).",
                 ]);
             }
-            return;
         }
     }
 
@@ -429,7 +248,7 @@ class TechnicalDocumentController extends Controller
             'estimated_time' => 'nullable|integer|min:0',
             'safety_note' => 'nullable|string',
             'files' => 'nullable|array',
-            'files.*' => 'file|mimes:pdf,jpg,jpeg,png,mp4,webm',
+            'files.*' => 'file', // Validation chi tiết (type/size) đã được xử lý trong validateTechnicalDocumentFile
         ], [
             'error_id.required' => 'Vui lòng chọn mã lỗi.',
             'title.required' => 'Tiêu đề hướng dẫn không được để trống.',
@@ -475,7 +294,7 @@ class TechnicalDocumentController extends Controller
                 };
 
                 // Chọn thư mục lưu dựa theo loại file
-                $basePath = in_array($ext, ['mp4', 'webm']) ? 'videos' : 'photos';
+                $basePath = $this->getDirectoryForFile($ext);
 
                 // Tên file có cấu trúc: {model_code}_{error_code}_v{model_version}_{doc_type}_{timestamp}_{index}.{ext}
                 $timestamp = time();
@@ -491,7 +310,7 @@ class TechnicalDocumentController extends Controller
                     'product_id' => $productId,
                     'xuat_xu' => $xuatXu,
                     'doc_type' => $docType,
-                    'title' => $guide->title . ' (File ' . ($index + 1) . ')',
+                    'title' => $file->getClientOriginalName(), // Lấy tên file gốc làm tiêu đề
                     'description' => 'Đính kèm hướng dẫn sửa: ' . $guide->title,
                     'status' => 'active',
                 ]);
@@ -526,15 +345,7 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => 'Đã lưu hướng dẫn và tài liệu đính kèm.']);
     }
 
-    // --- Common errors CRUD (update, destroy) ---
-    public function getErrorById($id)
-    {
-        $error = CommonError::where('id', (int) $id)->first(['id', 'product_id', 'xuat_xu', 'error_code', 'error_name', 'severity', 'description']);
-        if (!$error) {
-            return response()->json(['error' => 'Không tìm thấy mã lỗi'], 404);
-        }
-        return response()->json($error);
-    }
+
 
     public function updateError(Request $request, $id)
     {
@@ -576,18 +387,7 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => 'Đã xóa mã lỗi.']);
     }
 
-    // --- Repair guides CRUD (edit, update, destroy) ---
-    public function getRepairGuidesByError(Request $request)
-    {
-        $errorId = (int) $request->get('error_id');
-        if (!$errorId) {
-            return response()->json([]);
-        }
-        $guides = RepairGuide::where('error_id', $errorId)
-            ->orderBy('id')
-            ->get(['id', 'error_id', 'title', 'steps', 'estimated_time', 'safety_note']);
-        return response()->json($guides);
-    }
+
 
     public function editRepairGuide($id)
     {
@@ -660,61 +460,9 @@ class TechnicalDocumentController extends Controller
         return response()->json(['message' => 'Đã gỡ tài liệu.']);
     }
 
-    // --- Technical documents CRUD ---
-    public function indexDocuments(Request $request)
-    {
-        if (!session()->has('brand')) {
-            session(['brand' => 'kuchen']);
-        }
-        $categories = Category::where('website_id', 2)->get();
 
-        $modelId = (int) $request->get('model_id');
-        $productId = (int) $request->get('product_id');
-        $xuatXu = $request->get('xuat_xu');
 
-        $documents = collect();
-        $productModel = null;
-        $filter = [
-            'category_id' => $request->get('category_id', ''),
-            'product_id' => $productId ?: '',
-            'xuat_xu' => $xuatXu ?: ''
-        ];
 
-        if ($productId && $xuatXu) {
-            $productModel = ProductModel::with('product')->where('product_id', $productId)
-                ->where('xuat_xu', $xuatXu)
-                ->first();
-
-            $documents = TechnicalDocument::where('product_id', $productId)
-                ->where('xuat_xu', $xuatXu)
-                ->withCount('documentVersions')
-                ->orderBy('doc_type')
-                ->orderBy('title')
-                ->get();
-
-            if ($productModel && $productModel->product) {
-                $filter['category_id'] = $productModel->product->category_id;
-            }
-        }
-        return view('technicaldocument.documents-index', compact('categories', 'documents', 'productModel', 'filter'));
-    }
-
-    public function getDocumentsByModel(Request $request)
-    {
-        $productId = (int) $request->get('product_id');
-        $xuatXu = $request->get('xuat_xu');
-        if (!$productId || !$xuatXu) {
-            return response()->json([]);
-        }
-
-        $documents = TechnicalDocument::where('product_id', $productId)
-            ->where('xuat_xu', $xuatXu)
-            ->orderBy('doc_type')
-            ->orderBy('title')
-            ->get(['id', 'doc_type', 'title', 'description', 'status']);
-
-        return response()->json($documents);
-    }
 
     public function createDocument()
     {
@@ -802,66 +550,9 @@ class TechnicalDocumentController extends Controller
         return redirect()->route('warranty.document.documents.index')->with('success', 'Đã thêm tài liệu.');
     }
 
-    /**
-     * Stream file tài liệu qua Laravel (tránh 403 khi xem trực tiếp từ /storage/...).
-     * Chỉ user đã đăng nhập + có quyền xem tài liệu mới truy cập được.
-     */
-    public function streamDocumentFile(Request $request, $id)
-    {
-        $document = TechnicalDocument::with('documentVersions')->findOrFail($id);
-        $versionId = $request->query('version_id');
-        $version = $versionId
-            ? $document->documentVersions->firstWhere('id', (int) $versionId)
-            : $document->documentVersions->sortByDesc('id')->first();
 
-        if (!$version) {
-            abort(404, 'Không tìm thấy phiên bản tài liệu.');
-        }
 
-        $filePath = $version->img_upload ?? $version->video_upload ?? $version->pdf_upload;
 
-        if (!$filePath) {
-            abort(404, 'File không tồn tại (DB).');
-        }
-
-        $path = Storage::disk('public')->path($filePath);
-        if (!is_file($path)) {
-            abort(404, 'File không tồn tại trên đĩa.');
-        }
-
-        $disposition = $request->query('download') ? 'attachment' : 'inline';
-        $ext = pathinfo($filePath, PATHINFO_EXTENSION);
-        $mime = $this->mimeForExtension($ext);
-        $filename = basename($filePath);
-
-        return response()->file($path, [
-            'Content-Type' => $mime,
-            'Content-Disposition' => $disposition . '; filename="' . $filename . '"',
-        ]);
-    }
-
-    private function mimeForExtension(string $ext): string
-    {
-        $map = [
-            'pdf' => 'application/pdf',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-        ];
-        return $map[strtolower($ext)] ?? 'application/octet-stream';
-    }
-
-    public function showDocument($id)
-    {
-        $this->authorizePermission('technical_document.view');
-        $document = TechnicalDocument::with(['product', 'documentVersions', 'repairGuides.commonError'])->findOrFail($id);
-        $storageUrl = rtrim(asset('storage'), '/');
-        return view('technicaldocument.document-show', compact('document', 'storageUrl'));
-    }
 
     public function editDocument($id)
     {
