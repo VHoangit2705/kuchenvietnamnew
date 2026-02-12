@@ -33,13 +33,13 @@
                     @endcan
 
                     {{-- Style xanh dương nhạt cho tài liệu --}}
-                    @can('technical_document.view')
+                    @if(!Auth::check() || Auth::user()->can('technical_document.view'))
                         <a href="{{ route('warranty.document.documents.index') }}"
                             class="btn border-0 text-primary fw-bold px-3 py-2" style="background-color: #cfe2ff;">
                             <i class="bi bi-folder-fill me-2"></i><span class="d-none d-sm-inline">Quản lý tài liệu</span><span
                                 class="d-sm-none">Quản lý</span>
                         </a>
-                    @endcan
+                    @endif
 
                     {{-- Style xám cho reset --}}
                     <button onclick="location.reload()" class="btn border-0 text-secondary px-3 py-2"

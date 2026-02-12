@@ -100,14 +100,16 @@
                                 @endcan
 
                                 {{-- Nút Chia sẻ --}}
-                                @if($latestVer)
-                                    <button type="button"
-                                        class="btn btn-outline-info rounded-circle d-flex justify-content-center align-items-center btn-share-doc"
-                                        style="width: 32px; height: 32px;" data-version-id="{{ $latestVer->id }}"
-                                        data-doc-title="{{ $doc->title }}" title="Chia sẻ" data-bs-toggle="tooltip">
-                                        <i class="bi bi-share-fill"></i>
-                                    </button>
-                                @endif
+                                @auth
+                                    @if($latestVer)
+                                        <button type="button"
+                                            class="btn btn-outline-info rounded-circle d-flex justify-content-center align-items-center btn-share-doc"
+                                            style="width: 32px; height: 32px;" data-version-id="{{ $latestVer->id }}"
+                                            data-doc-title="{{ $doc->title }}" title="Chia sẻ" data-bs-toggle="tooltip">
+                                            <i class="bi bi-share-fill"></i>
+                                        </button>
+                                    @endif
+                                @endauth
 
                                 @can('technical_document.manage')
                                     {{-- Nút Xóa (Form Wrapper) --}}
