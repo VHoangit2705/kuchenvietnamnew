@@ -50,16 +50,12 @@ function updateModalSubmitButtonsState() {
 function validateModalProduct() {
     const $input = $('#product');
     const value = $input.val().trim();
-    const validRegex = /^[a-zA-Z0-9\sàáâãèéêìíòóôõùúýăđĩũơÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụüÜủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\-\(\,+/)]+$/;
 
     if (!value) {
         showModalError($input, "Tên sản phẩm không được để trống.");
         return false;
     }
-    if (!validRegex.test(value)) {
-        showModalError($input, "Tên sản phẩm chứa ký tự không hợp lệ.");
-        return false;
-    }
+    
     if (value.length > 100) {
         showModalError($input, "Tên sản phẩm không được vượt quá 100 ký tự.");
         return false;
