@@ -20,14 +20,31 @@
 ])
 
 @php
-    $ids = [
-        'category' => $idPrefix ? "{$idPrefix}Category" : 'categorySelect',
-        'product' => $idPrefix ? "{$idPrefix}Product" : 'productNameSelect',
-        'origin' => $idPrefix ? "{$idPrefix}Origin" : 'originSelect',
-        'searchBtn' => $idPrefix ? "btn{$idPrefix}Search" : 'btnSearch',
-    ];
+    // Base IDs for fallback and mobile
+    $categoryBase = 'categorySelect';
+    $productBase = 'productNameSelect';
+    $originBase = 'originSelect';
+    $searchBase = 'btnSearch';
+
+    if ($idPrefix === 'm') {
+        // Special case for mobile IDs used in index.js
+        $ids = [
+            'category' => "{$categoryBase}_m",
+            'product' => "{$productBase}_m",
+            'origin' => "{$originBase}_m",
+            'searchBtn' => "{$searchBase}_m",
+        ];
+    } else {
+        // Default naming convention (Prepend)
+        $ids = [
+            'category' => $idPrefix ? "{$idPrefix}Category" : $categoryBase,
+            'product' => $idPrefix ? "{$idPrefix}Product" : $productBase,
+            'origin' => $idPrefix ? "{$idPrefix}Origin" : $originBase,
+            'searchBtn' => $idPrefix ? "btn{$idPrefix}Search" : $searchBase,
+        ];
+    }
     
-    // Field names for form submission
+    // Field names for form submission (legacy-style if needed)
     $names = $enableFormSubmission ? [
         'category' => 'category_id',
         'product' => 'product_id',

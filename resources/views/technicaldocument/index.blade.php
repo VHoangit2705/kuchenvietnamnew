@@ -16,10 +16,8 @@
                     <x-technicaldocument.product-filter :categories="$categories" variant="desktop-pill" idPrefix="" />
                 </div>
 
-                {{-- Mobile/Tablet View: Stacked search bar --}}
                 <div class="d-lg-none">
-                    <x-technicaldocument.product-filter :categories="$categories" variant="mobile"
-                        idPrefix="categorySelect_m" />
+                    <x-technicaldocument.product-filter :categories="$categories" variant="mobile" idPrefix="m" />
                 </div>
 
                 <div class="d-flex flex-wrap justify-content-center gap-2 gap-md-3 mt-4">
