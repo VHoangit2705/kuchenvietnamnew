@@ -7,6 +7,7 @@ use App\Models\KyThuat\WarrantyUploadError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 
 class Warranty_Upload_Error_Controller extends Controller
 {
@@ -30,11 +31,19 @@ class Warranty_Upload_Error_Controller extends Controller
 
     public function UpdateVideosError(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'id' => ['required', 'integer', Rule::exists('warranty_upload_error', 'id')],
             'video_path' => 'required|string',
             'video_url' => 'required|string',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'LỖI CẬP NHẬT',
+                'errors' => $validator->errors()
+            ], 400);
+        }
 
         $id = $request->input('id');
         $videoPath = $request->input('video_path');
@@ -95,11 +104,19 @@ class Warranty_Upload_Error_Controller extends Controller
 
     public function UpdateImagesError(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'id' => ['required', 'integer', Rule::exists('warranty_upload_error', 'id')],
             'image_path' => 'required|string',
             'image_url' => 'required|string',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'LỖI CẬP NHẬT',
+                'errors' => $validator->errors()
+            ], 400);
+        }
 
         $id = $request->input('id');
         $imagePath = $request->input('image_path');

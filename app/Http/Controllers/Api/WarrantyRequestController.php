@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\KyThuat\WarrantyRequest;
 use App\Models\Kho\Product;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -32,11 +33,19 @@ class WarrantyRequestController extends Controller
 
     public function UpdateVideos(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'id' => 'required|integer|exists:warranty_requests,id',
             'video_path' => 'required|string',
             'video_url' => 'required|string',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'LỖI CẬP NHẬT',
+                'errors' => $validator->errors()
+            ], 400);
+        }
 
         $id = $request->input('id');
         $videoPath = $request->input('video_path');
@@ -80,11 +89,19 @@ class WarrantyRequestController extends Controller
 
     public function UpdateImages(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'id' => 'required|integer|exists:warranty_requests,id',
             'image_path' => 'required|string',
             'image_url' => 'required|string',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'LỖI CẬP NHẬT',
+                'errors' => $validator->errors()
+            ], 400);
+        }
 
         $id = $request->input('id');
         $imagePath = $request->input('image_path');
