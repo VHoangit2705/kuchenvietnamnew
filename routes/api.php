@@ -16,11 +16,16 @@ Route::middleware([\App\Http\Middleware\CheckApiToken::class])->group(function (
     Route::get('/products', [ProductController::class, 'getLstProduct']);
 });
 
+use App\Http\Controllers\Api\CleanupSyncedMediaController;
+
 //api backup ảnh và video
 Route::get('/geturlvideos', [WarrantyRequestController::class, 'GetVideos']);
 Route::post('/updatevideo', [WarrantyRequestController::class, 'UpdateVideos']); // cập nhật trường video
 Route::get('/geturlimages', [WarrantyRequestController::class, 'GetImages']);
 Route::post('/updateimage', [WarrantyRequestController::class, 'UpdateImages']); // cập nhật trường ảnh
+
+// dọn dẹp file local đã được đồng bộ lên Drive
+Route::get('/cleanup-synced-media', [CleanupSyncedMediaController::class, 'run']);
 
 //api backup ảnh và video cho hình ảnh lỗi (warranty_upload_error)
 Route::get('/geturlvideoserror', [Warranty_Upload_Error_Controller::class, 'GetVideosError']);
