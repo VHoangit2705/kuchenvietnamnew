@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\File;
 
 class WarrantyRequestController extends Controller
 {
@@ -56,9 +57,7 @@ class WarrantyRequestController extends Controller
                 ->update(['video_upload' => $videoUrl]);
             // xử lý xoá file 
             if ($updated && $videoPath) {
-                if (Storage::disk('public')->exists($videoPath)) {
-                    Storage::disk('public')->delete($videoPath);
-                }
+                $this->deleteMediaFile($videoPath);
             }
             return response()->json([
                 'success' => true,
@@ -112,12 +111,8 @@ class WarrantyRequestController extends Controller
                 ->update(['image_upload' => $imageUrl]);
             // xử lý xoá file 
             if ($updated && $imagePath) {
-                $paths = explode(',', $imagePath);
-                foreach ($paths as $path) {
-                    $path = trim($path);
-                    if ($path && Storage::disk('public')->exists($path)) {
-                        Storage::disk('public')->delete($path);
-                    }
+                foreach (explode(',', $imagePath) as $path) {
+                    $this->deleteMediaFile($path);
                 }
             }
             return response()->json([
@@ -214,5 +209,22 @@ class WarrantyRequestController extends Controller
             'status' => 'SUCCESS',
             'data' => $products
         ]);
+    }
+
+    private function deleteMediaFile($path)
+    {
+        if (empty($path)) return;
+        $path = trim($path);
+        
+        $relativePath = str_starts_with($path, 'storage/') ? substr($path, 8) : $path;
+        
+        if (str_starts_with($relativePath, 'uploads/')) {
+            $fullPath = public_path($relativePath);
+            if (File::exists($fullPath)) {
+                File::delete($fullPath);
+            }
+        } elseif (Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
     }
 }

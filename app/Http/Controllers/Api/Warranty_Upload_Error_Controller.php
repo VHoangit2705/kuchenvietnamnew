@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\File;
 
 class Warranty_Upload_Error_Controller extends Controller
 {
@@ -74,8 +75,8 @@ class Warranty_Upload_Error_Controller extends Controller
         $record->video_upload_error = $videoUrl;
         $record->save();
 
-        if ($videoPath && Storage::disk('public')->exists($videoPath)) {
-            Storage::disk('public')->delete($videoPath);
+        if ($videoPath) {
+            $this->deleteMediaFile($videoPath);
         }
 
         return response()->json([
@@ -148,11 +149,8 @@ class Warranty_Upload_Error_Controller extends Controller
         $record->save();
 
         if ($imagePath) {
-            $paths = array_map('trim', explode(',', $imagePath));
-            foreach ($paths as $path) {
-                if ($path && Storage::disk('public')->exists($path)) {
-                    Storage::disk('public')->delete($path);
-                }
+            foreach (explode(',', $imagePath) as $path) {
+                $this->deleteMediaFile($path);
             }
         }
 
@@ -160,5 +158,22 @@ class Warranty_Upload_Error_Controller extends Controller
             'success' => true,
             'message' => 'CẬP NHẬT THÀNH CÔNG',
         ]);
+    }
+
+    private function deleteMediaFile($path)
+    {
+        if (empty($path)) return;
+        $path = trim($path);
+        
+        $relativePath = str_starts_with($path, 'storage/') ? substr($path, 8) : $path;
+        
+        if (str_starts_with($relativePath, 'uploads/')) {
+            $fullPath = public_path($relativePath);
+            if (File::exists($fullPath)) {
+                File::delete($fullPath);
+            }
+        } elseif (Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
     }
 }
