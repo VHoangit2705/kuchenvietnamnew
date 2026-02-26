@@ -438,23 +438,23 @@
                 processData: false,
                 contentType: false,
                 success: function (res) {
-                    if (res && res.message) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Thành công',
-                            text: res.message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                    }
-                    jQuery('#guideForm')[0].reset();
-                    if (editorSteps) editorSteps.setData('');
-                    if (editorSafety) editorSafety.setData('');
-                    jQuery('#guideErrorId').val('');
-                    document.getElementById('docFiles').value = '';
-                    jQuery('#uploadedDocList').empty();
-                    loadErrorsByProduct(selectedProductId, selectedOrigin);
+                    var categoryId = jQuery('#createCategory').val();
                     setSaveGuideButtonLoading(false);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thành công',
+                        text: (res && res.message) || 'Đã lưu hướng dẫn.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(function () {
+                        // Redirect sang trang tra cứu với query params để auto-fill filter
+                        var baseUrl = '/baohanh/tailieukithuat';
+                        var params = '?category_id=' + encodeURIComponent(categoryId || '')
+                            + '&product_id=' + encodeURIComponent(selectedProductId || '')
+                            + '&xuat_xu=' + encodeURIComponent(selectedOrigin || '');
+                        window.location.href = baseUrl + params;
+                    });
                 },
                 error: function (xhr) {
                     showError(xhr);

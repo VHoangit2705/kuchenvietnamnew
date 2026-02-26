@@ -10,7 +10,7 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm">
                 <div>
-                    <h2 class="fw-bold text-primary mb-1"><i class="bi bi-folder-plus me-2"></i>Thêm Mã Lỗi Kỹ Thuật</h2>
+                    <h2 class="fw-bold text-primary mb-1"><i class="bi bi-folder-plus me-2"></i>Thêm Hưỡng dẫn sửa chữa mã lỗi</h2>
                     <p class="text-muted mb-0 small">Thiết lập dữ liệu sửa chữa chuẩn hóa cho từng Model sản phẩm</p>
                 </div>
                 <div>
@@ -85,6 +85,10 @@
                                     <div class="card-header py-2 px-3 fw-semibold small text-secondary">Hướng dẫn sửa của mã lỗi này</div>
                                     <div id="repairGuidesList" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;"></div>
                                 </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold" for="guideTitle">Tiêu đề hướng dẫn <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="guideTitle" name="title" placeholder="VD: Thay thế block máy nén..." required="">
                             </div>
 
                             <div class="mb-3">

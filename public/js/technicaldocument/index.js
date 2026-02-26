@@ -258,6 +258,51 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // ===== Auto-fill từ query params (sau khi tạo hướng dẫn sửa) =====
+        var urlParams = new URLSearchParams(window.location.search);
+        var qCategoryId = urlParams.get('category_id');
+        var qProductId = urlParams.get('product_id');
+        var qOrigin = urlParams.get('xuat_xu');
+        var qErrorId = urlParams.get('error_id');
+
+        if (qCategoryId && qProductId && qOrigin) {
+            // Bước 1: Chọn danh mục
+            jQuery('#categorySelect, #categorySelect_m').val(qCategoryId);
+
+            // Bước 2: Load sản phẩm rồi chọn
+            jQuery.get(routes.getProductsByCategory || '', { category_id: qCategoryId }, function (res) {
+                resetSelect('#productNameSelect, #productNameSelect_m', '-- Chọn sản phẩm --', false);
+                (res || []).forEach(function (p) {
+                    jQuery('#productNameSelect, #productNameSelect_m').append(
+                        '<option value="' + p.id + '">' + (p.name || p.product_name || '') + (p.model ? ' (' + p.model + ')' : '') + '</option>'
+                    );
+                });
+                jQuery('#productNameSelect, #productNameSelect_m').val(qProductId);
+
+                // Bước 3: Load xuất xứ rồi chọn
+                jQuery.get(routes.getOriginsByProduct || '', { product_id: qProductId }, function (res2) {
+                    resetSelect('#originSelect, #originSelect_m', '-- Chọn xuất xứ --', false);
+                    (res2 || []).forEach(function (o) {
+                        jQuery('#originSelect, #originSelect_m').append(
+                            '<option value="' + (o.xuat_xu || '') + '">' + (o.xuat_xu || '') + '</option>'
+                        );
+                    });
+                    jQuery('#originSelect, #originSelect_m').val(qOrigin);
+                    jQuery('#btnSearch, #btnSearch_m').prop('disabled', false);
+
+                    // Bước 4: Auto-trigger tìm kiếm
+                    setTimeout(function () {
+                        jQuery('#btnSearch').trigger('click');
+
+                        // Xóa query params khỏi URL (tránh reload lại auto-fill)
+                        if (window.history && window.history.replaceState) {
+                            window.history.replaceState({}, '', window.location.pathname);
+                        }
+                    }, 100);
+                });
+            });
+        }
     }
 
     if (document.readyState === 'loading') {
