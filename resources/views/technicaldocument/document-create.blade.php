@@ -1,6 +1,10 @@
 @extends('layout.layout')
 
 @section('content')
+<script>
+    window.ckeditorUploadUrl = '{{ route('warranty.document.ckeditor.upload') }}';
+    window.ckeditorCsrfToken = '{{ csrf_token() }}';
+</script>
 <div class="container-fluid py-5 bg-light">
     <div class="row mb-4">
         <div class="col-12">
@@ -40,7 +44,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Mô tả</label>
-                    <textarea class="form-control" name="description" rows="2">{{ old('description') }}</textarea>
+                    <textarea class="form-control" name="description" id="docDescription" rows="4">{{ old('description') }}</textarea>
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold">File tài liệu (phiên bản 1.0) <span class="text-danger">*</span></label>
@@ -82,4 +86,25 @@ window.docCreateRoutes = {
 </script>
 <script src="{{ asset('js/technicaldocument/filter.js') }}"></script>
 <script src="{{ asset('js/technicaldocument/document-create.js') }}"></script>
+
+<!-- CKEditor 5 -->
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script src="{{ asset('js/technicaldocument/ckeditor-upload-adapter.js') }}"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        ClassicEditor
+            .create(document.querySelector('#docDescription'), {
+                extraPlugins: [ MyCustomUploadAdapterPlugin ],
+                toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'insertTable', 'imageUpload', '|', 'undo', 'redo' ]
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    });
+</script>
+<style>
+    .ck-editor__editable_inline {
+        min-height: 150px;
+    }
+</style>
 @endsection

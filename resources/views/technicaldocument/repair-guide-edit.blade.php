@@ -1,6 +1,10 @@
 @extends('layout.layout')
 
 @section('content')
+    <script>
+        window.ckeditorUploadUrl = '{{ route('warranty.document.ckeditor.upload') }}';
+        window.ckeditorCsrfToken = '{{ csrf_token() }}';
+    </script>
     <div class="container-fluid py-5 bg-light">
         <div class="row mb-4">
             <div class="col-12">
@@ -45,9 +49,9 @@
                             </div>
                             <div class="row g-2 mb-3">
                                 <div class="col-md-8">
-                                    <label class="form-label fw-semibold">Các bước xử lý <span
+                                    <label class="form-label fw-semibold" for="guideStepsEdit">Các bước xử lý <span
                                             class="text-danger">*</span></label>
-                                    <textarea class="form-control" name="steps" rows="6"
+                                    <textarea class="form-control" name="steps" id="guideStepsEdit" rows="6"
                                         required>{{ old('steps', $guide->steps) }}</textarea>
                                     @error('steps')<div class="text-danger small">{{ $message }}</div>@enderror
                                 </div>
@@ -55,8 +59,8 @@
                                     <label class="form-label fw-semibold">Thời gian (phút)</label>
                                     <input type="number" class="form-control" name="estimated_time" min="0"
                                         value="{{ old('estimated_time', $guide->estimated_time) }}">
-                                    <label class="form-label fw-semibold mt-3 text-danger">Lưu ý an toàn</label>
-                                    <textarea class="form-control" name="safety_note"
+                                    <label class="form-label fw-semibold mt-3 text-danger" for="guideSafetyNoteEdit">Lưu ý an toàn</label>
+                                    <textarea class="form-control" name="safety_note" id="guideSafetyNoteEdit"
                                         rows="4">{{ old('safety_note', $guide->safety_note) }}</textarea>
                                 </div>
                             </div>
@@ -123,4 +127,39 @@
         };
     </script>
     <script src="{{ asset('js/technicaldocument/repair-guide-edit.js') }}"></script>
+
+    <!-- CKEditor 5 -->
+    <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+    <script src="{{ asset('js/technicaldocument/ckeditor-upload-adapter.js') }}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var ckToolbar = [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'insertTable', 'imageUpload', '|', 'undo', 'redo' ];
+            var ckConfig = {
+                extraPlugins: [ MyCustomUploadAdapterPlugin ],
+                toolbar: ckToolbar
+            };
+            var editorSteps, editorSafety;
+
+            ClassicEditor
+                .create(document.querySelector('#guideStepsEdit'), ckConfig)
+                .then(editor => { editorSteps = editor; })
+                .catch(error => { console.error(error); });
+
+            ClassicEditor
+                .create(document.querySelector('#guideSafetyNoteEdit'), ckConfig)
+                .then(editor => { editorSafety = editor; })
+                .catch(error => { console.error(error); });
+
+            // Ensure textarea is updated before standard form submit
+            document.getElementById('formEditGuide').addEventListener('submit', function() {
+                if (editorSteps) editorSteps.updateSourceElement();
+                if (editorSafety) editorSafety.updateSourceElement();
+            });
+        });
+    </script>
+    <style>
+        .ck-editor__editable_inline {
+            min-height: 150px;
+        }
+    </style>
 @endsection

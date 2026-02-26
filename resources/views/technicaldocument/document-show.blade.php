@@ -47,7 +47,7 @@
                             @if($document->description)
                                 <tr>
                                     <td class="text-secondary align-top">Mô tả</td>
-                                    <td class="small">{{ $document->description }}</td>
+                                    <td class="small">{!! $document->description !!}</td>
                                 </tr>
                             @endif
                         </table>
