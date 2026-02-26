@@ -1,6 +1,10 @@
 @extends('layout.layout')
 
 @section('content')
+    <script>
+        window.ckeditorUploadUrl = '{{ route('warranty.document.ckeditor.upload') }}';
+        window.ckeditorCsrfToken = '{{ csrf_token() }}';
+    </script>
     <div class="container-fluid py-5 bg-light">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
@@ -47,7 +51,7 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Cách xử lý</label>
-                                <textarea class="form-control" name="description"
+                                <textarea class="form-control" name="description" id="errorDescriptionEdit"
                                     rows="4">{{ old('description', $error->description) }}</textarea>
                             </div>
 
@@ -63,4 +67,25 @@
             </div>
         </div>
     </div>
+
+<!-- CKEditor 5 -->
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script src="{{ asset('js/technicaldocument/ckeditor-upload-adapter.js') }}"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        ClassicEditor
+            .create(document.querySelector('#errorDescriptionEdit'), {
+                extraPlugins: [ MyCustomUploadAdapterPlugin ],
+                toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'insertTable', 'imageUpload', '|', 'undo', 'redo' ]
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    });
+</script>
+<style>
+    .ck-editor__editable_inline {
+        min-height: 150px;
+    }
+</style>
 @endsection

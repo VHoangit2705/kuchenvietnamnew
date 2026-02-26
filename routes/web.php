@@ -216,6 +216,9 @@ Route::middleware(['auth', CheckBrandSession::class, CheckCookieLogin::class])->
         Route::delete('/documents/{id}', [TechnicalDocumentController::class, 'destroyDocument'])->name('warranty.document.documents.destroy');
         Route::get('/documents/destroy-attachment/{id}', [TechnicalDocumentController::class, 'destroyAttachment'])->name('warranty.document.documents.destroy_attachment');
 
+        // CKEditor Upload Image
+        Route::post('/upload-image-ckeditor', [TechnicalDocumentController::class, 'uploadImageCKEditor'])->name('warranty.document.ckeditor.upload');
+
         // --- Document Sharing Routes (Admin) ---
         Route::prefix('share')->group(function () {
             Route::post('/create', [DocumentShareController::class, 'store'])->name('warranty.document.share.store');

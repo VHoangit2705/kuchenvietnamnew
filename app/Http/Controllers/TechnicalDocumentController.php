@@ -738,4 +738,44 @@ class TechnicalDocumentController extends Controller
             default => 'technical_documents', // Fallback
         };
     }
+
+    /**
+     * Tải ảnh từ CKEditor lên Server
+     */
+    public function uploadImageCKEditor(Request $request)
+    {
+        $this->authorizePermission('technical_document.manage');
+
+        // Bỏ qua cache/error log nếu cần
+        if ($request->hasFile('upload')) {
+            $file = $request->file('upload');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+            if (!in_array($ext, $allowed)) {
+                return response()->json([
+                    'error' => ['message' => 'Định dạng ảnh không hợp lệ (hỗ trợ: ' . implode(', ', $allowed) . ').']
+                ], 400);
+            }
+
+            if ($file->getSize() > self::FILE_MAX_IMAGE_BYTES) {
+                 return response()->json([
+                    'error' => ['message' => 'Ảnh vượt quá dung lượng cho phép (' . (self::FILE_MAX_IMAGE_BYTES / 1024 / 1024) . 'MB).']
+                ], 400);
+            }
+
+            // Lưu vào thư mục photos
+            $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+            $path = $file->storeAs('photos', $fileName, 'public');
+
+            // Định dạng output đúng chuẩn CKEditor 5 Upload Adapter cần
+            return response()->json([
+                'url' => asset('storage/' . $path)
+            ]);
+        }
+
+        return response()->json([
+            'error' => ['message' => 'Không tìm thấy file ảnh.']
+        ], 400);
+    }
 }

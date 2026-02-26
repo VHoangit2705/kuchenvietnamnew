@@ -75,16 +75,21 @@
     </div>
 
     <div class="modal fade" id="errorDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 90vw;">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="height: 85vh;">
                 <div class="modal-body p-0">
                     <div class="row g-0 h-100">
                         <div class="col-lg-7 d-flex flex-column h-100">
                             <div class="p-4 border-bottom bg-white sticky-top">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <span
-                                        class="badge bg-danger-subtle text-danger px-3 py-2 rounded-pill border border-danger-subtle"
-                                        id="detailErrorCode">E-00</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-danger-subtle text-danger px-3 py-2 rounded-pill border border-danger-subtle" id="detailErrorCode">E-00</span>
+                                        @can('technical_document.manage')
+                                            <a href="#" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnEditError">
+                                                <i class="bi bi-pencil-square me-1"></i>Sửa
+                                            </a>
+                                        @endcan
+                                    </div>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"
                                         aria-label="Close"></button>
                                 </div>
@@ -223,7 +228,8 @@
                 getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
                 getErrorsByModel: "{{ route('warranty.document.getErrorsByModel') }}",
                 getErrorDetail: "{{ route('warranty.document.getErrorDetail') }}",
-                downloadAllDocuments: "{{ route('warranty.document.downloadAllDocuments') }}"
+                downloadAllDocuments: "{{ route('warranty.document.downloadAllDocuments') }}",
+                editError: "{{ route('warranty.document.errors.edit', ':id') }}"
             }
         };
     </script>

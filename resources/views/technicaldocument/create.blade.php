@@ -1,6 +1,10 @@
 @extends('layout.layout')
 
 @section('content')
+<script>
+    window.ckeditorUploadUrl = '{{ route('warranty.document.ckeditor.upload') }}';
+    window.ckeditorCsrfToken = '{{ csrf_token() }}';
+</script>
 <div class="container-fluid py-5 bg-light">
     <div class="row mb-4">
         <div class="col-12">
@@ -84,17 +88,13 @@
                             </div>
 
                             <div class="mb-3">
-                                <div class="form-floating">
-                                    <textarea class="form-control" id="guideSteps" name="steps" style="height: 150px" placeholder="Các bước"></textarea>
-                                    <label for="guideSteps">Các bước xử lý chuẩn <span class="text-danger">*</span></label>
-                                </div>
+                                <label class="form-label fw-semibold" for="guideSteps">Các bước xử lý chuẩn <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="guideSteps" name="steps" style="height: 150px" placeholder="Các bước"></textarea>
                             </div>
 
                             <div class="mb-4">
-                                <div class="form-floating">
-                                    <textarea class="form-control text-danger border-danger-subtle" id="guideSafetyNote" name="safety_note" style="height: 80px" placeholder="Lưu ý"></textarea>
-                                    <label for="guideSafetyNote" class="text-danger"><i class="bi bi-shield-exclamation me-1"></i>Lưu ý an toàn</label>
-                                </div>
+                                <label class="form-label fw-semibold text-danger" for="guideSafetyNote"><i class="bi bi-shield-exclamation me-1"></i>Lưu ý an toàn</label>
+                                <textarea class="form-control text-danger border-danger-subtle" id="guideSafetyNote" name="safety_note" style="height: 80px" placeholder="Lưu ý"></textarea>
                             </div>
 
                             <div class="mb-4">
@@ -194,9 +194,9 @@
                         <input type="text" class="form-control" name="error_name" id="modalErrorName" placeholder="Tên lỗi" required>
                         <label for="modalErrorName">Tên lỗi / Hiện tượng <span class="text-danger">*</span></label>
                     </div>
-                    <div class="form-floating mb-4">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold" for="modalDesc">Cách xử lý</label>
                         <textarea class="form-control" name="description" id="modalDesc" placeholder="Mô tả" style="height: 100px"></textarea>
-                        <label for="modalDesc">Cách xử lý</label>
                     </div>
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy bỏ</button>
@@ -232,4 +232,13 @@
     };
 </script>
 <script src="{{ asset('js/technicaldocument/create.js') }}"></script>
+
+<!-- CKEditor 5 -->
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script src="{{ asset('js/technicaldocument/ckeditor-upload-adapter.js') }}"></script>
+<style>
+    .ck-editor__editable_inline {
+        min-height: 150px;
+    }
+</style>
 @endsection

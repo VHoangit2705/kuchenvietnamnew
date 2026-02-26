@@ -13,6 +13,9 @@
     var selectedProductId = null;
     var selectedOrigin = null;
 
+    var editorDesc, editorSteps, editorSafety;
+    var ckToolbar = [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'insertTable', 'imageUpload', '|', 'undo', 'redo' ];
+
     function resetSelect(sel, placeholder, disabled) {
         jQuery(sel).html('<option value="">' + placeholder + '</option>').prop('disabled', disabled);
     }
@@ -63,6 +66,19 @@
     }
 
     function init() {
+        if (typeof ClassicEditor !== 'undefined') {
+            var ckConfig = {
+                extraPlugins: [ MyCustomUploadAdapterPlugin ],
+                toolbar: ckToolbar
+            };
+            ClassicEditor.create(document.querySelector('#modalDesc'), ckConfig)
+                .then(function(e) { editorDesc = e; }).catch(function(err) { console.error(err); });
+            ClassicEditor.create(document.querySelector('#guideSteps'), ckConfig)
+                .then(function(e) { editorSteps = e; }).catch(function(err) { console.error(err); });
+            ClassicEditor.create(document.querySelector('#guideSafetyNote'), ckConfig)
+                .then(function(e) { editorSafety = e; }).catch(function(err) { console.error(err); });
+        }
+
         // Bước 1: Danh mục → load Sản phẩm
         jQuery('#createCategory').on('change', function () {
             var cid = jQuery(this).val();
@@ -149,6 +165,8 @@
             if (!jQuery(ev.relatedTarget).hasClass('btn-edit-error')) {
                 jQuery('#errorEditId').val('');
                 jQuery('#modalAddErrorTitle').html('<i class="bi bi-bug me-2"></i>Khai báo lỗi mới');
+                jQuery('#formAddError')[0].reset();
+                if (editorDesc) editorDesc.setData('');
             }
         });
 
@@ -162,6 +180,7 @@
                 jQuery('#modalErrorName').val(res.error_name || '');
                 jQuery('#modalSeverity').val(res.severity || 'normal');
                 jQuery('#modalDesc').val(res.description || '');
+                if (editorDesc) editorDesc.setData(res.description || '');
                 jQuery('#modalAddError').modal('show');
             }).fail(function (xhr) { showError(xhr); });
         });
@@ -205,6 +224,7 @@
         // Modal: Thêm/Sửa mã lỗi (Bước 5)
         jQuery('#formAddError').on('submit', function (e) {
             e.preventDefault();
+            if (editorDesc) editorDesc.updateSourceElement();
             var editId = jQuery('#errorEditId').val();
             if (editId) {
                 var fd = new FormData(this);
@@ -219,6 +239,7 @@
                     success: function (res) {
                         jQuery('#modalAddError').modal('hide');
                         jQuery('#formAddError')[0].reset();
+                        if (editorDesc) editorDesc.setData('');
                         jQuery('#errorEditId').val('');
                         if (res && res.message) {
                             Swal.fire({
@@ -256,6 +277,7 @@
                     success: function () {
                         jQuery('#modalAddError').modal('hide');
                         jQuery('#formAddError')[0].reset();
+                        if (editorDesc) editorDesc.setData('');
                         loadErrorsByProduct(selectedProductId, selectedOrigin);
                     },
                     error: function (xhr) { showError(xhr); }
@@ -398,10 +420,10 @@
 
             var fd = new FormData();
             fd.append('error_id', errorId);
-            fd.append('title', jQuery('#guideTitle').val());
-            fd.append('steps', jQuery('#guideSteps').val());
+            fd.append('title', jQuery('#guideTitle').val() || '');
+            fd.append('steps', editorSteps ? editorSteps.getData() : jQuery('#guideSteps').val());
             fd.append('estimated_time', jQuery('#guideEstimatedTime').val() || 0);
-            fd.append('safety_note', jQuery('#guideSafetyNote').val());
+            fd.append('safety_note', editorSafety ? editorSafety.getData() : jQuery('#guideSafetyNote').val());
             fd.append('_token', csrfToken);
             for (var i = 0; i < files.length; i++) {
                 fd.append('files[]', files[i]);
@@ -426,6 +448,8 @@
                         });
                     }
                     jQuery('#guideForm')[0].reset();
+                    if (editorSteps) editorSteps.setData('');
+                    if (editorSafety) editorSafety.setData('');
                     jQuery('#guideErrorId').val('');
                     document.getElementById('docFiles').value = '';
                     jQuery('#uploadedDocList').empty();
@@ -441,6 +465,8 @@
 
         jQuery('#btnResetGuide').on('click', function () {
             jQuery('#guideForm')[0].reset();
+            if (editorSteps) editorSteps.setData('');
+            if (editorSafety) editorSafety.setData('');
             jQuery('#guideErrorId').val('');
             document.getElementById('docFiles').value = '';
             jQuery('#uploadedDocList').empty();

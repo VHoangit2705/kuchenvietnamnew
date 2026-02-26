@@ -117,15 +117,17 @@
                     rows.forEach(function (e, i) {
                         var severityLabel = { normal: 'Thường', common: 'Phổ biến', critical: 'Nghiêm trọng' }[e.severity] || e.severity;
                         var severityClass = { normal: 'secondary', common: 'warning', critical: 'danger' }[e.severity] || 'secondary';
-                        var desc = (e.description || '').toString().substring(0, 80);
-                        if ((e.description || '').length > 80) desc += '...';
+                        var rawDesc = e.description || '';
+                        var plainTextDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ');
+                        var shortDesc = plainTextDesc.substring(0, 80);
+                        if (plainTextDesc.length > 80) shortDesc += '...';
                         html += '<tr>' +
                             '<td>' + (i + 1) + '</td>' +
                             '<td><span class="badge bg-dark">' + (e.error_code || '') + '</span></td>' +
                             '<td class="fw-semibold">' + (e.error_name || '') + '</td>' +
                             '<td><span class="badge bg-' + severityClass + '">' + severityLabel + '</span></td>' +
-                            '<td class="text-muted small">' + (desc || '—') + '</td>' +
-                            '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-view-error" data-id="' + e.id + '" data-code="' + (e.error_code || '') + '" data-name="' + (e.error_name || '').replace(/"/g, '&quot;') + '" data-desc="' + (e.description || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" title="Xem chi tiết"><i class="bi bi-eye"></i></button></td>' +
+                            '<td class="text-muted small">' + (shortDesc || '—') + '</td>' +
+                            '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-view-error" data-id="' + e.id + '" data-code="' + (e.error_code || '') + '" data-name="' + (e.error_name || '').replace(/"/g, '&quot;') + '" data-desc="' + encodeURIComponent(rawDesc) + '" title="Xem chi tiết"><i class="bi bi-eye"></i></button></td>' +
                             '</tr>';
                     });
                     jQuery('#errorTableBody').html(html);
@@ -140,11 +142,17 @@
             var errorId = jQuery(this).data('id');
             var code = jQuery(this).data('code');
             var name = jQuery(this).data('name');
-            var desc = jQuery(this).data('desc');
+            var desc = decodeURIComponent(jQuery(this).data('desc') || '');
 
             jQuery('#detailErrorCode').text(code || '');
             jQuery('#detailErrorName').text(name || '');
-            jQuery('#detailDescription').text(desc || 'Chưa có mô tả.');
+            jQuery('#detailDescription').html(desc || 'Chưa có mô tả.');
+
+            if (routes.editError) {
+                var editUrl = routes.editError.replace(':id', errorId);
+                jQuery('#btnEditError').attr('href', editUrl);
+            }
+
             jQuery('#detailSolution').html('<p class="text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Đang tải...</p>');
             jQuery('#detailDocuments').empty();
             jQuery('#detailMediaInner').html('<div class="text-center py-4 text-muted">Đang tải...</div>');
@@ -155,14 +163,9 @@
                 var firstGuide = guides[0];
 
                 if (firstGuide && firstGuide.steps) {
-                    var stepsHtml = '<ol class="mb-0">';
-                    var lines = (firstGuide.steps || '').split(/\r?\n/).filter(function (s) { return s.trim(); });
-                    lines.forEach(function (line) {
-                        stepsHtml += '<li class="mb-2">' + escapeHtml(line.trim()) + '</li>';
-                    });
-                    stepsHtml += '</ol>';
+                    var stepsHtml = firstGuide.steps;
                     if (firstGuide.safety_note) {
-                        stepsHtml += '<div class="alert alert-warning mt-3 mb-0"><strong>Lưu ý an toàn:</strong> ' + escapeHtml(firstGuide.safety_note) + '</div>';
+                        stepsHtml += '<div class="alert alert-warning mt-3 mb-0"><strong>Lưu ý an toàn:</strong><div class="mt-2 text-dark">' + firstGuide.safety_note + '</div></div>';
                     }
                     jQuery('#detailSolution').html(stepsHtml);
                 } else {
