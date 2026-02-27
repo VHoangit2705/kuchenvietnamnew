@@ -261,6 +261,8 @@ Route::prefix('baohanh/tailieukithuat')->group(function () {
     Route::get('/documents/{id}/file', [PublicTechnicalDocumentController::class, 'streamDocumentFile'])->name('warranty.document.documents.file');
     Route::get('/documents/{id}', [PublicTechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show');
     Route::get('/documents-by-model', [PublicTechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+    Route::get('/shelf-list', [TechnicalDocumentController::class, 'shelfList'])->name('warranty.document.shelfList');
+    Route::post('/send-to-training', [TechnicalDocumentController::class, 'sendToTraining'])->name('warranty.document.sendToTraining');
 });
 
 //Permissions

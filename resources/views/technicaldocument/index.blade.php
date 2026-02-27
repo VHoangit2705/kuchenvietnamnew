@@ -39,6 +39,14 @@
                         </a>
                     @endif
 
+                    @if(!Auth::check() || Auth::user()->can('technical_document.view'))
+                    <a href="{{ route('warranty.document.shelfList') }}" class="btn border-0 text-success fw-bold px-3 py-2"
+                            style="background-color: #fffc5b;">
+                            <i class="bi bi-plus-square-fill me-2"></i><span class="d-none d-sm-inline">Danh sách sản phẩm mới lên kệ</span><span
+                                class="d-sm-none">Danh sách sản phẩm mới lên kệ</span>
+                        </a>
+                    @endif
+
                     {{-- Style xám cho reset --}}
                     <button onclick="location.reload()" class="btn border-0 text-secondary px-3 py-2"
                         style="background-color: #e2e3e5;">
