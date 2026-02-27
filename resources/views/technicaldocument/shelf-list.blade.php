@@ -12,7 +12,7 @@
             </div>
         </div>
 
-        <div class="container-xl">
+        <div class="container-fluid px-md-5">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -20,14 +20,20 @@
                             <tr>
                                 <th class="px-4 py-3">Sản phẩm</th>
                                 <th class="py-3">Model sản phẩm</th>
-                                <th class="py-3 text-center">Bước hiện tại</th>
-                                <th class="py-3 text-center">Trạng thái gửi</th>
+                                <th class="py-3 text-center">Tiến độ quy trình</th>
+                                <th class="py-3 text-center">Trạng thái hiện tại</th>
                                 <th class="py-3 text-center">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($products as $product)
-                                <tr>
+                                @php
+                                    $workflow = $product->product_workflow;
+                                    $hasSerials = $product->warranty_cards->isNotEmpty();
+                                    $hasDocs = $product->technical_documents->isNotEmpty();
+                                    $isSent = $workflow && $workflow->current_step >= 3;
+                                @endphp
+                                <tr class="@if(!$hasSerials || (!$isSent && !$hasDocs)) table-warning-light @endif">
                                     <td class="px-4">
                                         <div class="fw-bold text-dark">{{ $product->product_name }}</div>
                                         <div class="small text-muted">ID: {{ $product->id }}</div>
@@ -38,45 +44,72 @@
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        @php
-                                            $workflow = $product->product_workflow;
-                                            $isSent = $workflow && $workflow->current_step >= 3;
-                                        @endphp
-                                        @if($workflow)
-                                            <div class="d-flex flex-column align-items-center">
-                                                <div class="rounded-circle border @if($isSent) border-success text-success @else border-info text-info @endif d-flex align-items-center justify-content-center fw-bold mb-1" style="width: 32px; height: 32px; font-size: 0.85rem; background-color: @if($isSent) #f0fff4 @else #f0f7ff @endif;">
-                                                    {{ $workflow->current_step }}
+                                        <div class="d-flex align-items-center justify-content-center">
+                                            <div class="d-flex flex-column align-items-center mx-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 shadow-sm" 
+                                                    style="width: 28px; height: 28px; font-size: 0.75rem; @if($hasSerials) background-color: #d1e7dd; color: #0f5132; @else background-color: #f8d7da; color: #842029; border: 1px dashed #f5c2c7; @endif">
+                                                    @if($hasSerials)<i class="bi bi-check"></i>@else 1 @endif
                                                 </div>
-                                                <div class="small text-muted fw-semibold" style="text-transform: capitalize;">{{ $workflow->status }}</div>
+                                                <span class="x-small text-muted">Seri</span>
                                             </div>
+
+                                            <i class="bi bi-arrow-right mb-3 @if($hasSerials) text-success @else text-muted opacity-50 @endif" style="font-size: 1rem;"></i>
+
+                                            <div class="d-flex flex-column align-items-center mx-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 shadow-sm" 
+                                                    style="width: 28px; height: 28px; font-size: 0.75rem; @if($hasDocs) background-color: #d1e7dd; color: #0f5132; @else background-color: #fff3cd; color: #664d03; border: 1px dashed #ffecb5; @endif">
+                                                    @if($hasDocs)<i class="bi bi-check"></i>@else 2 @endif
+                                                </div>
+                                                <span class="x-small text-muted">TLKT</span>
+                                            </div>
+
+                                            <i class="bi bi-arrow-right mb-3 @if($hasDocs) text-success @else text-muted opacity-50 @endif" style="font-size: 1rem;"></i>
+
+                                            <div class="d-flex flex-column align-items-center mx-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 shadow-sm" 
+                                                    style="width: 28px; height: 28px; font-size: 0.75rem; @if($isSent) background-color: #cfe2ff; color: #084298; @else background-color: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; @endif">
+                                                    3
+                                                </div>
+                                                <span class="x-small text-muted">Đào tạo</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        @if($isSent)
+                                            <span class="badge bg-success text-white px-3 py-2 rounded-pill shadow-sm">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Đã gửi Đào tạo
+                                            </span>
+                                        @elseif(!$hasSerials)
+                                            <span class="badge bg-danger text-white px-3 py-2 rounded-pill animate__animated animate__flash animate__infinite shadow-sm">
+                                                <i class="bi bi-exclamation-octagon-fill me-1"></i> Thiếu Số Seri
+                                            </span>
+                                        @elseif(!$hasDocs)
+                                            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-sm">
+                                                <i class="bi bi-file-earmark-medical-fill me-1"></i>Thiếu Tài liệu
+                                            </span>
                                         @else
-                                            <span class="text-muted small italic">Chưa bắt đầu</span>
+                                            <span class="badge bg-info text-white px-3 py-2 rounded-pill shadow-sm">
+                                                <i class="bi bi-hand-thumbs-up-fill me-1"></i> Sẵn sàng lên kệ
+                                            </span>
                                         @endif
                                     </td>
                                     <td class="text-center">
                                         @if($isSent)
-                                            <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill border border-success-subtle">
-                                                <i class="bi bi-check-circle-fill me-1"></i> Đã gửi lên phòng đào tạo
-                                            </span>
-                                        @else
-                                            <span class="badge bg-warning-subtle text-warning-emphasis px-3 py-2 rounded-pill border border-warning-subtle">
-                                                <i class="bi bi-clock-history me-1"></i> Chờ gửi
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">
-                                        @if($isSent)
-                                            <button class="btn btn-light text-muted fw-bold px-3 py-2 border" disabled>
-                                                <i class="bi bi-check2-all me-2"></i>Đã hoàn tất
+                                            <button class="btn btn-light text-muted fw-bold px-3 py-2 border rounded-pill" disabled style="font-size: 0.9rem;">
+                                                <i class="bi bi-check2-all me-2"></i>Đã xong
                                             </button>
-                                        @else
+                                        @elseif($hasSerials && $hasDocs)
                                             <button 
                                                 onclick="sendToTraining({{ $product->id }})" 
-                                                class="btn border-0 text-success fw-bold px-3 py-2 btn-send-training shadow-sm" 
-                                                style="background-color: #fffc5b;"
+                                                class="btn border-0 text-success fw-bold px-3 py-2 btn-send-training shadow-sm rounded-pill" 
+                                                style="background-color: #fffc5b; font-size: 0.9rem;"
                                                 data-product-id="{{ $product->id }}"
                                             >
-                                                <i class="bi bi-plus-square-fill me-2"></i>Gửi đến phòng đào tạo
+                                                <i class="bi bi-send-fill me-2"></i>Gửi Đào tạo
+                                            </button>
+                                        @else
+                                            <button class="btn btn-secondary text-white-50 fw-bold px-3 py-2 border-0 rounded-pill opacity-50" disabled style="font-size: 0.9rem;">
+                                                <i class="bi bi-lock-fill me-2"></i>Chưa đủ ĐK
                                             </button>
                                         @endif
                                     </td>
@@ -167,5 +200,61 @@
                 }
             });
         }
+
+        // Tự động hiển thị modal cảnh báo nếu có sản phẩm chưa hoàn thiện
+        @if($countMissingSerials > 0 || $countMissingDocs > 0)
+            document.addEventListener('DOMContentLoaded', function() {
+                var myModal = new bootstrap.Modal(document.getElementById('autoWarningModal'));
+                myModal.show();
+            });
+        @endif
     </script>
+
+    <!-- Modal Cảnh báo tự động -->
+    <div class="modal fade" id="autoWarningModal" tabindex="-1" aria-labelledby="autoWarningModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-danger text-white border-0 rounded-top-4 py-3">
+                    <h5 class="modal-title fw-bold" id="autoWarningModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>CẢNH BÁO QUY TRÌNH LÊN KỆ SẢN PHẨM
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-clipboard-x text-danger display-1 opacity-25"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-3">Phát hiện sản phẩm chưa hoàn thiện!</h5>
+                    <p class="text-muted mb-4">
+                        Hiện đang có các sản phẩm chưa đủ điều kiện để lên kệ. Vui lòng kiểm tra và hoàn thiện các bước sau:
+                    </p>
+                    
+                    <div class="d-grid gap-2 mb-2">
+                        @if($countMissingSerials > 0)
+                            <div class="alert alert-danger border-0 rounded-3 d-flex align-items-center mb-2">
+                                <i class="bi bi-hash fs-4 me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-bold">Thiếu Số Seri</div>
+                                    <div class="small">{{ $countMissingSerials }} sản phẩm đang chờ nạp seri.</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($countMissingDocs > 0)
+                            <div class="alert alert-warning border-0 rounded-3 d-flex align-items-center">
+                                <i class="bi bi-file-earmark-medical fs-4 me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-bold">Thiếu Tài liệu kỹ thuật</div>
+                                    <div class="small">{{ $countMissingDocs }} sản phẩm chưa có HDSD/Thông số.</div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 justify-content-center">
+                    <button type="button" class="btn btn-dark rounded-pill px-5 fw-bold" data-bs-dismiss="modal">Tôi đã hiểu, kiểm tra ngay</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection

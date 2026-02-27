@@ -787,13 +787,14 @@ class TechnicalDocumentController extends Controller
     {
         $this->authorizePermission('technical_document.view');
 
-        // Sử dụng Eloquent has() thông qua các relationship đã định nghĩa trong Product model
-        $products = Product::has('technical_documents')
-            ->has('warranty_cards')
-            ->with(['product_workflow'])
-            ->paginate(20);
+        $products = Product::with(['technical_documents', 'warranty_cards', 'product_workflow'])
+            ->latest()
+            ->paginate(50);
 
-        return view('technicaldocument.shelf-list', compact('products'));
+        $countMissingSerials = Product::whereDoesntHave('warranty_cards')->count();
+        $countMissingDocs = Product::has('warranty_cards')->whereDoesntHave('technical_documents')->count();
+
+        return view('technicaldocument.shelf-list', compact('products', 'countMissingSerials', 'countMissingDocs'));
     }
 
     /**
