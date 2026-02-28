@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\products_new\Product;
 use App\Models\products_new\User;
 use App\Mail\KythuatSendTrainingNotification;
+use App\Mail\ContentReviewNotification;
+use App\Models\products_new\ProductContentReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +33,9 @@ class NotificationController extends Controller
                 
                 case 'kythuat_send_training':
                     return $this->handleKythuatSendTraining($id);
+                
+                case 'content_review_result':
+                    return $this->handleContentReviewResult($id);
                 
                 default:
                     Log::channel('send_mail')->warning("Cảnh báo: Loại thông báo không hợp lệ: $type");
@@ -76,6 +81,51 @@ class NotificationController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::channel('send_mail')->error("Lỗi SMTP khi gửi mail KT gửi ĐT [ID:$id]: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Gửi mail thông báo kết quả duyệt nội dung sản phẩm.
+     */
+    private function handleContentReviewResult($id)
+    {
+        // $id ở đây là ID của bảng product_content_reviews
+        $review = ProductContentReview::find($id);
+        
+        if (!$review) {
+            Log::channel('send_mail')->error("Lỗi: Không tìm thấy bản ghi duyệt nội dung ID: $id");
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy dữ liệu duyệt.'], 404);
+        }
+
+        $product = \App\Models\Kho\Product::find($review->product_id);
+
+        if (!$product) {
+            Log::channel('send_mail')->error("Lỗi: Không tìm thấy sản phẩm cho bản ghi duyệt ID: $id");
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy sản phẩm.'], 404);
+        }
+
+        // Lấy danh sách email nhân sự
+        $recipients = User::whereNotNull('email')
+            ->pluck('email')
+            ->toArray();
+
+        if (empty($recipients)) {
+            Log::channel('send_mail')->error("Lỗi: Không tìm thấy người nhận email.");
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy người nhận.']);
+        }
+
+        try {
+            Mail::to($recipients)->send(new ContentReviewNotification($product, $review));
+            
+            Log::channel('send_mail')->info("Thành công: Đã gửi email kết quả duyệt [" . $review->status . "] cho SP: " . $product->product_name);
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Đã gửi mail thông báo kết quả duyệt thành công.'
+            ]);
+        } catch (\Exception $e) {
+            Log::channel('send_mail')->error("Lỗi SMTP khi gửi mail kết quả duyệt [ID:$id]: " . $e->getMessage());
             throw $e;
         }
     }

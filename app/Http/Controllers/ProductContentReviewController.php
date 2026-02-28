@@ -98,9 +98,12 @@ class ProductContentReviewController extends Controller
 
             DB::commit();
 
+            // Trả về kèm thêm flag để trigger notification từ frontend (ajax)
             return response()->json([
                 'status' => 'success',
                 'message' => $action === 'approve' ? 'Đã duyệt nội dung sản phẩm thành công.' : 'Đã từ chối nội dung sản phẩm.',
+                'notify_type' => 'content_review_result',
+                'notify_id' => $review->id
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

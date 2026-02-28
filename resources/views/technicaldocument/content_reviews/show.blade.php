@@ -167,6 +167,13 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
+                            // Gửi email thông báo (Background trigger)
+                            if (data.notify_type && data.notify_id) {
+                                fetch(`{{ route('notification.trigger') }}?type=${data.notify_type}&id=${data.notify_id}`, {
+                                    method: 'GET'
+                                }).catch(err => console.error('Email trigger failed:', err));
+                            }
+
                             Swal.fire('Thành công', data.message, 'success').then(() => {
                                 window.location.href = "{{ route('warranty.document.content_reviews.index') }}";
                             });
