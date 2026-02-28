@@ -23,6 +23,7 @@ use App\Http\Controllers\TechnicalDocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\CommonErrorController;
 use App\Http\Controllers\PublicTechnicalDocumentController;
+use App\Http\Controllers\NotificationController;
 
 // =====================================================
 // PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
@@ -308,6 +309,9 @@ Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandCo
 
 Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
 Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
+
+// Notification email trigger (gọi từ JS sau khi hành động thành công)
+Route::post('/notification/trigger', [NotificationController::class, 'trigger'])->name('notifications.trigger');
 
 // Route::get('/clear-cache', function () {
 

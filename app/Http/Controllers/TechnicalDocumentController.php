@@ -827,6 +827,10 @@ class TechnicalDocumentController extends Controller
             []
         );
 
+        // Flash session để trigger gửi email thông báo sau khi page reload
+        session()->flash('notify_type', 'kythuat_send_training');
+        session()->flash('notify_id', $productId);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Đã gửi sản phẩm đến phòng đào tạo thành công.'

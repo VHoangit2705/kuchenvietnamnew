@@ -257,4 +257,39 @@
             </div>
         </div>
     </div>
+
+    {{-- SCRIPT TỰ ĐỘNG GỬI THÔNG BÁO SAU 5 GIÂY --}}
+    @if(session('notify_type') && session('notify_id'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const notifyType = "{{ session('notify_type') }}";
+            const notifyId = "{{ session('notify_id') }}";
+            
+            console.log('Hệ thống sẽ gửi thông báo sau 5 giây...');
+            
+            setTimeout(function() {
+                fetch("{{ route('notifications.trigger') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                    },
+                    body: JSON.stringify({
+                        type: notifyType,
+                        id: notifyId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('✅ ' + data.message);
+                    } else {
+                        console.error('❌ Lỗi: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('❌ Lỗi kết nối:', error));
+            }, 5000); // 5000ms = 5 giây
+        });
+    </script>
+    @endif
 @endsection
