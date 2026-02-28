@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class ProductWorkflow extends Model
 {
     protected $connection = 'mysql4';
-    protected $table = 'product_workflows';
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->table = config('database.connections.mysql4.database') . '.product_workflows';
+    }
 
     protected $fillable = [
         'product_id',

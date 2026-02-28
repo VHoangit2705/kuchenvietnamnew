@@ -100,6 +100,16 @@ class Product extends Model
 		return $this->hasOne(ProductWorkflow::class, 'product_id')->latestOfMany();
 	}
 
+	public function product_details()
+	{
+		return $this->hasOne(\App\Models\products_new\ProductDetails::class, 'product_id');
+	}
+
+	public function product_content_review()
+	{
+		return $this->hasOne(\App\Models\products_new\ProductContentReview::class, 'product_id')->latestOfMany();
+	}
+
 	/**
 	 * Quan hệ đa kết nối: Tài liệu kỹ thuật (mysql)
 	 */

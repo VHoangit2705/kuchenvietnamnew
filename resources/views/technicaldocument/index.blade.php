@@ -47,6 +47,12 @@
                         </a>
                     @endif
 
+                    <a href="{{ route('warranty.document.content_reviews.index') }}" class="btn border-0 text-success fw-bold px-3 py-2 text-dark"
+                            style="background-color: #fffc5b;">
+                            <i class="bi bi-check-circle-fill me-2"></i><span class="d-none d-sm-inline">Duyệt nội dung sản phẩm</span><span
+                                class="d-sm-none">Duyệt</span>
+                        </a>
+
                     {{-- Style xám cho reset --}}
                     <button onclick="location.reload()" class="btn border-0 text-secondary px-3 py-2"
                         style="background-color: #e2e3e5;">

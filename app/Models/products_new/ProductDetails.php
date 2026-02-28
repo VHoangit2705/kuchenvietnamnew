@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class ProductDetails extends Model
 {
     protected $connection = 'mysql4';
-    protected $table = 'product_details';
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->table = config('database.connections.mysql4.database') . '.product_details';
+    }
 
     protected $fillable = [
         'product_id',
