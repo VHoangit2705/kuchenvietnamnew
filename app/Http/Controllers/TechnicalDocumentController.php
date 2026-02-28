@@ -16,7 +16,8 @@ use App\Models\KyThuat\TechnicalDocument;
 use App\Models\KyThuat\DocumentVersion;
 use App\Models\KyThuat\RepairGuideDocument;
 use App\Models\KyThuat\TechnicalDocumentAttachment;
-use App\Models\KyThuat\UserRole;
+use App\Models\products_new\ProductWorkflow;
+use App\Models\products_new\ProductDetails;
 
 class TechnicalDocumentController extends Controller
 {
@@ -777,5 +778,62 @@ class TechnicalDocumentController extends Controller
         return response()->json([
             'error' => ['message' => 'Không tìm thấy file ảnh.']
         ], 400);
+    }
+
+    /**
+     * Danh sách sản phẩm "Lên kệ" (Đã có Seri và Tài liệu kỹ thuật)
+     */
+    public function shelfList(Request $request)
+    {
+        $this->authorizePermission('technical_document.view');
+
+        $products = Product::with(['technical_documents', 'warranty_cards', 'product_workflow'])
+            ->latest()
+            ->paginate(50);
+
+        $countMissingSerials = Product::whereDoesntHave('warranty_cards')->count();
+        $countMissingDocs = Product::has('warranty_cards')->whereDoesntHave('technical_documents')->count();
+
+        return view('technicaldocument.shelf-list', compact('products', 'countMissingSerials', 'countMissingDocs'));
+    }
+
+    /**
+     * Gửi sản phẩm đến phòng đào tạo
+     */
+    public function sendToTraining(Request $request)
+    {
+        $this->authorizePermission('technical_document.manage');
+        
+        $request->validate([
+            'product_id' => 'required|exists:mysql3.products,id'
+        ]);
+
+        $productId = $request->product_id;
+
+        // Cập nhật hoặc tạo mới workflow
+        ProductWorkflow::updateOrCreate(
+            ['product_id' => $productId],
+            [
+                'current_step' => 3, // Bước 3: Phòng đào tạo
+                'department_assigned' => 'Đào tạo',
+                'status' => 'pending',
+                'reviewer_notes' => 'Chờ nạp thông tin HDSD (Phòng đào tạo)'
+            ]
+        );
+
+        // Khởi tạo bảng chi tiết nếu chưa có
+        ProductDetails::updateOrCreate(
+            ['product_id' => $productId],
+            []
+        );
+
+        // Flash session để trigger gửi email thông báo sau khi page reload
+        session()->flash('notify_type', 'kythuat_send_training');
+        session()->flash('notify_id', $productId);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã gửi sản phẩm đến phòng đào tạo thành công.'
+        ]);
     }
 }

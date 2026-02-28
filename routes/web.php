@@ -23,6 +23,8 @@ use App\Http\Controllers\TechnicalDocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\CommonErrorController;
 use App\Http\Controllers\PublicTechnicalDocumentController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProductContentReviewController;
 
 // =====================================================
 // PUBLIC DOCUMENT SHARE (SUBDOMAIN docs.kuchenvietnam.vn)
@@ -261,6 +263,15 @@ Route::prefix('baohanh/tailieukithuat')->group(function () {
     Route::get('/documents/{id}/file', [PublicTechnicalDocumentController::class, 'streamDocumentFile'])->name('warranty.document.documents.file');
     Route::get('/documents/{id}', [PublicTechnicalDocumentController::class, 'showDocument'])->name('warranty.document.documents.show');
     Route::get('/documents-by-model', [PublicTechnicalDocumentController::class, 'getDocumentsByModel'])->name('warranty.document.documents.byModel');
+    Route::get('/shelf-list', [TechnicalDocumentController::class, 'shelfList'])->name('warranty.document.shelfList');
+    Route::post('/send-to-training', [TechnicalDocumentController::class, 'sendToTraining'])->name('warranty.document.sendToTraining');
+
+    // Duyệt nội dung sản phẩm (Phòng đào tạo)
+    Route::prefix('content-reviews')->group(function () {
+        Route::get('/', [ProductContentReviewController::class, 'index'])->name('warranty.document.content_reviews.index');
+        Route::get('/{id}', [ProductContentReviewController::class, 'show'])->name('warranty.document.content_reviews.show');
+        Route::post('/store', [ProductContentReviewController::class, 'store'])->name('warranty.document.content_reviews.store');
+    });
 });
 
 //Permissions
@@ -306,6 +317,9 @@ Route::match(['GET', 'POST'], '/reports/save-snapshot/{type?}', [ReportCommandCo
 
 Route::match(['GET', 'POST'], '/reports/send-email/{type?}', [ReportCommandController::class, 'runSendReportEmail']);
 Route::match(['GET', 'POST'], '/reports/save-overdue-history/{type?}', [ReportCommandController::class, 'runSaveOverdueHistory']);
+
+// Notification email trigger (gọi từ JS sau khi hành động thành công)
+Route::post('/notification/trigger', [NotificationController::class, 'trigger'])->name('notifications.trigger');
 
 // Route::get('/clear-cache', function () {
 
