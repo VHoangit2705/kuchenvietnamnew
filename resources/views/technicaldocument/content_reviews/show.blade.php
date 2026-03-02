@@ -30,8 +30,35 @@
 
                                 <div class="mb-4">
                                     <h6 class="fw-bold text-primary mb-2">Thông số kỹ thuật</h6>
-                                    <div class="p-3 bg-light rounded-3 border">
-                                        {!! $product->product_details->tech_specs ?? '<i class="text-muted">Chưa có dữ liệu</i>' !!}
+                                    <div class="p-4 bg-white rounded-3 border shadow-sm">
+                                        @if(!empty($product->product_details->tech_specs))
+                                            @php 
+                                                $specs = $product->product_details->tech_specs;
+                                                // Handle case where it might still be a JSON string if DB isn't updated or cast fails
+                                                if(is_string($specs)) {
+                                                    $specs = json_decode($specs, true);
+                                                }
+                                            @endphp
+                                            
+                                            @if(is_array($specs) && count($specs) > 0)
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-borderless mb-0">
+                                                        <tbody>
+                                                            @foreach($specs as $key => $value)
+                                                                <tr>
+                                                                    <td class="fw-bold text-muted ps-0" style="width: 40%">{{ $key }}:</td>
+                                                                    <td class="text-dark">{{ $value }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            @else
+                                                {!! $product->product_details->tech_specs !!}
+                                            @endif
+                                        @else
+                                            <i class="text-muted text-center d-block">Chưa có dữ liệu</i>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -169,7 +196,7 @@
                         if (data.status === 'success') {
                             // Gửi email thông báo (Background trigger)
                             if (data.notify_type && data.notify_id) {
-                                fetch(`{{ route('notification.trigger') }}?type=${data.notify_type}&id=${data.notify_id}`, {
+                                fetch(`{{ route('notifications.trigger') }}?type=${data.notify_type}&id=${data.notify_id}`, {
                                     method: 'GET'
                                 }).catch(err => console.error('Email trigger failed:', err));
                             }

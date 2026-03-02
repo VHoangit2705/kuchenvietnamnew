@@ -24,6 +24,10 @@ class ProductDetails extends Model
         'created_by',
     ];
 
+    protected $casts = [
+        'tech_specs' => 'array',
+    ];
+
     /**
      * Quan hệ với sản phẩm (mysql3).
      */
