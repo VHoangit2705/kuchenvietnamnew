@@ -102,7 +102,25 @@ return [
             ]) : [],
         ],
 
-        
+        'mysql4' => [
+            'driver' => 'mysql',
+            'url' => env('DB4_URL'),
+            'host' => env('DB4_HOST', '127.0.0.1'),
+            'port' => env('DB4_PORT', '3306'),
+            'database' => env('DB4_DATABASE', 'kuchenvi_product_new_shelf'),
+            'username' => env('DB4_USERNAME', 'root'),
+            'password' => env('DB4_PASSWORD', ''),
+            'unix_socket' => env('DB4_SOCKET', ''),
+            'charset' => env('DB4_CHARSET', 'utf8mb4'),
+            'collation' => env('DB4_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
 
         'mariadb' => [
             'driver' => 'mariadb',

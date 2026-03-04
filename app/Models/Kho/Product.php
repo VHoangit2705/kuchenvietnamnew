@@ -8,6 +8,8 @@ namespace App\Models\Kho;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\KyThuat\TechnicalDocument;
+use App\Models\products_new\ProductWorkflow;
 
 /**
  * Class Product
@@ -85,9 +87,47 @@ class Product extends Model
 
 	public function serial_numbers()
 	{
-		return $this->hasMany(SerialNumber::class);
+		return $this->hasMany(SerialNumber::class, 'manhaphang');
 	}
-	
+
+	public function product_workflows()
+	{
+		return $this->hasMany(ProductWorkflow::class, 'product_id');
+	}
+
+	public function product_workflow()
+	{
+		return $this->hasOne(ProductWorkflow::class, 'product_id')->latestOfMany();
+	}
+
+	public function product_details()
+	{
+		return $this->hasOne(\App\Models\products_new\ProductDetails::class, 'product_id');
+	}
+
+	public function product_content_review()
+	{
+		return $this->hasOne(\App\Models\products_new\ProductContentReview::class, 'product_id')->latestOfMany();
+	}
+
+	/**
+	 * Quan hệ đa kết nối: Tài liệu kỹ thuật (mysql)
+	 */
+	public function technical_documents()
+	{
+		$relation = $this->hasMany(TechnicalDocument::class, 'product_id');
+		$db = $relation->getRelated()->getConnection()->getDatabaseName();
+		$relation->getRelated()->setTable($db . '.technical_documents');
+		return $relation;
+	}
+
+	/**
+	 * Quan hệ cùng kết nối: Phiếu nhập Seri (mysql3)
+	 */
+	public function warranty_cards()
+	{
+		return $this->hasMany(WarrantyCard::class, 'product_id');
+	}
 	/**
 	 * Relationship với categories qua bảng product_categories
 	 */

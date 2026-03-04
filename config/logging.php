@@ -154,6 +154,13 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'send_mail' => [ //Gửi mail chức năng lên kệ sản phẩm
+            'driver' => 'single',
+            'path' => storage_path('logs/send_mail_shelf.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
