@@ -69,7 +69,7 @@
                 </div>
                 <div class="mb-3"></div>
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary px-4" id="btnSubmitDoc"><i class="bi bi-upload me-1"></i>Lưu tài liệu</button>
+                    <button type="submit" class="btn btn-primary px-4" id="btnSubmitDoc" data-label-save="Lưu tài liệu" data-label-save-share="Lưu và share"><i class="bi bi-upload me-1"></i>Lưu tài liệu</button>
                     <a href="{{ route('warranty.document.documents.index') }}" class="btn btn-outline-secondary">Hủy</a>
                 </div>
             </form>
@@ -81,7 +81,8 @@
 window.docCreateRoutes = {
     getProductsByCategory: "{{ route('warranty.document.getProductsByCategory') }}",
     getOriginsByProduct: "{{ route('warranty.document.getOriginsByProduct') }}",
-    getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}"
+    getModelsByOrigin: "{{ route('warranty.document.getModelsByOrigin') }}",
+    getProductStatus: "{{ route('warranty.document.getProductStatus') }}"
 };
 </script>
 <script src="{{ asset('js/technicaldocument/filter.js') }}"></script>

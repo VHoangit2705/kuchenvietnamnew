@@ -35,6 +35,30 @@
             }
         });
 
+        // Cập nhật nút theo products.status: status=4 => "Lưu và share", khác => "Lưu tài liệu"
+        function updateSubmitButton(productId) {
+            var btn = jQuery('#btnSubmitDoc');
+            var labelSave = btn.data('label-save') || 'Lưu tài liệu';
+            var labelSaveShare = btn.data('label-save-share') || 'Lưu và share';
+            if (!productId) {
+                btn.html('<i class="bi bi-upload me-1"></i>' + labelSave);
+                return;
+            }
+            jQuery.get(window.docCreateRoutes.getProductStatus || '', { product_id: productId }, function (res) {
+                var status = (res && res.status !== undefined && res.status !== null) ? parseInt(res.status, 10) : null;
+                var html = status === 4
+                    ? '<i class="bi bi-share me-1"></i>' + labelSaveShare
+                    : '<i class="bi bi-upload me-1"></i>' + labelSave;
+                btn.html(html);
+            }).fail(function () {
+                btn.html('<i class="bi bi-upload me-1"></i>' + labelSave);
+            });
+        }
+
+        jQuery('#docProduct').on('change', function () {
+            updateSubmitButton(jQuery(this).val() || null);
+        });
+
         jQuery('#formDocCreate').on('submit', function (e) {
             var btn = jQuery('#btnSubmitDoc');
             

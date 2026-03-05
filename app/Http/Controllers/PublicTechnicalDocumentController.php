@@ -111,6 +111,20 @@ class PublicTechnicalDocumentController extends Controller
         return response()->json($products);
     }
 
+    /**
+     * Lấy trạng thái sản phẩm (products.status) để hiển thị nút "Lưu và share" khi status=4
+     */
+    public function getProductStatus(Request $request)
+    {
+        $productId = (int) $request->get('product_id');
+        if (!$productId) {
+            return response()->json(['status' => null]);
+        }
+        $product = Product::find($productId);
+        $status = $product && isset($product->status) ? (int) $product->status : null;
+        return response()->json(['status' => $status]);
+    }
+
     public function getOriginsByProduct(Request $request)
     {
         return ProductModel::where('product_id', $request->product_id)

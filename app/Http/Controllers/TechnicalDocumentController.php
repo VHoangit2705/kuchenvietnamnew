@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use ZipArchive;
 use App\Models\Kho\Category;
@@ -14,6 +15,7 @@ use App\Models\KyThuat\CommonError;
 use App\Models\KyThuat\RepairGuide;
 use App\Models\KyThuat\TechnicalDocument;
 use App\Models\KyThuat\DocumentVersion;
+use App\Models\KyThuat\DocumentShare;
 use App\Models\KyThuat\RepairGuideDocument;
 use App\Models\KyThuat\TechnicalDocumentAttachment;
 use App\Models\products_new\ProductWorkflow;
@@ -543,12 +545,35 @@ class TechnicalDocumentController extends Controller
             $createData['pdf_upload'] = $path;
         }
 
-        DocumentVersion::create($createData);
+        $version = DocumentVersion::create($createData);
 
         // Xử lý file đính kèm
         $this->processAttachments($request, $doc->id);
 
-        return redirect()->route('warranty.document.documents.index')->with('success', 'Đã thêm tài liệu.');
+        // Tự động share công khai khi products.status = 4: vĩnh viễn + cho phép download
+        $product = Product::find($request->product_id);
+        $productStatus = $product && isset($product->status) ? (int) $product->status : null;
+        $shareUrl = null;
+        if ($productStatus === 4) {
+            $share = DocumentShare::create([
+                'document_version_id' => $version->id,
+                'share_token' => Str::uuid()->toString(),
+                'permission' => 'download',
+                'password_hash' => null,
+                'expires_at' => null,
+                'created_by' => Auth::id(),
+                'status' => 'active',
+            ]);
+            $shareUrl = route('document.share.public_show', $share->share_token);
+        }
+
+        $message = ($productStatus === 4 && $shareUrl)
+            ? 'Đã thêm tài liệu và tự động chia sẻ công khai (vĩnh viễn, cho phép tải xuống).'
+            : 'Đã thêm tài liệu.';
+
+        return redirect()->route('warranty.document.documents.index')
+            ->with('success', $message)
+            ->with('share_url', $shareUrl);
     }
 
 

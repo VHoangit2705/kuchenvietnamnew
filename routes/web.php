@@ -252,6 +252,7 @@ Route::prefix('shared-docs')->group(function () {
 Route::get('/baohanh/tailieukithuat', [PublicTechnicalDocumentController::class, 'Index'])->name('warranty.document');
 Route::prefix('baohanh/tailieukithuat')->group(function () {
     Route::get('/get-products-by-category', [PublicTechnicalDocumentController::class, 'getProductsByCategory'])->name('warranty.document.getProductsByCategory');
+    Route::get('/get-product-status', [PublicTechnicalDocumentController::class, 'getProductStatus'])->name('warranty.document.getProductStatus');
     Route::get('/get-origins-by-product', [PublicTechnicalDocumentController::class, 'getOriginsByProduct'])->name('warranty.document.getOriginsByProduct');
     Route::get('/get-models-by-origin', [PublicTechnicalDocumentController::class, 'getModelsByOrigin'])->name('warranty.document.getModelsByOrigin');
     Route::get('/get-errors-by-model', [PublicTechnicalDocumentController::class, 'getErrorsByModel'])->name('warranty.document.getErrorsByModel');
