@@ -807,6 +807,10 @@ class TechnicalDocumentController extends Controller
 
     /**
      * Danh sách sản phẩm "Lên kệ" (Đã có Seri và Tài liệu kỹ thuật)
+     *
+     * Lưu ý: Product (mysql3) và TechnicalDocument (mysql) nằm ở 2 DB khác nhau.
+     * Tránh whereDoesntHave('technical_documents') vì tạo subquery cross-DB trên mysql3,
+     * khiến user mysql3 không có quyền SELECT trên bảng technical_documents.
      */
     public function shelfList(Request $request)
     {
@@ -817,7 +821,11 @@ class TechnicalDocumentController extends Controller
             ->paginate(50);
 
         $countMissingSerials = Product::whereDoesntHave('warranty_cards')->count();
-        $countMissingDocs = Product::has('warranty_cards')->whereDoesntHave('technical_documents')->count();
+
+        // Tránh cross-DB subquery: đếm riêng trên từng connection rồi tính trong PHP
+        $productIdsWithWarranty = Product::has('warranty_cards')->pluck('id');
+        $productIdsWithDocs = TechnicalDocument::whereIn('product_id', $productIdsWithWarranty)->distinct()->pluck('product_id');
+        $countMissingDocs = $productIdsWithWarranty->diff($productIdsWithDocs)->count();
 
         return view('technicaldocument.shelf-list', compact('products', 'countMissingSerials', 'countMissingDocs'));
     }
